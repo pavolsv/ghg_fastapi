@@ -4,10 +4,10 @@ from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(
-    prefix="/water_fee",
-    tags=["Water Fee"]
+    prefix="/electricity",
+    tags=["electricity"]
 )
 
 @router.get("/", response_class=HTMLResponse)
 async def water_fee_page(request: Request):
-    return templates.TemplateResponse("water_fee.html", {"request": request})
+    return templates.TemplateResponse("electricity.html", {"request": request})

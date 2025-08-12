@@ -1,307 +1,409 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>燃油數據計算</title>
-        <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; margin: 20px; }
-            .container { max-width: 600px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
-            h1 { color: #2c3e50; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-            th { background: #f0f2f5; }
-            input[type="date"], input[type="number"] { width: 90%; padding: 6px; border-radius: 5px; border: 1px solid #ccc; }
-            button { padding: 8px 18px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer;}
-            button:hover { background: #0056b3; }
-            .result { margin-top: 20px; font-size: 1.2em; color: #28a745; }
-            .back-link { margin-top: 20px; text-align: center; }
-
-            #input-table th:nth-child(1), #input-table td:nth-child(1) { width: 40px; }  /* 刪除按鈕 */
-            #input-table th:nth-child(2), #input-table td:nth-child(2) { width: 40px; }  /* 編號 */
-            #input-table th:last-child, #input-table td:last-child { width: 100px; }    /* 燃料類型 */
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>燃油用量計算</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .input-controls button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .input-controls button:hover {
+            background-color: #2980b9;
+        }
+        .input-controls button.delete-mode-btn {
+            background-color: #f39c12;
+        }
+        .input-controls button.delete-mode-btn:hover {
+            background-color: #e67e22;
+        }
+        .input-controls button[type="submit"] {
+            background-color: #2ecc71;
+        }
+        .input-controls button[type="submit"]:hover {
+            background-color: #27ae60;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #eaf1f5;
+            color: #333;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        input[type="date"], input[type="number"] {
+            width: 90%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        .fuel-type-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            padding-left: 10px;
+        }
+        .fuel-type-group label {
+            font-size: 14px;
+        }
+        .remove-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 28px;
+            padding: 0;
+            transition: background-color 0.3s ease;
+        }
+        .remove-btn:hover {
+            background-color: #c0392b;
+        }
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #eaf1f5;
+            border: 1px solid #d1e2e8;
+            border-radius: 12px;
+        }
+        .output-section h2 {
+            color: #34495e;
+            margin-top: 0;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .output-section p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .output-section .summary-total {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .output-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .output-table th, .output-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .output-table th {
+            background-color: #d1e2e8;
+        }
+        .output-table tfoot td {
+            font-weight: bold;
+            background-color: #eaf1f5;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-link a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>燃油數據計算</h1>
+        <form onsubmit="sumValues(event)">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>編號</th>
+                        <th>日期</th>
+                        <th>公升</th>
+                        <th>類型</th>
+                    </tr>
+                </thead>
+                <tbody id="gas-table">
+                </tbody>
+            </table>
+            <div class="input-controls">
+                <button type="button" onclick="addRow()">新增記錄</button>
+                <button type="button" id="removeModeBtn" class="delete-mode-btn" onclick="toggleRemoveMode()">刪除/編輯</button>
+                <button type="submit">計算總計</button>
+            </div>
+        </form>
+        <div id="output-section" class="output-section" style="display: none;">
+            <h2>計算結果</h2>
+            <div id="data-output"></div>
+        </div>
+        <div class="back-link">
+            <a href="/">返回首頁</a>
+        </div>
+    </div>
+    <script>
+        let removeMode = false;
+        function addRow() {
+            const table = document.getElementById('gas-table');
+            const rowCount = table.rows.length;
+            const row = table.insertRow(-1);
             
+            const cellRemove = row.insertCell(0);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.innerText = 'x';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = function() { removeRow(this); };
+            removeBtn.style.display = removeMode ? '' : 'none';
+            cellRemove.appendChild(removeBtn);
 
-            #data-output {
-                margin-top: 20px;
-                padding: 15px;
-                background: #f0f2f5;
-                border-radius: 8px;
+            const cellIndex = row.insertCell(1);
+            cellIndex.innerText = rowCount + 1;
+
+            const cellDate = row.insertCell(2);
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.name = 'date';
+            dateInput.required = true;
+            cellDate.appendChild(dateInput);
+
+            const cellValue = row.insertCell(3);
+            const valueInput = document.createElement('input');
+            valueInput.type = 'number';
+            valueInput.name = 'fuel_value';
+            valueInput.step = 'any';
+            valueInput.placeholder = '公升數';
+            valueInput.required = true;
+            cellValue.appendChild(valueInput);
+
+            const cellFuel = row.insertCell(4);
+            const radioName = `fuel-${rowCount}`;
+            const fuelTypeGroup = document.createElement('div');
+            fuelTypeGroup.className = 'fuel-type-group';
+
+            const gasolineInput = createRadio('汽油', radioName, true);
+            const dieselInput = createRadio('柴油', radioName, false);
+            
+            fuelTypeGroup.appendChild(gasolineInput.radio);
+            fuelTypeGroup.appendChild(gasolineInput.label);
+            fuelTypeGroup.appendChild(dieselInput.radio);
+            fuelTypeGroup.appendChild(dieselInput.label);
+
+            cellFuel.appendChild(fuelTypeGroup);
+            updateIndexes();
+        }
+
+        function createRadio(value, name, isChecked) {
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = `${value}-${name}`;
+            radio.name = name;
+            radio.value = value;
+            if (isChecked) radio.checked = true;
+
+            const label = document.createElement('label');
+            label.htmlFor = `${value}-${name}`;
+            label.innerText = value;
+            
+            return { radio, label };
+        }
+
+        function removeRow(btn) {
+            const row = btn.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+            updateIndexes();
+        }
+
+        function updateIndexes() {
+            const table = document.getElementById('gas-table');
+            for (let i = 0; i < table.rows.length; i++) {
+                table.rows[i].cells[1].innerText = i + 1;
             }
-            #data-output table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            #data-output th, #data-output td {
-                padding: 8px;
-                border: 1px solid #ccc;
-            }
-            #data-output th {
-                background: #e9ecef;
-            }
-            #data-output th:nth-child(3), #data-output td:nth-child(3) {
-                width: 100px;
-            }
+        }
 
-            /* 總計列樣式 */
-            #data-output tfoot td {
-                font-weight: bold;
-                background-color: #e9ecef;
-            }
+        function sumValues(event) {
+            event.preventDefault();
+            
+            let gasolineSum = 0;
+            let dieselSum = 0;
+            const table = document.getElementById('gas-table');
+            const allData = [];
 
-        </style>
-        <script>
-            let removeMode = false;
+            for (let i = 0; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const rowData = {};
 
-            function addRow() {
-                const table = document.getElementById('gas-table');
-                const rowCount = table.rows.length;
-                const row = table.insertRow(-1);
+                const dateInput = row.cells[2].querySelector('input[type="date"]');
+                const valueInput = row.cells[3].querySelector('input[type="number"]');
+                const fuelRadio = row.cells[4].querySelector('input[type="radio"]:checked');
 
-                // 刪除按鈕欄 (第一欄)
-                const cellRemove = row.insertCell(0);
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.innerText = 'x';
-                removeBtn.style.background = '#dc3545';
-                removeBtn.style.color = '#fff';
-                removeBtn.style.border = 'none';
-                removeBtn.style.borderRadius = '50%';
-                removeBtn.style.width = '28px';
-                removeBtn.style.height = '28px';
-                removeBtn.style.cursor = 'pointer';
-                removeBtn.onclick = function() { removeRow(this); };
-                removeBtn.className = 'remove-btn';
-                removeBtn.style.display = removeMode ? '' : 'none';
-                cellRemove.appendChild(removeBtn);
+                const value = parseFloat(valueInput.value) || 0;
+                const fuelType = fuelRadio ? fuelRadio.value : '';
 
-                // 編號欄
-                const cell0 = row.insertCell(1);
-                cell0.innerText = rowCount + 1;
-
-                // 日期欄
-                const cell1 = row.insertCell(2);
-                const dateInput = document.createElement('input');
-                dateInput.type = 'date';
-                dateInput.name = 'date';
-                dateInput.required = true;
-                cell1.appendChild(dateInput);
-
-                // 數值欄
-                const cell2 = row.insertCell(3);
-                const valueInput = document.createElement('input');
-                valueInput.type = 'number';
-                valueInput.name = 'gasoline_value';
-                valueInput.step = 'any';
-                valueInput.placeholder = '輸入數值';
-                valueInput.required = true;
-                cell2.appendChild(valueInput);
-
-                // 燃料類型
-                const cellFuel = row.insertCell(4);
-                const radioName = `fuel-${rowCount}`;
-                
-                const gasolineRadio = document.createElement('input');
-                gasolineRadio.type = 'radio';
-                gasolineRadio.id = `gasoline-${rowCount}`;
-                gasolineRadio.name = radioName;
-                gasolineRadio.value = '汽油';
-                gasolineRadio.checked = true;
-                const gasolineLabel = document.createElement('label');
-                gasolineLabel.htmlFor = `gasoline-${rowCount}`;
-                gasolineLabel.innerText = '汽油';
-                
-                const dieselRadio = document.createElement('input');
-                dieselRadio.type = 'radio';
-                dieselRadio.id = `diesel-${rowCount}`;
-                dieselRadio.name = radioName;
-                dieselRadio.value = '柴油';
-                const dieselLabel = document.createElement('label');
-                dieselLabel.htmlFor = `diesel-${rowCount}`;
-                dieselLabel.innerText = '柴油';
-
-                cellFuel.appendChild(gasolineRadio);
-                cellFuel.appendChild(gasolineLabel);
-                cellFuel.appendChild(document.createElement('br'));
-                cellFuel.appendChild(dieselRadio);
-                cellFuel.appendChild(dieselLabel);
-                
-                updateIndexes();
-            }
-
-            function removeRow(btn) {
-                const row = btn.parentNode.parentNode;
-                row.parentNode.removeChild(row);
-                updateIndexes();
-            }
-
-            function updateIndexes() {
-                const table = document.getElementById('gas-table');
-                for (let i = 0; i < table.rows.length; i++) {
-                    table.rows[i].cells[1].innerText = i + 1;
+                if (fuelType === '汽油') {
+                    gasolineSum += value;
+                } else if (fuelType === '柴油') {
+                    dieselSum += value;
                 }
-            }
-
-            function sumValues(event) {
-                event.preventDefault();
                 
-                let gasolineSum = 0;
-                let dieselSum = 0;
-                const table = document.getElementById('gas-table');
-                const allData = [];
-
-                for (let i = 0; i < table.rows.length; i++) {
-                    const row = table.rows[i];
-                    const rowData = {};
-
-                    const dateInput = row.cells[2].querySelector('input[type="date"]');
-                    const valueInput = row.cells[3].querySelector('input[type="number"]');
-                    const fuelRadio = row.cells[4].querySelector('input[type="radio"]:checked');
-
-                    const value = parseFloat(valueInput.value) || 0;
-                    const fuelType = fuelRadio ? fuelRadio.value : '';
-
-                    if (fuelType === '汽油') {
-                        gasolineSum += value;
-                    } else if (fuelType === '柴油') {
-                        dieselSum += value;
-                    }
-                    
-                    rowData.編號 = parseInt(row.cells[1].innerText);
-                    rowData.日期 = dateInput ? dateInput.value : '';
-                    rowData.數值 = value;
-                    rowData.類型 = fuelType;
-
-                    allData.push(rowData);
-                }
-
-                document.getElementById('result').innerText = '';
-                
-                showAllData(allData, gasolineSum, dieselSum);
+                rowData.日期 = dateInput ? dateInput.value : '';
+                rowData.數值 = value;
+                rowData.類型 = fuelType;
+                allData.push(rowData);
             }
-            // 計算溫室氣體排放
-            function calculateGasEmissions(totalLiters) {
-                const CH4 = 0.0008164260 * totalLiters;
-                const CO2 = 2.2631328720 * totalLiters;
-                const N2O = 0.0002612563 * totalLiters;
-                const total = (CH4 + CO2 + N2O)/1000;
-                return {
-                    CH4: parseFloat(CH4.toFixed(3)),
-                    CO2: parseFloat(CO2.toFixed(3)),
-                    N2O: parseFloat(N2O.toFixed(3)),
-                    total: parseFloat(total.toFixed(3))
-                };
+            
+            showAllData(allData, gasolineSum, dieselSum);
+        }
+
+        function calculateGasEmissions(totalLiters) {
+            const CH4 = 0.0008164260 * totalLiters;
+            const CO2 = 2.2631328720 * totalLiters;
+            const N2O = 0.0002612563 * totalLiters;
+            const total = (CH4 + CO2 + N2O) / 1000;
+            return {
+                CH4: parseFloat(CH4.toFixed(3)),
+                CO2: parseFloat(CO2.toFixed(3)),
+                N2O: parseFloat(N2O.toFixed(3)),
+                total: parseFloat(total.toFixed(3))
+            };
+        }
+
+        function showAllData(data, gasolineSum, dieselSum) {
+            const outputDiv = document.getElementById('data-output');
+            outputDiv.innerHTML = '';
+            
+            document.getElementById('output-section').style.display = 'block';
+
+            if (data.length === 0) {
+                outputDiv.innerHTML = '<p>沒有數據可以顯示。</p>';
+                return;
             }
 
-            // Modify showAllData to display the emissions after the table
-            function showAllData(data, gasolineSum, dieselSum) {
-                const outputDiv = document.getElementById('data-output');
-                outputDiv.innerHTML = '';
+            const outputTable = document.createElement('table');
+            outputTable.className = 'output-table';
+            const tableHeader = `
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>類型</th>
+                        <th>公升數</th>
+                    </tr>
+                </thead>
+            `;
+            outputTable.innerHTML = tableHeader;
 
-                if (data.length === 0) {
-                    outputDiv.innerHTML = '沒有數據可以顯示。';
-                    return;
-                }
-
-                const outputTable = document.createElement('table');
-                const tableHeader = `
-                    <thead>
-                        <tr>
-                            <th>日期</th>
-                            <th>類型</th>
-                            <th>單位 (公升)</th>
-                        </tr>
-                    </thead>
+            const tableBody = document.createElement('tbody');
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.日期}</td>
+                    <td>${item.類型}</td>
+                    <td>${item.數值.toFixed(2)}</td>
                 `;
-                outputTable.innerHTML = tableHeader;
+                tableBody.appendChild(row);
+            });
+            outputTable.appendChild(tableBody);
 
-                const tableBody = document.createElement('tbody');
-                data.forEach(item => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${item.日期}</td>
-                        <td>${item.類型}</td>
-                        <td>${item.數值.toFixed(2)}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-                outputTable.appendChild(tableBody);
-
-                // 顯示汽油柴油總計
-                const tableFooter = document.createElement('tfoot');
+            const tableFooter = document.createElement('tfoot');
+            if (gasolineSum > 0) {
                 const gasolineFooterRow = document.createElement('tr');
                 gasolineFooterRow.innerHTML = `
-                    <td colspan="2" style="text-align: center;">汽油總計</td>
+                    <td colspan="2" style="text-align: right;">汽油總計</td>
                     <td>${gasolineSum.toFixed(2)}</td>
                 `;
                 tableFooter.appendChild(gasolineFooterRow);
-
-                /*const dieselFooterRow = document.createElement('tr');
+            }
+            if (dieselSum > 0) {
+                const dieselFooterRow = document.createElement('tr');
                 dieselFooterRow.innerHTML = `
-                    <td colspan="2" style="text-align: center;">柴油總計</td>
+                    <td colspan="2" style="text-align: right;">柴油總計</td>
                     <td>${dieselSum.toFixed(2)}</td>
                 `;
                 tableFooter.appendChild(dieselFooterRow);
-                */
-
-                outputTable.appendChild(tableFooter);
-                outputDiv.appendChild(outputTable);
-
-                // 汽油+柴油
-                const totalLiters = gasolineSum + dieselSum;
-                const emissions = calculateGasEmissions(totalLiters);
-
-                const emissionDiv = document.createElement('div');
-                emissionDiv.style.marginTop = '20px';
-                emissionDiv.innerHTML = `
-                    <b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(2)}公升)</b><br>
-                    CH₄: ${emissions.CH4.toFixed(3)} 公斤<br>
-                    CO₂: ${emissions.CO2.toFixed(3)} 公斤<br>
-                    N₂O: ${emissions.N2O.toFixed(3)} 公斤<br>
-                    <b>總排放: ${emissions.total.toFixed(3)} 公噸CO2e</b>
-                `;
-                outputDiv.appendChild(emissionDiv);
             }
+            outputTable.appendChild(tableFooter);
+            outputDiv.appendChild(outputTable);
 
-            function toggleRemoveMode() {
-                removeMode = !removeMode;
-                const btns = document.getElementsByClassName('remove-btn');
-                for (let btn of btns) {
-                    btn.style.display = removeMode ? '' : 'none';
-                }
-                document.getElementById('removeModeBtn').innerText = removeMode ? '隱藏刪除' : '修改';
-            }
+            const totalLiters = gasolineSum + dieselSum;
+            const emissions = calculateGasEmissions(totalLiters);
 
-            window.onload = function() {
-                addRow();
+            const emissionDiv = document.createElement('div');
+            emissionDiv.style.marginTop = '20px';
+            emissionDiv.innerHTML = `
+                <p><b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(2)} 公升)</b></p>
+                <p>甲烷 (CH₄): ${emissions.CH4.toFixed(3)} 公斤</p>
+                <p>二氧化碳 (CO₂): ${emissions.CO2.toFixed(3)} 公斤</p>
+                <p>氧化亞氮 (N₂O): ${emissions.N2O.toFixed(3)} 公斤</p>
+                <p class="summary-total">總排放: ${emissions.total.toFixed(3)} 公噸CO₂e</p>
+            `;
+            outputDiv.appendChild(emissionDiv);
+        }
+
+        function toggleRemoveMode() {
+            removeMode = !removeMode;
+            const btns = document.getElementsByClassName('remove-btn');
+            for (let btn of btns) {
+                btn.style.display = removeMode ? '' : 'none';
             }
-        </script>
-    </head>
-    <body>
-        <div class="container">
-            <h1>燃油數據</h1>
-            <form onsubmit="sumValues(event)">
-                <table id="input-table">
-                    <thead>
-                        <tr>
-                            <th></th> <th>編號</th>
-                            <th>日期</th>
-                            <th>公升</th>
-                            <th>類型</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gas-table">
-                    </tbody>
-                </table>
-                <button type="button" onclick="addRow()">新增</button>
-                <button type="button" id="removeModeBtn"
-                    onclick="toggleRemoveMode()">修改</button>
-                <button type="submit">計算</button>
-            </form>
-            <div id="result" class="result"></div>
-            <div id="data-output"></div>
-            <div class="back-link">
-                <a href="/">返回首頁</a>
-            </div>
-        </div>
-    </body>
+            document.getElementById('removeModeBtn').innerText = removeMode ? '隱藏刪除' : '刪除/編輯';
+        }
+
+        window.onload = function() {
+            addRow();
+        }
+    </script>
+</body>
 </html>
