@@ -351,7 +351,7 @@
                 row.innerHTML = `
                     <td>${item.日期}</td>
                     <td>${item.類型}</td>
-                    <td>${item.數值.toFixed(2)}</td>
+                    <td>${item.數值.toFixed(3)}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -362,7 +362,7 @@
                 const gasolineFooterRow = document.createElement('tr');
                 gasolineFooterRow.innerHTML = `
                     <td colspan="2" style="text-align: right;">汽油總計</td>
-                    <td>${gasolineSum.toFixed(2)}</td>
+                    <td>${gasolineSum.toFixed(3)}</td>
                 `;
                 tableFooter.appendChild(gasolineFooterRow);
             }
@@ -370,7 +370,7 @@
                 const dieselFooterRow = document.createElement('tr');
                 dieselFooterRow.innerHTML = `
                     <td colspan="2" style="text-align: right;">柴油總計</td>
-                    <td>${dieselSum.toFixed(2)}</td>
+                    <td>${dieselSum.toFixed(3)}</td>
                 `;
                 tableFooter.appendChild(dieselFooterRow);
             }
@@ -383,7 +383,7 @@
             const emissionDiv = document.createElement('div');
             emissionDiv.style.marginTop = '20px';
             emissionDiv.innerHTML = `
-                <p><b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(2)} 公升)</b></p>
+                <p><b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(3)} 公升)</b></p>
                 <p>甲烷 (CH₄): ${emissions.CH4.toFixed(3)} 公斤</p>
                 <p>二氧化碳 (CO₂): ${emissions.CO2.toFixed(3)} 公斤</p>
                 <p>氧化亞氮 (N₂O): ${emissions.N2O.toFixed(3)} 公斤</p>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>上傳 Excel 檔案</title>
+</head>
+
+<body>
+    <h1>上傳 GWP值</h1>
+
+    {% if message %}
+    <p style="color: green;">{{ message }}</p>
+    {% endif %}
+
+    <form action="/gwplist/" method="post" enctype="multipart/form-data">
+        <label for="file"></label>
+        <input type="file" name="file" id="file" accept=".xlsx, .xls, .csv, .ods" required>
+
+        <br><br>
+
+        <label for="sheet_name">分頁:</label>
+        <input type="text" name="sheet_name" id="sheet_name" value="附表二">
+
+        <br><br>
+
+        <input type="submit" value="上傳">
+    </form>
+    <div class="back-link">
+        <a href="/">返回首頁</a>
+    </div>
+</body>
+
+</html>

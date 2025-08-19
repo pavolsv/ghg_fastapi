@@ -14,3 +14,8 @@ class FUEL(SQLModel, table=True):
     CH4: float = Field(default=0.0)
     N2O: float = Field(default=0.0)
 
+class gwp_list(SQLModel, table=True):
+    product_code: str = Field(primary_key=True)
+    chemical_name: str = Field(default="")
+    gwp: float | None = Field(default=None)
+    status: str | None = Field(default=None)
