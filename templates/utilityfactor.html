@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>Utility Factors</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 20px; }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background: #e9ecef; }
+        form { display: inline; }
+        .actions button { margin-right: 5px; }
+        input[type="text"], input[type="number"], select { padding: 5px; box-sizing: border-box; }
+        
+        #addForm {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .error-message { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Utility Factors</h1>
+        
+        <div class="error-message">{{ error }}</div>
+
+        <form id="addForm" action="/utilityfactor/" method="post">
+            <select name="utility_id" required>
+                {% for utility in utilities %}
+                    <option value="{{ utility.id }}">{{ utility.id }} - {{ utility.utility_name }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="utility_factor_year" placeholder="Year" required>
+            <input type="number" step="any" name="utility_factor_value" placeholder="Value" required>
+            <input type="text" name="utility_factor_unit" placeholder="Unit" required>
+            <input type="text" name="utility_factor_source" placeholder="Source" required>
+            <button type="submit">Add Factor</button>
+        </form>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Utility ID</th>
+                    <th>Year</th>
+                    <th>Value</th>
+                    <th>Unit</th>
+                    <th>Source</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for factor in factors %}
+                <tr data-factor-id="{{ factor.id }}">
+                    <td>{{ factor.id }}</td>
+                    <td>{{ utility_map[factor.utility_id] }}</td>
+                    <td contenteditable="false" data-field="utility_factor_year">{{ factor.utility_factor_year }}</td>
+                    <td contenteditable="false" data-field="utility_factor_value">{{ factor.utility_factor_value }}</td>
+                    <td contenteditable="false" data-field="utility_factor_unit">{{ factor.utility_factor_unit }}</td>
+                    <td contenteditable="false" data-field="utility_factor_source">{{ factor.utility_factor_source }}</td>
+                    <td class="actions">
+                        <button onclick="editFactor(this)">Edit</button>
+                        <button onclick="saveFactor(this)" style="display:none;">Save</button>
+                        <button onclick="deleteFactor('{{ factor.id }}')">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="/">Back to Home</a>
+    </div>
+
+    <script>
+        async function deleteFactor(factorId) {
+            const confirmed = confirm("Are you sure you want to delete this factor?");
+            if (confirmed) {
+                try {
+                    const response = await fetch(`/utilityfactor/api/factors/${factorId}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        alert("Factor deleted successfully!");
+                        window.location.reload();
+                    } else {
+                        const errorData = await response.json();
+                        alert("Failed to delete the factor: " + (errorData.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert("An error occurred.");
+                    console.error("Error:", error);
+                }
+            }
+        }
+
+        function editFactor(button) {
+            const row = button.closest('tr');
+            const fields = row.querySelectorAll('[contenteditable]');
+            fields.forEach(field => {
+                field.contentEditable = 'true';
+                field.style.border = '1px solid #007bff';
+                field.style.padding = '4px';
+            });
+            button.style.display = 'none';
+            row.querySelector('[onclick="saveFactor(this)"]').style.display = 'inline-block';
+        }
+
+        async function saveFactor(button) {
+            const row = button.closest('tr');
+            const factorId = row.dataset.factorId;
+            const fields = row.querySelectorAll('[contenteditable]');
+            
+            const updatedData = {
+                utility_id: parseInt(row.querySelector('[data-field="utility_id"]').textContent),
+                utility_factor_year: parseInt(row.querySelector('[data-field="utility_factor_year"]').textContent),
+                utility_factor_value: parseFloat(row.querySelector('[data-field="utility_factor_value"]').textContent),
+                utility_factor_unit: row.querySelector('[data-field="utility_factor_unit"]').textContent,
+                utility_factor_source: row.querySelector('[data-field="utility_factor_source"]').textContent
+            };
+
+            try {
+                const response = await fetch(`/utilityfactor/api/factors/${factorId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+
+                if (response.ok) {
+                    alert('Factor updated successfully!');
+                    fields.forEach(field => {
+                        field.contentEditable = 'false';
+                        field.style.border = 'none';
+                        field.style.padding = '8px';
+                    });
+                    button.style.display = 'none';
+                    row.querySelector('[onclick="editFactor(this)"]').style.display = 'inline-block';
+                } else {
+                    const errorData = await response.json();
+                    alert('Failed to update factor: ' + (errorData.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('An error occurred while updating.');
+                console.error("Error:", error);
+            }
+        }
+    </script>
+</body>
+</html>

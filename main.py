@@ -10,6 +10,7 @@ from routers import gasoline as gasoline_router
 from routers import water_fee as water_fee_router
 from routers import electricity as electricity_router
 from routers import gwplist
+from routers import utilityfactor
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
@@ -19,6 +20,7 @@ app.include_router(gasoline_router.router)
 app.include_router(water_fee_router.router)
 app.include_router(electricity_router.router)
 app.include_router(gwplist.router)
+app.include_router(utilityfactor.router)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
