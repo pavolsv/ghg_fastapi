@@ -19,6 +19,7 @@ async def upload_and_process_image(imageFile: UploadFile = File(...)):
         # 1. 儲存上傳的檔案
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(imageFile.file, buffer)
+        imageFile.file.close()
 
         # 2. 立即呼叫 OCR 模組，並傳遞檔案路徑
         ocr_result = ocr_recognize(file_location)

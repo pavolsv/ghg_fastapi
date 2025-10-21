@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+<div class="sidebar">
+
+    <h2>儀表板</h2>
+
+    <div class="nav-group">
+        <h3>係數管理</h3>
+        <ul class="nav-list">
+            <li><a href="/utilityfactor/">公用事業係數</a></li>
+            <li><a href="/gwplist/">GWP 列表</a></li>
+            <li><a href="/factor_management/">係數管理</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>計算</h3>
+        <ul class="nav-list">
+            <li><a href="/gasoline">用油計算</a></li>
+            <li><a href="/water_fee">用水計算</a></li>
+            <li><a href="/electricity">用電計算</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>設定</h3>
+        <ul class="nav-list">
+            <li><a href="/set">基本資料</a></li>
+        </ul>
+    </div>
+
+    <form action="/logout" method="post" class="logout-btn">
+        <button type="submit">登出</button>
+    </form>
+</div>
+<div class="main-content">
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

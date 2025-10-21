@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Factor Management{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/test2.css">
+<div class="container">
+    <h1>
+        {% if selected_utility %}
+        {{ selected_utility }}係數
+        {% else %}
+        係數列表
+        {% endif %}
+    </h1>
+    <div class="filter-buttons" style="margin-bottom: 20px;">
+        <a href="/test2/?utility_name=電" style="padding: 8px; border: 1px solid #ccc;">電係數</a>
+        <a href="/test2/?utility_name=水" style="padding: 8px; border: 1px solid #ccc;">水係數</a>
+        <a href="/test2/" style="padding: 8px; border: 1px solid #ccc;">全部</a>
+    </div>
+    <div class="error-message">{{ error }}</div>
+    <table>
+        <thead>
+        <tr>
+            <th>Utility Name</th>
+            <th>Year</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th>Source</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for factor in factors %}
+        <tr data-factor-id="{{ factor.id }}">
+            <td data-utility-id="{{ factor.utility_id }}">{{ utility_map[factor.utility_id] }}</td>
+            <td contenteditable="false" data-field="utility_factor_year">{{ factor.utility_factor_year }}</td>
+            <td contenteditable="false" data-field="utility_factor_value">{{ factor.utility_factor_value }}</td>
+            <td contenteditable="false" data-field="utility_factor_unit">{{ factor.utility_factor_unit }}</td>
+            <td contenteditable="false" data-field="utility_factor_source">{{ factor.utility_factor_source }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="/factor_management/">上一頁</a>
+</div>
+{% endblock %}

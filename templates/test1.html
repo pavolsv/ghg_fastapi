@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Factor Management{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<div class="header-row">
+    <div class="gwp-header">
+        <h1>GWP 列表</h1>
+    </div>
+    <div class="back-link">
+        <a href="/factor_management">上一頁</a>
+    </div>
+</div>
+
+<div class="table-center">
+    <table>
+        <tr>
+            <th>產品代碼</th>
+            <th>化學名稱</th>
+            <th>GWP</th>
+            <th>狀態</th>
+        </tr>
+        {% for item in gwps %}
+        <tr>
+            <td>{{ item.product_code }}</td>
+            <td>{{ item.chemical_name }}</td>
+            <td>{{ item.gwp }}</td>
+            <td>{{ item.status }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+
+{% endblock %}

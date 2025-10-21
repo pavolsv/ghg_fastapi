@@ -1,0 +1,141 @@
+/* 主體樣式 */
+body {
+    margin: 0;
+    background-color: #f4f7f9;
+}
+
+/* 容器樣式 */
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 標題樣式 */
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* 篩選按鈕區域 */
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 25px;
+}
+
+/* 篩選按鈕樣式 */
+.filter-buttons a {
+    padding: 8px 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #eaf1f5;
+    color: #333;
+    text-decoration: none;
+    font-size: 16px;
+    transition: background 0.2s;
+}
+
+/* 篩選按鈕懸停效果 */
+.filter-buttons a:hover {
+    background: #d1e2e8;
+}
+
+/* 表單樣式 */
+form {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+/* 表單輸入框和選擇框樣式 */
+form select,
+form input[type="number"],
+form input[type="text"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+/* 表單按鈕樣式 */
+form button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+/* 表單按鈕懸停效果 */
+form button:hover {
+}
+
+/* 錯誤訊息樣式 */
+.error-message {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* 表格樣式 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+/* 表格標題和儲存格樣式 */
+th, td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+}
+
+/* 表格標題樣式 */
+th {
+    background-color: #eaf1f5;
+    color: #333;
+    font-weight: bold;
+}
+
+/* 偶數行背景色 */
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* 操作按鈕樣式 */
+.actions button {
+    background-color: #ffffff;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+/* 操作按鈕懸停效果 */
+.actions button:hover {
+    background-color: #e67e22;
+}
+
+/* 最後一個操作按鈕（刪除）樣式 */
+.actions button:last-child {
+    background-color: #e74c3c;
+}
+
+/* 最後一個操作按鈕懸停效果 */
+.actions button:last-child:hover {
+    background-color: #c0392b;
+}
