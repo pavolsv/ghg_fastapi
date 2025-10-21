@@ -39,5 +39,22 @@ class UtilityFactor(SQLModel, table=True):
     utility_factor_value: float
     utility_factor_unit: str
     utility_factor_source: str
-
     utility: Optional[Utility] = Relationship(back_populates="factors")
+
+class Account(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)  # 自動遞增
+    account: str
+    password: str
+    email: str
+
+class CompanyInfo(SQLModel, table=True):
+     tax_id : str = Field(default=None, primary_key=True)
+     company_name: str
+     address : str
+     owner : str
+     account_id : int = Field(default=None, foreign_key="utility.id")
+
+     telephone: Optional[str] = None  # 允許 NULL
+     contact_person: Optional[str] = None # 允許 NULL
+     email: Optional[str] = None # 允許 NULL
+     URL: Optional[str] = None # 允許 NUL

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>註冊頁面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-container {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 400px; 
+            padding: 60px 80px; 
+            text-align: center;
+        }
+
+        .login-container h1 {
+            margin-bottom: 40px;
+            color: #2c3e50;
+        }
+
+        .login-container input[type="text"],
+        .login-container input[type="password"],
+        .login-container input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            margin-top: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .login-container button:hover {
+            background-color: #2980b9;
+        }
+        a[href="/login"] {
+            display: inline-block; 
+            
+            /* 將連結往下推 10px */
+            margin-top: 20px; 
+            
+            /* 將連結往右推 20px */
+            margin-left: 10px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>註冊帳號</h1>
+        <form action="/register" method="POST" >
+            <input type="email" name="email" placeholder="電子信箱" required>
+            <input type="text" name="username" placeholder="帳號" required>
+            <input type="password" name="password" placeholder="密碼" required>
+            <button type="submit">註冊</button>
+        </form>
+        <a href="/login">回上頁</a>
+
+        {% if message %}
+            <div id="toast">{{ message }}</div>
+            <script>
+                setTimeout(() => {
+                    document.getElementById("toast").remove();
+                }, 3000);
+            </script>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -64,6 +64,26 @@
         .sidebar .nav-list a:hover {
             background-color: #e9ecef;
         }
+        /* 登出按鈕推到最下方 */
+        .sidebar .logout-btn {
+            margin-top: auto; /* 自動占用上方空間，固定在底部 */
+        }
+
+        /* 按鈕樣式 */
+        .sidebar .logout-btn button {
+            width: 100%; /* 滿寬度 */
+            padding: 12px 15px;
+            background-color: #59ce7a;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar .logout-btn button:hover {
+            background-color: #45b568; /* 滑鼠移上去變深色 */
+        }
 
         /* 右側主內容區樣式 */
         .main-content {
@@ -88,6 +108,7 @@
             font-size: 2.8em;
             font-weight: 700;
         }
+
     </style>
 </head>
 
@@ -111,6 +132,17 @@
                 <li><a href="/electricity">用電計算</a></li>
             </ul>
         </div>
+
+        <div class="nav-group">
+            <h3>設定</h3>
+            <ul class="nav-list">
+                <li><a href="/set">基本資料</a></li>
+            </ul>
+        </div>
+
+        <form action="/logout" method="post" class="logout-btn">
+            <button type="submit">登出</button>
+        </form>
     </div>
     
     <div class="main-content">
@@ -119,5 +151,7 @@
 
         </div>
     </div>
+
 </body>
 </html>
+
