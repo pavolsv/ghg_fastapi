@@ -51,6 +51,12 @@
         .input-controls button.delete-mode-btn:hover {
             background-color: #e67e22;
         }
+        	.input-controls button.Upload-pictures {
+            background-color: #e6e022;
+        }
+        .input-controls button.Upload-pictures:hover {
+            background-color: #e6d022;
+        }
         .input-controls button[type="submit"] {
             background-color: #2ecc71;
         }
@@ -182,6 +188,8 @@
             </table>
             <div class="input-controls">
                 <button type="button" onclick="addRow()">新增記錄</button>
+                <button type="button" id="uploadButton" class="Upload-pictures">上傳圖片</button>
+                <input type="file" id="fileInput" style="display:none;" accept="image/*">
                 <button type="button" id="removeModeBtn" class="delete-mode-btn" onclick="toggleRemoveMode()">刪除/編輯</button>
                 <button type="submit">計算總計</button>
             </div>
@@ -191,7 +199,7 @@
             <div id="data-output"></div>
         </div>
         <div class="back-link">
-            <a href="/">返回首頁</a>
+            <a href="/index">返回首頁</a>
         </div>
     </div>
     <script>
@@ -400,6 +408,93 @@
             }
             document.getElementById('removeModeBtn').innerText = removeMode ? '隱藏刪除' : '刪除/編輯';
         }
+        	// 取得新增加的 HTML 元素
+const fileInput = document.getElementById('fileInput');
+const uploadButton = document.getElementById('uploadButton');
+
+// 監聽「上傳檔案」按鈕的點擊事件
+uploadButton.addEventListener('click', () => {
+    // 點擊按鈕時，觸發隱藏的檔案輸入欄位
+    fileInput.click();
+});
+
+// 監聽檔案輸入欄位的變動事件，當使用者選擇檔案後觸發
+fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+
+    if (!file) {
+        alert('沒有選擇任何檔案。');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('imageFile', file); // 'uploadedFile' 是給後端用的名稱
+
+    try {
+        // 使用 fetch API 將檔案發送到後端
+        // 請將 'http://127.0.0.1:8000/upload' 替換為你的後端上傳 API 網址
+        const response = await fetch('http://127.0.0.1:8000/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`上傳失敗: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert('檔案上傳成功！\n伺服器回應: ' + JSON.stringify(result, null, 2));
+        if (result.ocr_result) {
+            // 1. 先新增一個空的表格行
+            addRow();
+           
+            // 2. 取得剛剛新增的最新表格行
+            const table = document.getElementById('gas-table');
+            const lastRow = table.rows[table.rows.length - 1];
+
+            // 3. 提取 OCR 辨識出的資料
+            const ocrData = result.ocr_result;
+            const ocrDate = ocrData.日期;
+            const ocrLiter = ocrData.公升;
+            const ocrType = ocrData.類型;
+
+            // 4. 找到對應的輸入欄位並填入資料
+            const dateInput = lastRow.cells[2].querySelector('input[type="date"]');
+            const literInput = lastRow.cells[3].querySelector('input[type="number"]');
+           
+            // 5. 填入日期和公升數
+            if (ocrDate && dateInput) {
+                dateInput.value = ocrDate;
+            }
+            if (ocrLiter && literInput) {
+                // 確保數值是有效的
+                literInput.value = parseFloat(ocrLiter);
+            }
+
+            // 6. 處理類型（單選按鈕）
+            if (ocrType) {
+                const radios = lastRow.cells[4].querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    if (radio.value === ocrType) {
+                        radio.checked = true;
+                    }
+                });
+            }
+           
+            // 提示使用者，資料已自動填入
+            alert('檔案上傳成功！OCR結果已自動填入表格。');
+
+        } else {
+            // 如果沒有 OCR 結果
+            alert('檔案上傳成功，但沒有辨識到有效的資料。');
+        }
+
+    } catch (error) {
+        alert('檔案上傳過程中發生錯誤：' + error.message);
+        console.error('上傳錯誤:', error);
+    }
+});
+
 
         window.onload = function() {
             addRow();

@@ -1,5 +1,7 @@
 from sqlmodel import create_engine, Session, SQLModel, select
-from model import Utility
+from model import Utility, Account
+
+
 
 db = "sqlite:///database.db"
 engine = create_engine(db, echo=True)
