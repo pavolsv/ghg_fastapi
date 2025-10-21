@@ -29,7 +29,7 @@ async def register_page(request: Request):
             statement = select(CompanyInfo).where(CompanyInfo.account_id == user_id)
             existing = session.exec(statement).first()
 
-            # 將資料傳給模板，如果沒有資料就給空字串
+            # 傳給前端的資料，如果沒有資料就給空字串
             user_data = {
             "companyName": existing.company_name if existing else "",
             "taxId": existing.tax_id if existing else "",
@@ -105,5 +105,5 @@ async def set_company_info(
         }
         return RedirectResponse(
         url=router.prefix + "/", # 導向回 /set/ 頁面
-        status_code=303 # HTTP 303 See Other
+        status_code=303 
     )

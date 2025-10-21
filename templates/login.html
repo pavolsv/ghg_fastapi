@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登入頁面</title>
     <style>
-        /* 全局設置 */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f2f5;
@@ -15,8 +14,6 @@
             height: 100vh;
             margin: 0;
         }
-
-        /* 登入容器樣式 */
         .login-container {
             background-color: #fff;
             border-radius: 12px;
@@ -26,14 +23,12 @@
             text-align: center;
         }
         
-        /* 確保 form 佔據所有可用空間 */
         .login-container form {
             display: block;
             margin: 0;
             padding: 0;
         }
 
-        /* 標題樣式 */
         .login-container h1 {
             margin-bottom: 40px;
             color: #2C3E50;
@@ -50,7 +45,6 @@
             font-size: 16px;
         }
         
-        /* 驗證碼區塊容器 */
         .captcha-group {
             display: flex; 
             justify-content: space-between; 
@@ -58,10 +52,9 @@
             margin-bottom: 20px; 
         }
 
-        /* 驗證碼輸入框樣式：縮小寬度 */
         .captcha-group input[name="VerificationCode"] {
             box-sizing: border-box;
-            width: 40%; /* 縮小輸入框佔據空間 */
+            width: 40%; 
             padding: 10px;
             border-radius: 8px;
             border: 1px solid #ccc;
@@ -69,7 +62,6 @@
             margin-bottom: 0;
         }
         
-        /* 新增：驗證碼圖片與重新傳送的容器 */
         .captcha-display {
             display: flex;
             align-items: center;
@@ -77,27 +69,25 @@
         }
         
         .captcha-group img {
-            width:65%; /* 圖片在 .captcha-display 內佔 60% */
+            width:65%; 
             height: auto;
             display: block; 
             margin-bottom: 0; 
             cursor: pointer;
         }
 
-        /* 新增：重新傳送驗證碼按鈕樣式 */
         .resend-captcha {
-            /* 讓它在 .captcha-display 內靠右 */
             margin-left: 20px; 
             font-size: 14px;
-            color: #2C3E50; /* 設定顏色，讓它看起來像連結 */
+            color: #2C3E50; 
             cursor: pointer;
             text-decoration: underline;
-            white-space: nowrap; /* 確保文字不換行 */
+            white-space: nowrap; 
             margin-top: 40px; 
         }
 
 
-        /* 按鈕樣式 */
+        
         .login-container button {
             width: 100%;
             padding: 10px;
@@ -115,14 +105,14 @@
             background-color: #4AB66B;
         }
 
-        /* 註冊連結容器樣式 */
+        
         .login-container p {
             text-align: center;
         }
         
-        /* 註冊連結樣式 */
+       
         a[href="/register"] {
-            color: #2C3E50; /* 設定顏色，讓它看起來像連結 */
+            color: #2C3E50; 
             display: inline-block; 
             margin-top: 20px;
             margin-left: 0; 
