@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>公司資料設定</title>
+  <style>
+    html {
+      scroll-behavior: smooth; 
+    }
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f6fa;
+      display: block;
+      height: auto;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .form-container {
+      background: white;
+      padding: 60px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin: 50px auto;
+      width: 600px;
+    }
+
+    .form-container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      transform: translateX(-7px);
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 5px rgba(52,152,219,0.5);
+    }
+
+    .form-group span {
+      display: inline-block;
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+      transform: translateX(-7px);
+      cursor: pointer;
+    }
+
+    .btn-submit {
+      width: 620px;
+      padding: 12px;
+      background: #3498db;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+      transform: translateX(-7px);
+    }
+
+    .btn-submit:hover {
+      background: #2980b9;
+    }
+
+    .back-link {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .back-link a {
+      text-decoration: none;
+      color: #3498db;
+      font-weight: bold;
+    }
+
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>基本資料</h2>
+    <form id="profileForm" action="/set" method="post">
+      <div class="form-group">
+        <label for="companyName">公司名稱</label>
+        {% if user.companyName %}
+        <span id="companyNameText">{{ user.companyName }}</span>
+        <input type="text" id="companyName" name="companyName" value="{{ user.companyName }}" style="display:none;">
+        {% else %}
+        <span id="companyNameText" style="display:none;"></span>
+        <input type="text" id="companyName" name="companyName" value="" placeholder="請輸入公司名稱">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="owner">負責人</label>
+        {% if user.owner %}
+        <span id="ownerText">{{ user.owner }}</span>
+        <input type="text" id="owner" name="owner" value="{{ user.owner }}" style="display:none;">
+        {% else %}
+        <span id="ownerText" style="display:none;"></span>
+        <input type="text" id="owner" name="owner" value="" placeholder="請輸入負責人姓名">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="contact_person">聯絡人</label>
+        {% if user.contact_person %}
+        <span id="contact_personText">{{ user.contact_person }}</span>
+        <input type="text" id="contact_person" name="contact_person" value="{{ user.contact_person }}" style="display:none;">
+        {% else %}
+        <span id="contact_personText" style="display:none;"></span>
+        <input type="text" id="contact_person" name="contact_person" value="" placeholder="請輸入聯絡人">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="telephone">聯絡電話</label>
+        {% if user.telephone %}
+        <span id="telephoneText">{{ user.telephone }}</span>
+        <input type="text" id="telephone" name="telephone" value="{{ user.telephone }}" style="display:none;">
+        {% else %}
+        <span id="telephoneText" style="display:none;"></span>
+        <input type="text" id="telephone" name="telephone" value="" placeholder="請輸入聯絡電話">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="email">電子郵件</label>
+        {% if user.email %}
+        <span id="emailText">{{ user.email }}</span>
+        <input type="text" id="email" name="email" value="{{ user.email }}" style="display:none;">
+        {% else %}
+        <span id="emailText" style="display:none;"></span>
+        <input type="text" id="email" name="email" value="" placeholder="請輸入電子郵件">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="address">地址</label>
+        {% if user.address %}
+        <span id="addressText">{{ user.address }}</span>
+        <input type="text" id="address" name="address" value="{{ user.address }}" style="display:none;">
+        {% else %}
+        <span id="addressText" style="display:none;"></span>
+        <input type="text" id="address" name="address" value="" placeholder="請輸入地址">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="URL">公司網址</label>
+        {% if user.URL %}
+        <span id="URLText">{{ user.URL }}</span>
+        <input type="text" id="URL" name="URL" value="{{ user.URL }}" style="display:none;">
+        {% else %}
+        <span id="URLText" style="display:none;"></span>
+        <input type="text" id="URL" name="URL" value="" placeholder="請輸入公司網址">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="taxId">統一編號</label>
+        {% if user.taxId %}
+        <span id="taxIdText">{{ user.taxId }}</span>
+        <input type="text" id="taxId" name="taxId" value="{{ user.taxId }}" pattern="\d{8}" style="display:none;">
+        {% else %}
+        <span id="taxIdText" style="display:none;"></span>
+        <input type="text" id="taxId" name="taxId" value="" pattern="\d{8}" placeholder="請輸入統一編號">
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn-submit">儲存設定</button>
+    </form>
+
+    <div class="back-link">
+      <a href="/index">返回首頁</a>
+    </div>
+  </div>
+
+  <script>
+    const fields = ['companyName','taxId','address','owner','contact_person','telephone','email','URL'];
+
+    // 點擊文字切換成可編輯輸入框
+    fields.forEach(field => {
+      const input = document.getElementById(field);
+      const text = document.getElementById(field + 'Text');
+
+      text.addEventListener('click', () => {
+        text.style.display = 'none';
+        input.style.display = 'inline';
+        input.focus();
+      });
+    });
+  </script>
+</body>
+</html>

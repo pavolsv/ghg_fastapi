@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入頁面</title>
+    <style>
+        /* 全局設置 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* 登入容器樣式 */
+        .login-container {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 400px; 
+            padding: 60px 80px; 
+            text-align: center;
+        }
+        
+        /* 確保 form 佔據所有可用空間 */
+        .login-container form {
+            display: block;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 標題樣式 */
+        .login-container h1 {
+            margin-bottom: 40px;
+            color: #2C3E50;
+        }
+
+        .login-container input[type="text"]:not([name="VerificationCode"]),
+        .login-container input[type="password"] {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        
+        /* 驗證碼區塊容器 */
+        .captcha-group {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+        }
+
+        /* 驗證碼輸入框樣式：縮小寬度 */
+        .captcha-group input[name="VerificationCode"] {
+            box-sizing: border-box;
+            width: 40%; /* 縮小輸入框佔據空間 */
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            margin-bottom: 0;
+        }
+        
+        /* 新增：驗證碼圖片與重新傳送的容器 */
+        .captcha-display {
+            display: flex;
+            align-items: center;
+            width: 58%; 
+        }
+        
+        .captcha-group img {
+            width:65%; /* 圖片在 .captcha-display 內佔 60% */
+            height: auto;
+            display: block; 
+            margin-bottom: 0; 
+            cursor: pointer;
+        }
+
+        /* 新增：重新傳送驗證碼按鈕樣式 */
+        .resend-captcha {
+            /* 讓它在 .captcha-display 內靠右 */
+            margin-left: 20px; 
+            font-size: 14px;
+            color: #2C3E50; /* 設定顏色，讓它看起來像連結 */
+            cursor: pointer;
+            text-decoration: underline;
+            white-space: nowrap; /* 確保文字不換行 */
+            margin-top: 40px; 
+        }
+
+
+        /* 按鈕樣式 */
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background-color: #59ce7a;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        .login-container button:hover {
+            background-color: #4AB66B;
+        }
+
+        /* 註冊連結容器樣式 */
+        .login-container p {
+            text-align: center;
+        }
+        
+        /* 註冊連結樣式 */
+        a[href="/register"] {
+            color: #2C3E50; /* 設定顏色，讓它看起來像連結 */
+            display: inline-block; 
+            margin-top: 20px;
+            margin-left: 0; 
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>溫室氣體盤查系統</h1>
+            <form action="/login" method="POST">
+                <input type="text" name="username" placeholder="帳號" required value="{{ username_value if username_value is not none else '' }}">
+                <input type="password" name="password" placeholder="密碼" required >
+                
+                <div class="captcha-group">
+                    <input type="text" name="VerificationCode" placeholder="驗證碼" required>
+                    
+                    <div class="captcha-display">
+                        <img id="captchaImage" src="/login/captcha-image" alt="驗證碼">
+                        
+                        <a class="resend-captcha" onclick="reloadCaptcha()">重新傳送</a>
+                    </div>
+                </div>
+
+                <button type="submit">登入</button>
+            </form>
+            <p>新用戶?  <a href="/register">註冊</a></p>
+            {% if message %}
+                <script>
+                    alert("{{ message }}");
+                </script>
+            {% endif %}
+    </div>
+
+    <script>
+        // JavaScript 函數：重新載入驗證碼圖片
+        function reloadCaptcha() {
+            const captchaImage = document.getElementById('captchaImage');
+            // 透過更改 src 屬性，強制瀏覽器重新向伺服器請求圖片
+            captchaImage.src = "/login/captcha-image?" + new Date().getTime();
+        }
+    </script>
+</body>
+</html>

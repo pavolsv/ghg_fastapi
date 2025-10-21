@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>燃油用量計算</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .input-controls button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .input-controls button:hover {
+            background-color: #2980b9;
+        }
+        .input-controls button.delete-mode-btn {
+            background-color: #f39c12;
+        }
+        .input-controls button.delete-mode-btn:hover {
+            background-color: #e67e22;
+        }
+        	.input-controls button.Upload-pictures {
+            background-color: #e6e022;
+        }
+        .input-controls button.Upload-pictures:hover {
+            background-color: #e6d022;
+        }
+        .input-controls button[type="submit"] {
+            background-color: #2ecc71;
+        }
+        .input-controls button[type="submit"]:hover {
+            background-color: #27ae60;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #eaf1f5;
+            color: #333;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        input[type="date"], input[type="number"] {
+            width: 90%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        .fuel-type-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            padding-left: 10px;
+        }
+        .fuel-type-group label {
+            font-size: 14px;
+        }
+        .remove-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 28px;
+            padding: 0;
+            transition: background-color 0.3s ease;
+        }
+        .remove-btn:hover {
+            background-color: #c0392b;
+        }
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #eaf1f5;
+            border: 1px solid #d1e2e8;
+            border-radius: 12px;
+        }
+        .output-section h2 {
+            color: #34495e;
+            margin-top: 0;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .output-section p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .output-section .summary-total {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .output-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .output-table th, .output-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .output-table th {
+            background-color: #d1e2e8;
+        }
+        .output-table tfoot td {
+            font-weight: bold;
+            background-color: #eaf1f5;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-link a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>燃油數據計算</h1>
+        <form onsubmit="sumValues(event)">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>編號</th>
+                        <th>日期</th>
+                        <th>公升</th>
+                        <th>類型</th>
+                    </tr>
+                </thead>
+                <tbody id="gas-table">
+                </tbody>
+            </table>
+            <div class="input-controls">
+                <button type="button" onclick="addRow()">新增記錄</button>
+                <button type="button" id="uploadButton" class="Upload-pictures">上傳圖片</button>
+                <input type="file" id="fileInput" style="display:none;" accept="image/*">
+                <button type="button" id="removeModeBtn" class="delete-mode-btn" onclick="toggleRemoveMode()">刪除/編輯</button>
+                <button type="submit">計算總計</button>
+            </div>
+        </form>
+        <div id="output-section" class="output-section" style="display: none;">
+            <h2>計算結果</h2>
+            <div id="data-output"></div>
+        </div>
+        <div class="back-link">
+            <a href="/index">返回首頁</a>
+        </div>
+    </div>
+    <script>
+        let removeMode = false;
+        function addRow() {
+            const table = document.getElementById('gas-table');
+            const rowCount = table.rows.length;
+            const row = table.insertRow(-1);
+            
+            const cellRemove = row.insertCell(0);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.innerText = 'x';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = function() { removeRow(this); };
+            removeBtn.style.display = removeMode ? '' : 'none';
+            cellRemove.appendChild(removeBtn);
+
+            const cellIndex = row.insertCell(1);
+            cellIndex.innerText = rowCount + 1;
+
+            const cellDate = row.insertCell(2);
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.name = 'date';
+            dateInput.required = true;
+            cellDate.appendChild(dateInput);
+
+            const cellValue = row.insertCell(3);
+            const valueInput = document.createElement('input');
+            valueInput.type = 'number';
+            valueInput.name = 'fuel_value';
+            valueInput.step = 'any';
+            valueInput.placeholder = '公升數';
+            valueInput.required = true;
+            cellValue.appendChild(valueInput);
+
+            const cellFuel = row.insertCell(4);
+            const radioName = `fuel-${rowCount}`;
+            const fuelTypeGroup = document.createElement('div');
+            fuelTypeGroup.className = 'fuel-type-group';
+
+            const gasolineInput = createRadio('汽油', radioName, true);
+            const dieselInput = createRadio('柴油', radioName, false);
+            
+            fuelTypeGroup.appendChild(gasolineInput.radio);
+            fuelTypeGroup.appendChild(gasolineInput.label);
+            fuelTypeGroup.appendChild(dieselInput.radio);
+            fuelTypeGroup.appendChild(dieselInput.label);
+
+            cellFuel.appendChild(fuelTypeGroup);
+            updateIndexes();
+        }
+
+        function createRadio(value, name, isChecked) {
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = `${value}-${name}`;
+            radio.name = name;
+            radio.value = value;
+            if (isChecked) radio.checked = true;
+
+            const label = document.createElement('label');
+            label.htmlFor = `${value}-${name}`;
+            label.innerText = value;
+            
+            return { radio, label };
+        }
+
+        function removeRow(btn) {
+            const row = btn.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+            updateIndexes();
+        }
+
+        function updateIndexes() {
+            const table = document.getElementById('gas-table');
+            for (let i = 0; i < table.rows.length; i++) {
+                table.rows[i].cells[1].innerText = i + 1;
+            }
+        }
+
+        function sumValues(event) {
+            event.preventDefault();
+            
+            let gasolineSum = 0;
+            let dieselSum = 0;
+            const table = document.getElementById('gas-table');
+            const allData = [];
+
+            for (let i = 0; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const rowData = {};
+
+                const dateInput = row.cells[2].querySelector('input[type="date"]');
+                const valueInput = row.cells[3].querySelector('input[type="number"]');
+                const fuelRadio = row.cells[4].querySelector('input[type="radio"]:checked');
+
+                const value = parseFloat(valueInput.value) || 0;
+                const fuelType = fuelRadio ? fuelRadio.value : '';
+
+                if (fuelType === '汽油') {
+                    gasolineSum += value;
+                } else if (fuelType === '柴油') {
+                    dieselSum += value;
+                }
+                
+                rowData.日期 = dateInput ? dateInput.value : '';
+                rowData.數值 = value;
+                rowData.類型 = fuelType;
+                allData.push(rowData);
+            }
+            
+            showAllData(allData, gasolineSum, dieselSum);
+        }
+
+        function calculateGasEmissions(totalLiters) {
+            const CH4 = 0.0008164260 * totalLiters;
+            const CO2 = 2.2631328720 * totalLiters;
+            const N2O = 0.0002612563 * totalLiters;
+            const total = (CH4 + CO2 + N2O) / 1000;
+            return {
+                CH4: parseFloat(CH4.toFixed(3)),
+                CO2: parseFloat(CO2.toFixed(3)),
+                N2O: parseFloat(N2O.toFixed(3)),
+                total: parseFloat(total.toFixed(3))
+            };
+        }
+
+        function showAllData(data, gasolineSum, dieselSum) {
+            const outputDiv = document.getElementById('data-output');
+            outputDiv.innerHTML = '';
+            
+            document.getElementById('output-section').style.display = 'block';
+
+            if (data.length === 0) {
+                outputDiv.innerHTML = '<p>沒有數據可以顯示。</p>';
+                return;
+            }
+
+            const outputTable = document.createElement('table');
+            outputTable.className = 'output-table';
+            const tableHeader = `
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>類型</th>
+                        <th>公升數</th>
+                    </tr>
+                </thead>
+            `;
+            outputTable.innerHTML = tableHeader;
+
+            const tableBody = document.createElement('tbody');
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.日期}</td>
+                    <td>${item.類型}</td>
+                    <td>${item.數值.toFixed(3)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            outputTable.appendChild(tableBody);
+
+            const tableFooter = document.createElement('tfoot');
+            if (gasolineSum > 0) {
+                const gasolineFooterRow = document.createElement('tr');
+                gasolineFooterRow.innerHTML = `
+                    <td colspan="2" style="text-align: right;">汽油總計</td>
+                    <td>${gasolineSum.toFixed(3)}</td>
+                `;
+                tableFooter.appendChild(gasolineFooterRow);
+            }
+            if (dieselSum > 0) {
+                const dieselFooterRow = document.createElement('tr');
+                dieselFooterRow.innerHTML = `
+                    <td colspan="2" style="text-align: right;">柴油總計</td>
+                    <td>${dieselSum.toFixed(3)}</td>
+                `;
+                tableFooter.appendChild(dieselFooterRow);
+            }
+            outputTable.appendChild(tableFooter);
+            outputDiv.appendChild(outputTable);
+
+            const totalLiters = gasolineSum + dieselSum;
+            const emissions = calculateGasEmissions(totalLiters);
+
+            const emissionDiv = document.createElement('div');
+            emissionDiv.style.marginTop = '20px';
+            emissionDiv.innerHTML = `
+                <p><b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(3)} 公升)</b></p>
+                <p>甲烷 (CH₄): ${emissions.CH4.toFixed(3)} 公斤</p>
+                <p>二氧化碳 (CO₂): ${emissions.CO2.toFixed(3)} 公斤</p>
+                <p>氧化亞氮 (N₂O): ${emissions.N2O.toFixed(3)} 公斤</p>
+                <p class="summary-total">總排放: ${emissions.total.toFixed(3)} 公噸CO₂e</p>
+            `;
+            outputDiv.appendChild(emissionDiv);
+        }
+
+        function toggleRemoveMode() {
+            removeMode = !removeMode;
+            const btns = document.getElementsByClassName('remove-btn');
+            for (let btn of btns) {
+                btn.style.display = removeMode ? '' : 'none';
+            }
+            document.getElementById('removeModeBtn').innerText = removeMode ? '隱藏刪除' : '刪除/編輯';
+        }
+        	// 取得新增加的 HTML 元素
+const fileInput = document.getElementById('fileInput');
+const uploadButton = document.getElementById('uploadButton');
+
+// 監聽「上傳檔案」按鈕的點擊事件
+uploadButton.addEventListener('click', () => {
+    // 點擊按鈕時，觸發隱藏的檔案輸入欄位
+    fileInput.click();
+});
+
+// 監聽檔案輸入欄位的變動事件，當使用者選擇檔案後觸發
+fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+
+    if (!file) {
+        alert('沒有選擇任何檔案。');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('imageFile', file); // 'uploadedFile' 是給後端用的名稱
+
+    try {
+        // 使用 fetch API 將檔案發送到後端
+        // 請將 'http://127.0.0.1:8000/upload' 替換為你的後端上傳 API 網址
+        const response = await fetch('http://127.0.0.1:8000/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`上傳失敗: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert('檔案上傳成功！\n伺服器回應: ' + JSON.stringify(result, null, 2));
+        if (result.ocr_result) {
+            // 1. 先新增一個空的表格行
+            addRow();
+            
+            // 2. 取得剛剛新增的最新表格行
+            const table = document.getElementById('gas-table');
+            const lastRow = table.rows[table.rows.length - 1];
+
+            // 3. 提取 OCR 辨識出的資料
+            const ocrData = result.ocr_result;
+            const ocrDate = ocrData.日期;
+            const ocrLiter = ocrData.公升;
+            const ocrType = ocrData.類型;
+
+            // 4. 找到對應的輸入欄位並填入資料
+            const dateInput = lastRow.cells[2].querySelector('input[type="date"]');
+            const literInput = lastRow.cells[3].querySelector('input[type="number"]');
+            
+            // 5. 填入日期和公升數
+            if (ocrDate && dateInput) {
+                dateInput.value = ocrDate;
+            }
+            if (ocrLiter && literInput) {
+                // 確保數值是有效的
+                literInput.value = parseFloat(ocrLiter);
+            }
+
+            // 6. 處理類型（單選按鈕）
+            if (ocrType) {
+                const radios = lastRow.cells[4].querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    if (radio.value === ocrType) {
+                        radio.checked = true;
+                    }
+                });
+            }
+            
+            // 提示使用者，資料已自動填入
+            alert('檔案上傳成功！OCR結果已自動填入表格。');
+
+        } else {
+            // 如果沒有 OCR 結果
+            alert('檔案上傳成功，但沒有辨識到有效的資料。');
+        }
+
+    } catch (error) {
+        alert('檔案上傳過程中發生錯誤：' + error.message);
+        console.error('上傳錯誤:', error);
+    }
+});
+
+
+        window.onload = function() {
+            addRow();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用電度數計算</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f9;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-form {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .input-group label {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .input-form input[type="date"],
+        .input-form input[type="number"],
+        .input-form input[type="text"],
+        .input-form select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .input-form button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .input-form button:hover {
+            background-color: #2980b9;
+        }
+        .input-form .period-selects {
+            display: flex;
+            gap: 5px;
+        }
+        .input-form .period-selects select {
+            width: 100px;
+        }
+        #target-year-group {
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #eaf1f5;
+            color: #333;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .edit-btn {
+            background-color: #f39c12;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .edit-btn:hover {
+            background-color: #e67e22;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-header {
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .modal-form .input-group {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-form label {
+            min-width: 100px;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf1f5;
+            border: 1px solid #d1e2e8;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .summary span {
+            margin-right: 20px;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-link a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>用電度數記錄</h1>
+
+    <div class="input-form">
+        <div class="input-group">
+            <label for="bill-period">期別</label>
+            <div class="period-selects">
+                <select id="bill-year"></select>
+                <select id="bill-month"></select>
+            </div>
+        </div>
+        <div class="input-group">
+            <label for="start-date">起始日期</label>
+            <input type="date" id="start-date">
+        </div>
+        <div class="input-group">
+            <label for="end-date">結束日期</label>
+            <input type="date" id="end-date">
+        </div>
+        <div class="input-group">
+            <label for="total-water-usage">用電度數</label>
+            <input type="number" id="total-water-usage">
+        </div>
+        <div class="input-group" id="target-year-group">
+            <label for="target-year">計算年份</label>
+            <select id="target-year">
+            </select>
+        </div>
+        <button onclick="addRecord()">新增</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>期別</th>
+                <th>期間</th>
+                <th>用電度數</th>
+                <th>編輯</th>
+            </tr>
+        </thead>
+        <tbody id="record-table-body">
+        </tbody>
+    </table>
+    
+    <div class="summary">
+        <span></span>
+        <span>總用電度數：<span id="target-usage-sum">0</span> 度</span>
+    </div>
+</div>
+
+<div class="back-link">
+    <a href="/index">返回首頁</a>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <div class="modal-header">修改記錄</div>
+        <div class="modal-form">
+            <div class="input-group">
+                <label for="edit-bill-year">期別</label>
+                <div class="period-selects">
+                    <select id="edit-bill-year"></select>
+                    <select id="edit-bill-month"></select>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="edit-start-date">起始日期</label>
+                <input type="date" id="edit-start-date">
+            </div>
+            <div class="input-group">
+                <label for="edit-end-date">結束日期</label>
+                <input type="date" id="edit-end-date">
+            </div>
+            <div class="input-group">
+                <label for="edit-total-water-usage">總用電度數</label>
+                <input type="number" id="edit-total-water-usage">
+            </div>
+            <div class="input-group" id="edit-target-year-group" style="display: none;">
+                <label for="edit-target-year">計算年份</label>
+                <select id="edit-target-year"></select>
+            </div>
+            <button onclick="saveRecord()">儲存修改</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.onload = function() {
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const targetYearGroup = document.getElementById('target-year-group');
+        const targetYearSelect = document.getElementById('target-year');
+
+        const editStartDateInput = document.getElementById('edit-start-date');
+        const editEndDateInput = document.getElementById('edit-end-date');
+        const editTargetYearGroup = document.getElementById('edit-target-year-group');
+        const editTargetYearSelect = document.getElementById('edit-target-year');
+
+        function checkDateRange(startInput, endInput, yearGroup, yearSelect) {
+            const startDate = startInput.value;
+            const endDate = endInput.value;
+
+            if (startDate && endDate) {
+                const startYear = new Date(startDate).getFullYear();
+                const endYear = new Date(endDate).getFullYear();
+
+                if (startYear !== endYear) {
+                    yearGroup.style.display = 'flex';
+                    yearSelect.innerHTML = `
+                        <option value="${startYear}">${startYear} 年</option>
+                        <option value="${endYear}">${endYear} 年</option>
+                    `;
+                } else {
+                    yearGroup.style.display = 'none';
+                }
+            } else {
+                yearGroup.style.display = 'none';
+            }
+        }
+        
+        startDateInput.addEventListener('change', function() {
+            endDateInput.setAttribute('min', this.value);
+            if (endDateInput.value && endDateInput.value < this.value) {
+                endDateInput.value = '';
+            }
+            checkDateRange(startDateInput, endDateInput, targetYearGroup, targetYearSelect);
+        });
+
+        endDateInput.addEventListener('change', function() {
+            checkDateRange(startDateInput, endDateInput, targetYearGroup, targetYearSelect);
+        });
+
+        editStartDateInput.addEventListener('change', function() {
+            editEndDateInput.setAttribute('min', this.value);
+            if (editEndDateInput.value && editEndDateInput.value < this.value) {
+                editEndDateInput.value = '';
+            }
+            checkDateRange(editStartDateInput, editEndDateInput, editTargetYearGroup, editTargetYearSelect);
+        });
+
+        editEndDateInput.addEventListener('change', function() {
+            checkDateRange(editStartDateInput, editEndDateInput, editTargetYearGroup, editTargetYearSelect);
+        });
+
+        function generatePeriodSelects(yearSelectId, monthSelectId) {
+            const yearSelect = document.getElementById(yearSelectId);
+            const monthSelect = document.getElementById(monthSelectId);
+            
+            yearSelect.innerHTML = '';
+            monthSelect.innerHTML = '';
+
+            for (let i = 110; i <= 130; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.text = `${i} 年`;
+                yearSelect.appendChild(option);
+            }
+
+            for (let i = 1; i <= 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.text = `${i} 月`;
+                monthSelect.appendChild(option);
+            }
+        }
+        
+        generatePeriodSelects('bill-year', 'bill-month');
+        generatePeriodSelects('edit-bill-year', 'edit-bill-month');
+
+        updateSummary();
+    };
+
+    let currentRow = null;
+
+    function addRecord() {
+        const billYear = document.getElementById('bill-year').value;
+        const billMonth = document.getElementById('bill-month').value;
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const totalUsage = document.getElementById('total-water-usage').value;
+        
+        if (!billYear || !billMonth || !startDate || !endDate || !totalUsage) {
+            alert("所有欄位都不能為空！");
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (end < start) {
+            alert("結束日期不能早於起始日期！");
+            return;
+        }
+
+        const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        
+        const startYear = start.getFullYear();
+        const endYear = end.getFullYear();
+        
+        let targetUsage = 0;
+        let targetYearDisplay = '';
+
+        if (startYear === endYear) {
+            targetUsage = totalUsage;
+            targetYearDisplay = startYear;
+        } else {
+            const targetYearSelect = document.getElementById('target-year');
+            const targetYear = targetYearSelect.value;
+            const daysInTargetYear = getDaysInTargetYear(start, end, targetYear);
+            if (daysInTargetYear > 0) {
+                targetUsage = (totalUsage / totalDays) * daysInTargetYear;
+            }
+            targetYearDisplay = targetYear;
+        }
+        
+        const tableBody = document.getElementById('record-table-body');
+        const newRow = document.createElement('tr');
+
+        newRow.setAttribute('data-bill-year', billYear);
+        newRow.setAttribute('data-bill-month', billMonth);
+        newRow.setAttribute('data-start-date', startDate);
+        newRow.setAttribute('data-end-date', endDate);
+        newRow.setAttribute('data-total-usage', totalUsage);
+        newRow.setAttribute('data-target-usage', parseFloat(targetUsage).toFixed(2));
+        newRow.setAttribute('data-target-year', targetYearDisplay);
+
+        const periodCell = document.createElement('td');
+        const dateCell = document.createElement('td');
+        const targetUsageCell = document.createElement('td');
+        const actionCell = document.createElement('td');
+
+        const formattedStartDate = start.toLocaleDateString('zh-TW', {
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        }).replace(/\//g, '/');
+        const formattedEndDate = end.toLocaleDateString('zh-TW', {
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        }).replace(/\//g, '/');
+        
+        periodCell.innerText = `民國 ${billYear} 年 ${billMonth} 月`;
+        dateCell.innerText = `${formattedStartDate}~${formattedEndDate}`;
+        targetUsageCell.innerText = `${parseFloat(targetUsage).toFixed(2)} 度`;
+
+        const editBtn = document.createElement('button');
+        editBtn.innerText = '修改';
+        editBtn.className = 'edit-btn';
+        editBtn.onclick = function() {
+            editRecord(newRow);
+        };
+        actionCell.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerText = '刪除';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.onclick = function() {
+            deleteRecord(newRow);
+        };
+        actionCell.appendChild(deleteBtn);
+
+        newRow.appendChild(periodCell);
+        newRow.appendChild(dateCell);
+        // 不再新增 `targetYearCell` 到表格中
+        newRow.appendChild(targetUsageCell);
+        newRow.appendChild(actionCell);
+
+        tableBody.appendChild(newRow);
+
+        updateSummary();
+
+        document.getElementById('bill-year').value = '110';
+        document.getElementById('bill-month').value = '1';
+        document.getElementById('start-date').value = '';
+        document.getElementById('end-date').value = '';
+        document.getElementById('total-water-usage').value = '';
+        document.getElementById('end-date').removeAttribute('min');
+        document.getElementById('target-year-group').style.display = 'none';
+    }
+
+    function deleteRecord(row) {
+        if (confirm("確定要刪除這筆記錄嗎？")) {
+            row.remove();
+            updateSummary();
+        }
+    }
+
+    function getDaysInTargetYear(start, end, targetYear) {
+        let days = 0;
+        let tempDate = new Date(start);
+        
+        while (tempDate <= end) {
+            if (tempDate.getFullYear() == targetYear) {
+                days++;
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+        }
+        return days;
+    }
+
+    function editRecord(row) {
+        currentRow = row;
+        const billYear = row.getAttribute('data-bill-year');
+        const billMonth = row.getAttribute('data-bill-month');
+        const startDate = row.getAttribute('data-start-date');
+        const endDate = row.getAttribute('data-end-date');
+        const totalUsage = row.getAttribute('data-total-usage');
+        const targetYear = row.getAttribute('data-target-year');
+        
+        document.getElementById('edit-bill-year').value = billYear;
+        document.getElementById('edit-bill-month').value = billMonth;
+        document.getElementById('edit-start-date').value = startDate;
+        document.getElementById('edit-end-date').value = endDate;
+        document.getElementById('edit-total-water-usage').value = totalUsage;
+
+        const startYear = new Date(startDate).getFullYear();
+        const endYear = new Date(endDate).getFullYear();
+        if (startYear !== endYear) {
+            const editTargetYearGroup = document.getElementById('edit-target-year-group');
+            const editTargetYearSelect = document.getElementById('edit-target-year');
+            editTargetYearGroup.style.display = 'flex';
+            editTargetYearSelect.innerHTML = `
+                <option value="${startYear}">${startYear} 年</option>
+                <option value="${endYear}">${endYear} 年</option>
+            `;
+            editTargetYearSelect.value = targetYear;
+        } else {
+            document.getElementById('edit-target-year-group').style.display = 'none';
+        }
+
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function saveRecord() {
+        if (!currentRow) return;
+
+        const newBillYear = document.getElementById('edit-bill-year').value;
+        const newBillMonth = document.getElementById('edit-bill-month').value;
+        const newStartDate = document.getElementById('edit-start-date').value;
+        const newEndDate = document.getElementById('edit-end-date').value;
+        const newTotalUsage = document.getElementById('edit-total-water-usage').value;
+
+        if (!newBillYear || !newBillMonth || !newStartDate || !newEndDate || !newTotalUsage) {
+            alert("所有欄位都不能為空！");
+            return;
+        }
+
+        const start = new Date(newStartDate);
+        const end = new Date(newEndDate);
+        
+        if (end < start) {
+            alert("結束日期不能早於起始日期！");
+            return;
+        }
+
+        currentRow.setAttribute('data-bill-year', newBillYear);
+        currentRow.setAttribute('data-bill-month', newBillMonth);
+        currentRow.setAttribute('data-start-date', newStartDate);
+        currentRow.setAttribute('data-end-date', newEndDate);
+        currentRow.setAttribute('data-total-usage', newTotalUsage);
+        
+        const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        
+        const startYear = start.getFullYear();
+        const endYear = end.getFullYear();
+        
+        let newTargetUsage = 0;
+        let newTargetYearDisplay = '';
+
+        if (startYear === endYear) {
+            newTargetUsage = newTotalUsage;
+            newTargetYearDisplay = startYear;
+        } else {
+            const newTargetYearSelect = document.getElementById('edit-target-year');
+            const newTargetYear = newTargetYearSelect.value;
+            const daysInTargetYear = getDaysInTargetYear(start, end, newTargetYear);
+            if (daysInTargetYear > 0) {
+                newTargetUsage = (newTotalUsage / totalDays) * daysInTargetYear;
+            }
+            newTargetYearDisplay = newTargetYear;
+        }
+        
+        currentRow.setAttribute('data-target-usage', parseFloat(newTargetUsage).toFixed(2));
+        currentRow.setAttribute('data-target-year', newTargetYearDisplay);
+        
+        const cells = currentRow.getElementsByTagName('td');
+        cells[0].innerText = `民國 ${newBillYear} 年 ${newBillMonth} 月`;
+        cells[1].innerText = `${start.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/')}~${end.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/')}`;
+        cells[2].innerText = `${parseFloat(newTargetUsage).toFixed(2)} 度`;
+
+        updateSummary();
+        closeModal();
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+        currentRow = null;
+    }
+
+    function updateSummary() {
+        const tableBody = document.getElementById('record-table-body');
+        const rows = tableBody.getElementsByTagName('tr');
+        
+        let targetUsageSum = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const targetUsage = parseFloat(row.getAttribute('data-target-usage'));
+            
+            if (!isNaN(targetUsage)) {
+                targetUsageSum += targetUsage;
+            }
+        }
+        
+        document.getElementById('target-usage-sum').innerText = targetUsageSum.toFixed(2);
+    }
+</script>
+
+</body>
+</html>
