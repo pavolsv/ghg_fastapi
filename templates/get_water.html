@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Water Page Content{% endblock %}
+
+{% block content %}
+<div class="water-content-list">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+`               <th>每生產1度水之CO2排放約當量</th>
+
+            </tr>
+        </thead>
+        <tbody>
+            {{ html_table | safe }}
+        </tbody>
+    </table>
+     <a href="/factor_management/">上一頁</a>
+</div>
+{% endblock %}

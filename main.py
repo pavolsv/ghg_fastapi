@@ -17,6 +17,7 @@ from routers import logout
 from routers import register
 from routers import set
 from routers import test1, test2
+from routers import get_water as get_water_router
 from routers import utilityfactor
 from routers import water_fee as water_fee_router
 
@@ -39,8 +40,9 @@ app.include_router(test1.router)
 app.include_router(test2.router)
 app.include_router(factor_management.router)
 app.include_router(set.router)
+app.include_router(get_water_router.router)
+app.include_router(set.router)
 app.mount("/static", StaticFiles(directory="static"))
-
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):

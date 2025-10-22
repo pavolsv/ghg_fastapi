@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -98,10 +99,10 @@ async def set_company_info(
         updated = session.exec(statement).first()
 
         user_data = {
-            "companyName": updated.company_name,
-            "taxId": updated.tax_id,
-            "address": updated.address,
-            "owner": updated.owner
+            "companyName": updated.company_name if updated else "",
+            "taxId": updated.tax_id if updated else "",
+            "address": updated.address if updated else "",
+            "owner": updated.owner if updated else ""
         }
         return RedirectResponse(
         url=router.prefix + "/", # 導向回 /set/ 頁面
