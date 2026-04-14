@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    /* 1. 基礎設定 */
+    .etl-content-wrapper {
+        font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
+        color: #333;
+        padding: 30px;
+        background-color: #f4f7f6; /* 輕微背景色提升對比 */
+        min-height: 100vh;
+    }
+
+    .etl-panel {
+        max-width: 800px; /* 擴展寬度以容納雙欄 */
+        margin: 0 auto;
+    }
+
+    .etl-panel h1 {
+        font-size: 32px;
+        margin-bottom: 8px;
+        color: #2c3e50;
+    }
+
+    .etl-panel .description {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin-bottom: 40px;
+    }
+
+    /* 2. 網格容器：實現一行兩個 */
+    .etl-grid-container {
+        display: flex;
+        flex-wrap: wrap; /* 自動換行 */
+        gap: 24px;       /* 區塊間距 */
+    }
+
+    /* 3. 區塊卡片化樣式 */
+    .etl-section {
+        flex: 1 1 calc(50% - 12px); /* 關鍵：寬度佔 50% 扣除間距 */
+        min-width: 300px;           /* 避免螢幕太窄時擠壓 */
+        background: #ffffff;
+        padding: 25px;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .etl-section:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .etl-section h3 {
+        font-size: 20px;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #34495e;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 12px;
+    }
+
+    /* 4. 狀態標籤 */
+    .etl-last-fetch {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        border-left: 4px solid #43a047;
+    }
+
+    /* 5. 表單元件 */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .etl-panel input {
+        width: 100%;
+        padding: 12px;
+        border: 1.5px solid #dee2e6;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+
+    .etl-panel input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        background-color: #f8fafc;
+    }
+
+    /* 6. 按鈕優化 */
+    .etl-panel button {
+        width: 100%; /* 卡片內全寬按鈕 */
+        padding: 14px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: bold;
+        margin-top: auto; /* 推到底部對齊 */
+        transition: filter 0.2s;
+    }
+
+    .etl-panel button:active {
+        filter: brightness(0.9);
+    }
+
+    /* 響應式調整 */
+    @media (max-width: 900px) {
+        .etl-section {
+            flex: 1 1 100%; /* 手機版改為一行一個 */
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="etl-content-wrapper">
+    <div class="etl-panel">
+        <h1>數據管理</h1>
+
+        <div class="etl-grid-container">
+            
+            <section class="etl-section">
+                <h3> 燃料係數</h3>
+                {% if status_map and status_map.get('fuel') %}
+                <div class="etl-last-fetch">
+                    📅 上次同步：{{ status_map['fuel'].last_fetch_time.strftime('%Y-%m-%d %H:%M:%S') if status_map['fuel'].last_fetch_time else '尚未紀錄' }}
+                    <br>
+                    📝 狀態：{{ status_map['fuel'].last_fetch_result }}
+                </div>
+                {% endif %}
+                <form action="/etl/run" method="post">
+                    <input type="hidden" name="data_type" value="fuel">
+                    <div class="form-group">
+                        <label>係數來源網址 (環境部)</label>
+                        <input name="excel_url" type="url" value="{{ default_url.fuel }}" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>適用年度</label>
+                        <input name="year" type="number" value="2025">
+                    </div>
+                    <button type="submit" style="background-color: #10b981; color: white;">同步燃料係數與代碼</button>
+                </form>
+            </section>
+
+            <section class="etl-section">
+                <h3>電力係數</h3>
+                {% if status_map and status_map.get('electricity') %}
+                <div class="etl-last-fetch">
+                    📅 上次同步：{{ status_map['electricity'].last_fetch_time.strftime('%Y-%m-%d %H:%M:%S') if status_map['electricity'].last_fetch_time else '尚未紀錄' }}
+                    <br>
+                    📝 狀態：{{ status_map['electricity'].last_fetch_result }}
+                </div>
+                {% endif %}
+                <form action="/etl/run" method="post">
+                    <input type="hidden" name="data_type" value="electricity">
+                    <div class="form-group">
+                        <label>電力數據來源</label>
+                        <input name="excel_url" type="url" value="{{ default_url.electricity }}">
+                    </div>
+                    <button type="submit" style="background-color: #f59e0b; color: #fff;">同步電力係數</button>
+                </form>
+            </section>
+
+            <section class="etl-section">
+                <h3> GWP 溫暖化潛勢</h3>
+                <form action="/gwp/fetch" method="post">
+                    <div class="form-group">
+                        <label>IPCC 評估報告版本</label>
+                        <input name="version" type="text" value="AR5" placeholder="例如: AR5, AR6">
+                    </div>
+                    <p style="font-size: 12px; color: #999; margin-top: -10px;">* 目前系統預設採計 IPCC 第五次評估報告 (AR5) 數值。</p>
+                    <button type="submit" style="background-color: #3b82f6; color: white;">取得 GWP 參考表</button>
+                </form>
+            </section>
+
+
+        </div>
+    </div>
+</div>
+{% endblock %}

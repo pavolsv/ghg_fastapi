@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .ocr-container-v2 { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .ocr-action-area { display: flex; gap: 24px; margin-bottom: 24px; }
+    .viewer-card { flex: 6; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .upload-card { flex: 4; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+    
+    .main-viewer-wrapper { background-color: #ffffff !important; height: 500px; position: relative; }
+    .viewer-canvas { background-color: #ffffff !important; }
+
+    /* 表格對齊核心 CSS */
+    .detail-table-v2 { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .detail-table-v2 th, .detail-table-v2 td { 
+        padding: 12px; 
+        text-align: center; /* 全部居中對齊 */
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .col-idx { width: 50px; }
+    .col-view, .col-action { width: 60px; }
+    .col-filename { width: auto; text-align: left !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-date { width: 120px; }
+    .col-type { width: 100px; }
+    .col-vol { width: 80px; }
+    .col-status { width: 120px; }
+
+    .file-item { display: flex; justify-content: space-between; padding: 10px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; }
+    .spinner-sm { width: 14px; height: 14px; border: 2px solid #ddd; border-top: 2px solid #7c3aed; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="ocr-container-v2">
+    <div class="ocr-action-area">
+        <div class="card viewer-card">
+            <div style="padding: 15px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
+                <h3 style="margin:0;">檔案預覽</h3>
+                <div>
+                    <button onclick="changeImage(-1)" style="border:none; background:none; cursor:pointer;"><i data-lucide="chevron-left"></i></button>
+                    <span id="carousel-info">0 / 0</span>
+                    <button onclick="changeImage(1)" style="border:none; background:none; cursor:pointer;"><i data-lucide="chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="main-viewer-wrapper" id="viewer-container">
+                <div class="custom-zoom-controls" id="zoom-controls" style="position:absolute; right:15px; top:15px; display:none; z-index:10; display:flex; flex-direction:column; gap:5px;">
+                    <button onclick="viewer.zoom(0.1)" style="padding:8px; cursor:pointer;"><i data-lucide="zoom-in"></i></button>
+                    <button onclick="viewer.zoom(-0.1)" style="padding:8px; cursor:pointer;"><i data-lucide="zoom-out"></i></button>
+                </div>
+                <img id="image-main-preview" src="" style="visibility: hidden; width: 0; height: 0;">
+                <div id="preview-placeholder" style="display:flex; height:100%; align-items:center; justify-content:center; color:#94a3b8;">
+                    <i data-lucide="image" size="48"></i><p>尚未選取檔案</p>
+                </div>
+            </div>
+            <div style="padding: 15px;">
+                <button onclick="startRecognition()" style="width:100%; padding:12px; background:#7c3aed; color:white; border:none; border-radius:8px; cursor:pointer;">開始辨識單據</button>
+            </div>
+        </div>
+
+        <div class="card upload-card">
+            <h3>附件上傳</h3>
+            <div onclick="document.getElementById('multi-file-input').click()" style="border:2px dashed #cbd5e1; padding:40px; text-align:center; cursor:pointer; border-radius:12px;">
+                <i data-lucide="upload-cloud" size="32"></i><p>點擊上傳檔案</p>
+                <input type="file" id="multi-file-input" hidden multiple onchange="handleFilesUpload(this)">
+            </div>
+            <div id="file-list-container" style="margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+        <h3>費用明細</h3>
+        <table class="detail-table-v2">
+            <thead>
+                <tr>
+                    <th class="col-idx">#</th>
+                    <th class="col-view">預覽</th>
+                    <th class="col-action">操作</th>
+                    <th class="col-filename">單據明細</th>
+                    <th class="col-date">日期</th>
+                    <th class="col-type">種類</th>
+                    <th class="col-vol">公升</th>
+                    <th class="col-status">狀態</th>
+                </tr>
+            </thead>
+            <tbody id="detail-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
+
+<script>
+    let viewer, allFiles = [], currentIndex = 0;
+
+    function handleFilesUpload(input) {
+        allFiles = allFiles.concat(Array.from(input.files));
+        renderFileList();
+        refreshTablePlaceholder();
+        if (allFiles.length > 0) { currentIndex = allFiles.length - input.files.length; updatePreview(); }
+        input.value = "";
+    }
+
+    function renderFileList() {
+        const container = document.getElementById('file-list-container');
+        container.innerHTML = allFiles.map((f, i) => `
+            <div class="file-item">
+                <span>${f.name}</span><button onclick="removeFile(${i})" style="color:red; border:none; background:none; cursor:pointer;">×</button>
+            </div>`).join('');
+    }
+
+    function removeFile(index) {
+        allFiles.splice(index, 1);
+        if (allFiles.length === 0) resetUI();
+        else { currentIndex = Math.min(currentIndex, allFiles.length - 1); updatePreview(); renderFileList(); refreshTablePlaceholder(); }
+    }
+
+    function resetUI() {
+        document.getElementById('image-main-preview').style.visibility = "hidden";
+        document.getElementById('preview-placeholder').style.display = "flex";
+        document.getElementById('file-list-container').innerHTML = '';
+        document.getElementById('detail-table-body').innerHTML = '';
+        document.getElementById('carousel-info').innerText = "0 / 0";
+    }
+
+    function updatePreview() {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.getElementById('image-main-preview');
+            img.src = e.target.result;
+            document.getElementById('preview-placeholder').style.display = "none";
+            document.getElementById('zoom-controls').style.display = "flex";
+            document.getElementById('carousel-info').innerText = `${currentIndex + 1} / ${allFiles.length}`;
+            if (viewer) viewer.destroy();
+            viewer = new Viewer(img, { inline: true, container: document.getElementById('viewer-container'), navbar: false, toolbar: false, title: false, tooltip: false, button: false });
+        };
+        reader.readAsDataURL(allFiles[currentIndex]);
+    }
+
+    function refreshTablePlaceholder() {
+        document.getElementById('detail-table-body').innerHTML = allFiles.map((f, i) => `
+            <tr>
+                <td class="col-idx">${i + 1}</td>
+                <td class="col-view">--</td><td class="col-action">--</td>
+                <td class="col-filename">${f.name}</td>
+                <td>--</td><td>--</td><td>--</td>
+                <td class="col-status"><span class="status-waiting">等待辨識</span></td>
+            </tr>`).join('');
+        lucide.createIcons();
+    }
+
+    async function startRecognition() {
+        if (allFiles.length === 0) return alert("請先選取檔案");
+        
+        // 🚨 修正點：只選取 tbody 內的狀態欄，不改動 thead 標題
+        document.querySelectorAll('#detail-table-body .col-status').forEach(cell => {
+            cell.innerHTML = '<span class="spinner-sm"></span> 辨識中';
+        });
+
+        const formData = new FormData();
+        allFiles.forEach(f => formData.append('files', f));
+
+        const response = await fetch('/ocr/process', { method: 'POST', body: formData });
+        if (response.ok) {
+            document.getElementById('detail-table-body').innerHTML = await response.text();
+            lucide.createIcons();
+        }
+    }
+
+    function changeImage(dir) {
+        if (allFiles.length === 0) return;
+        currentIndex = (currentIndex + dir + allFiles.length) % allFiles.length;
+        updatePreview();
+    }
+</script>
+{% endblock %}

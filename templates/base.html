@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/sidebar_submenu.css">
+    <link rel="stylesheet" href="/static/css/ocr.css"> 
+    <link rel="stylesheet" href="/static/css/ocr.css">
+    {% block head %}{% endblock %}
+    <script src="/static/js/htmx.min.js" defer></script>
+    <script src="/static/js/htmx-head-support.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+</head>
+<body hx-ext="head-support">
+<div id="global-loading" class="htmx-indicator global-loading-bar"></div>
+
+<div class="sidebar">
+
+    <h2>儀表板</h2>
+
+    <div class="nav-group">
+        <h3>盤查年度</h3>
+        <ul class="nav-list">
+            <li>
+                <a href="/inventory_list/"
+                hx-get="/inventory_list/"
+                hx-target="#main-content"
+                hx-select="#main-content"
+                hx-push-url="true"
+                hx-indicator="#global-loading"
+                class="dashboard-btn">
+                <i data-lucide="calendar"></i>
+                盤查年度列表
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>係數管理</h3>
+        <ul class="nav-list">
+            <li><a href="/etl/"
+                   hx-get="/etl/"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="upload-cloud"></i>提取管理</a></li>
+            <li class="nav-item-with-submenu coefficient-overview-submenu">
+                <a id="coefficientOverviewToggle" class="dashboard-btn" tabindex="-1" style="pointer-events: none;"><i data-lucide="database"></i>係數總覽</a>
+                <ul id="coefficientOverviewSubmenu" class="nav-submenu" aria-hidden="true">
+                    <li><a id="submenu-link-能源間接" href="/etl/manage?category=能源間接"
+                          hx-get="/etl/manage?category=能源間接"
+                          hx-target="#main-content"
+                          hx-select="#main-content"
+                          hx-push-url="true"
+                          hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="zap"></i>電力</a></li>
+                    <li><a id="submenu-link-固定燃燒" href="/etl/manage?category=固定燃燒"
+                          hx-get="/etl/manage?category=固定燃燒"
+                          hx-target="#main-content"
+                          hx-select="#main-content"
+                          hx-push-url="true"
+                          hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="flame"></i>固定燃燒</a></li>
+                    <li><a id="submenu-link-移動燃燒" href="/etl/manage?category=移動燃燒"
+                          hx-get="/etl/manage?category=移動燃燒"
+                          hx-target="#main-content"
+                          hx-select="#main-content"
+                          hx-push-url="true"
+                          hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="car"></i>移動燃燒</a></li>
+                    <li><a id="submenu-link-逸散排放" href="/etl/manage?category=逸散排放"
+                          hx-get="/etl/manage?category=逸散排放"
+                          hx-target="#main-content"
+                          hx-select="#main-content"
+                          hx-push-url="true"
+                          hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="snowflake"></i>冷媒</a></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>設備管理</h3>
+        <ul class="nav-list">
+            <li><a href="/devices/"
+                 hx-get="/devices/"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-push-url="true"
+                 hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="settings-2"></i>排放設備設定</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3><b>智能工具</b></h3>
+        <ul class="nav-list">
+            <li>
+                <a href="/ocr/upload"
+                   hx-get="/ocr/upload"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" 
+                   class="dashboard-btn">
+                   <i data-lucide="scan-line"></i>
+                   智能單據辨識
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3><b>單據管理</b></h3>
+        <ul class="nav-list">
+            <li><a href="/documents/electricity"
+                   hx-get="/documents/electricity"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="zap"></i>電費單</a></li>
+            <li><a href="/documents/water"
+                   hx-get="/documents/water"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="droplets"></i>水費單</a></li>
+            <li><a href="/documents/fuel"
+                   hx-get="/documents/fuel"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="fuel"></i>加油單據</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>計算</h3>
+        <ul class="nav-list">
+            <li><a href="/calculation"
+                   hx-get="/calculation"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="calculator"></i>排放計算</a></li>
+            <li><a href="/result"
+                   hx-get="/result"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-push-url="true"
+                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="bar-chart-2"></i>結果</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-group">
+        <h3>設定</h3>
+        <ul class="nav-list">
+            <li><a href="/set"
+                 hx-get="/set"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-push-url="true"
+                 hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="building-2"></i>基本資料</a></li>
+        </ul>
+    </div>
+
+    <form action="/logout" method="post" class="logout-btn">
+        <button type="submit" class="dashboard-btn"><i data-lucide="log-out"></i>登出</button>
+    </form>
+</div>
+
+<div class="main-content" id="main-content">
+    {% block content %}{% endblock %}
+</div>
+
+<script src="/static/js/sidebar_submenu.js"></script>
+<script>
+  // Initialize Lucide icons on load and after every HTMX swap
+  function initLucideIcons() { if (window.lucide) lucide.createIcons(); }
+  document.addEventListener('DOMContentLoaded', initLucideIcons);
+  document.addEventListener('htmx:afterSettle', initLucideIcons);
+</script>
+</body>
+</html>

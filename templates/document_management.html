@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/document_management.css">
+{% endblock %}
+
+{% block content %}
+<div style="padding: 30px; max-width: 1200px; margin: auto;">
+    <div class="summary-box">
+        {% if bill_type == 'fuel' %}
+            汽油總用量：{{ '%.2f' % gasoline_total }} {{ default_unit }}
+            &nbsp;｜&nbsp;
+            柴油總用量：{{ '%.2f' % diesel_total }} {{ default_unit }}
+        {% else %}
+            本頁總用量：{{ '%.2f' % total_usage }} {{ default_unit }}
+        {% endif %}
+    </div>
+
+    <div class="device-card">
+        <div class="card-header">
+            <h3 style="margin:0;">{{ bill_title }}列表</h3>
+            <button type="button" class="btn-add" onclick="openModal()">＋ 新增{{ bill_title }}</button>
+        </div>
+
+        <table class="device-table">
+            <thead style="background: #f8f9fa;">
+            <tr>
+                 {% if bill_type == 'fuel' %}
+                 <th class="center-header">加油日期</th>
+                 <th class="center-header">燃料</th>
+                 {% else %}
+                 <th id="monthSortHeader" class="sortable-header center-header">收據月份 <span id="monthSortIcon">↓</span></th>
+                 <th class="center-header">期間</th>
+                 {% endif %}
+                 <th class="center-header">用量</th>
+                 <th class="center-header">單位</th>
+                 <th class="center-header">備註</th>
+                 <th class="center-header">操作</th>
+            </tr>
+            </thead>
+            <tbody id="billsTableBody">
+            {% for bill in bills %}
+            <tr data-bill-id="{{ bill.id }}" data-month="{{ bill.bill_month }}">
+                {% if bill_type == 'fuel' %}
+                <td class="col-period">{{ bill.period_start }}</td>
+                <td class="col-fuel-type">{{ bill.fuel_type or '-' }}</td>
+                {% else %}
+                <td class="col-bill-month">{{ bill.bill_month }}</td>
+                <td class="col-period">{{ bill.period_start }} ~ {{ bill.period_end }}</td>
+                {% endif %}
+                <td class="col-usage-amount">{{ bill.usage_amount }}</td>
+                <td class="col-unit">{{ bill.unit }}</td>
+                <td class="col-note">{{ bill.note or '-' }}</td>
+                <td>
+                    <button
+                        type="button"
+                        class="btn-edit"
+                        data-id="{{ bill.id }}"
+                        data-bill-month="{{ bill.bill_month | e }}"
+                        data-period-start="{{ bill.period_start | e }}"
+                        data-period-end="{{ bill.period_end | e }}"
+                        data-usage-amount="{{ bill.usage_amount }}"
+                        data-unit="{{ bill.unit | e }}"
+                        data-note="{{ (bill.note or '') | e }}"
+                        data-fuel-type="{{ (bill.fuel_type or '') | e }}"
+                        onclick="openEditModal(this)">
+                        編輯
+                    </button>
+                    <form action="/documents/delete/{{ bill.id }}" method="post" style="display:inline;">
+                        <input type="hidden" name="bill_type" value="{{ bill_type }}">
+                        <button type="submit" class="btn-delete"
+                                onclick="return confirm('確定刪除？')">刪除
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="color:#6c757d;">目前沒有資料</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="billModal" class="modal-overlay" style="display:none;" onclick="onOverlayClick(event)">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;">新增{{ bill_title }}</h3>
+            <button type="button" class="close-btn" onclick="closeModal()">×</button>
+        </div>
+        <form action="/documents/create" method="post" class="form-grid">
+            <input type="hidden" name="bill_type" value="{{ bill_type }}">
+
+            {% if bill_type == 'fuel' %}
+            <div class="form-group">
+                <label>加油日期</label>
+                <input type="date" name="fuel_date" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>用量</label>
+                <input type="number" name="usage_amount" step="0.01" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>單位</label>
+                <input type="text" name="unit" class="ui-input" value="{{ default_unit }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>燃料</label>
+                <select name="fuel_type" class="ui-select" required>
+                    <option value="">請選擇...</option>
+                    {% for ft in fuel_type_options %}
+                    <option value="{{ ft }}">{{ ft }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>備註</label>
+                <input type="text" name="note" class="ui-input" placeholder="可留空">
+            </div>
+
+            {% else %}
+            <div class="form-group">
+                <label>收據月份</label>
+                <input type="month" name="bill_month" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間起日</label>
+                <input type="date" name="period_start" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間迄日</label>
+                <input type="date" name="period_end" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>用量</label>
+                <input type="number" name="usage_amount" step="0.01" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>單位</label>
+                <input type="text" name="unit" class="ui-input" value="{{ default_unit }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>備註</label>
+                <input type="text" name="note" class="ui-input" placeholder="可留空">
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn-add">＋ 新增單據</button>
+        </form>
+    </div>
+</div>
+
+<div id="editBillModal" class="modal-overlay" onclick="onEditOverlayClick(event)">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;">編輯{{ bill_title }}</h3>
+            <button type="button" class="close-btn" onclick="closeEditModal()">×</button>
+        </div>
+        <form id="editBillForm" action="/documents/update/0" method="post" class="form-grid">
+            <input type="hidden" name="bill_type" value="{{ bill_type }}">
+
+            {% if bill_type == 'fuel' %}
+            <div class="form-group">
+                <label>加油日期</label>
+                <input type="date" name="fuel_date" id="edit_fuel_date" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>用量</label>
+                <input type="number" name="usage_amount" id="edit_usage_amount" step="0.01" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>單位</label>
+                <input type="text" name="unit" id="edit_unit" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>燃料</label>
+                <select name="fuel_type" id="edit_fuel_type" class="ui-select" required>
+                    <option value="">請選擇...</option>
+                    {% for ft in fuel_type_options %}
+                    <option value="{{ ft }}">{{ ft }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>備註</label>
+                <input type="text" name="note" id="edit_note" class="ui-input" placeholder="可留空">
+            </div>
+
+            {% else %}
+            <div class="form-group">
+                <label>收據月份</label>
+                <input type="month" name="bill_month" id="edit_bill_month" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間起日</label>
+                <input type="date" name="period_start" id="edit_period_start" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間迄日</label>
+                <input type="date" name="period_end" id="edit_period_end" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>用量</label>
+                <input type="number" name="usage_amount" id="edit_usage_amount" step="0.01" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>單位</label>
+                <input type="text" name="unit" id="edit_unit" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>備註</label>
+                <input type="text" name="note" id="edit_note" class="ui-input" placeholder="可留空">
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn-add">儲存修改</button>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/document_management.js"></script>
+<script>
+// 確保 modal 初始為隱藏
+document.addEventListener('DOMContentLoaded', function() {
+    var billModal = document.getElementById('billModal');
+    if (billModal) billModal.style.display = 'none';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活動數據輸入 - 溫室氣體盤查系統</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex: 1;
+        }
+
+        .step:not(:last-child):before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: -50%;
+            width: 100%;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 1;
+        }
+
+        .step.completed .step-number {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        .step.active .step-number {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 8px;
+            z-index: 2;
+        }
+
+        .step-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .step.active .step-label {
+            color: #4f46e5;
+            font-weight: 500;
+        }
+
+        /* 邊界選擇器 */
+        .org-selector {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .org-selector select {
+            background: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            color: #1e293b;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        /* 統計卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: #eef2ff;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4f46e5;
+            font-size: 24px;
+        }
+
+        .stat-info h4 {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: normal;
+            margin-bottom: 5px;
+        }
+
+        .stat-info .stat-value {
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .stat-info .stat-unit {
+            color: #64748b;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+
+        /* 進度條 */
+        .progress-section {
+            margin-bottom: 30px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #1e293b;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #4f46e5;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .year-badge {
+            background: #eef2ff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: inline-block;
+            color: #4f46e5;
+            border: 2px solid #4f46e5;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #4f46e5;
+            border: 2px solid #4f46e5;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: #eef2ff;
+        }
+
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+        }
+
+        .activity-table {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        /* 調整表格欄位寬度，讓狀態欄位有更多空間 */
+        .table-header {
+            display: grid;
+            grid-template-columns: 80px 2fr 1.5fr 1.5fr 1.5fr 1fr 120px;
+            background: #f8fafc;
+            padding: 12px 15px;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 80px 2fr 1.5fr 1.5fr 1.5fr 1fr 120px;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: center;
+        }
+
+        .table-row:hover {
+            background: #f8fafc;
+        }
+
+        .table-row:last-child {
+            border-bottom: none;
+        }
+
+        /* 年度總用量輸入框 */
+        .year-value-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .year-value-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* 單位輸入框 - 設為唯讀，由系統自動帶入 */
+        .unit-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: #f1f5f9;
+            color: #1e293b;
+            cursor: default;
+        }
+
+        .unit-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+
+        /* 狀態標籤 */
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            min-width: 70px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-completed {
+            background: #dcfce7;
+            color: #16a34a;
+            border: 1px solid #86efac;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffe69c;
+        }
+
+        /* 範疇標籤 */
+        .scope-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+            min-width: 55px;
+            text-align: center;
+        }
+
+        .scope1-badge {
+            background: #fee2e2;
+            color: #ef4444;
+            border: 1px solid #fecaca;
+        }
+
+        .scope2-badge {
+            background: #dbeafe;
+            color: #3b82f6;
+            border: 1px solid #bfdbfe;
+        }
+
+        /* 按鈕群組 */
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            margin: 30px auto 0 auto;
+            width: 100%;
+        }
+
+        .button-group .btn-secondary,
+        .button-group .btn-primary {
+            min-width: 160px;
+            padding: 12px 24px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .button-group .btn-secondary,
+            .button-group .btn-primary {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        /* 排放源名稱和範疇的容器 */
+        .source-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>活動數據輸入</h1>
+            <p>輸入各排放源年度總用量</p>
+            <span class="badge">盤查年度：<span id="currentYear"></span></span>
+        </div>
+
+        <div class="content">
+            <!-- 步驟指示器 -->
+            <div class="step-indicator">
+                <div class="step completed">
+                    <div class="step-number">1</div>
+                    <div class="step-label">組織邊界</div>
+                </div>
+                <div class="step completed">
+                    <div class="step-number">2</div>
+                    <div class="step-label">排放源清冊</div>
+                </div>
+                <div class="step active">
+                    <div class="step-number">3</div>
+                    <div class="step-label">活動數據</div>
+                </div>
+            </div>
+
+            <!-- 邊界選擇器 -->
+            <div class="org-selector">
+                <span>🏢 目前組織：</span>
+                <select id="boundarySelect" onchange="onBoundaryChange()">
+                    <option value="">請選擇邊界</option>
+                </select>
+            </div>
+
+            <!-- 統計卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <h4>總排放源</h4>
+                        <div>
+                            <span class="stat-value" id="totalSources">0</span>
+                            <span class="stat-unit">個</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <h4>已填寫</h4>
+                        <div>
+                            <span class="stat-value" id="completedCount">0</span>
+                            <span class="stat-unit">個</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-info">
+                        <h4>年度總排放量</h4>
+                        <div>
+                            <!-- 固定顯示為 0 -->
+                            <span class="stat-value" id="totalEmission">0</span>
+                            <span class="stat-unit">kgCO₂e</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-info">
+                        <h4>完成進度</h4>
+                        <div>
+                            <span class="stat-value" id="progressPercent">0</span>
+                            <span class="stat-unit">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 進度條 -->
+            <div class="progress-section">
+                <div class="progress-label">
+                    <span>整體輸入進度</span>
+                    <span id="progressText">0/0 (0%)</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 年度標籤 -->
+            <div class="year-badge">
+                <span>📅</span> <span id="yearDisplay"></span>年 年度總用量
+            </div>
+
+            <!-- 活動數據表格 -->
+            <div class="activity-table">
+                <div class="table-header">
+                    <div>編號</div>
+                    <div>排放源名稱</div>
+                    <div>排放類型</div>
+                    <div>原(燃)物料</div>
+                    <div>年度總用量</div>
+                    <div>單位</div>
+                    <div>狀態</div>
+                </div>
+                <div id="activityList">
+                    <div class="empty-state">請先選擇組織邊界</div>
+                </div>
+            </div>
+
+            <!-- 按鈕群組 -->
+            <div class="button-group">
+                <button class="btn-secondary" onclick="goBack()">回上頁</button>
+                <button class="btn-primary" onclick="finish()">完成盤查</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const currentYear = window.location.pathname.split('/').pop();
+        document.getElementById('currentYear').textContent = currentYear;
+        document.getElementById('yearDisplay').textContent = currentYear;
+
+        let currentBoundaryId = null;
+        let activityData = [];
+
+        // ========== 物料與單位對應表 ==========
+        const unitMap = {
+            // 以下物料單位為 公斤
+            '無煙煤': '公斤',
+            '煉焦煤': '公斤',
+            '其他煙煤': '公斤',
+            '亞煙煤': '公斤',
+            '褐煤': '公斤',
+            '油頁岩/焦油砂': '公斤',
+            '褐煤塊': '公斤',
+            '煤球': '公斤',
+            '焦炭': '公斤',
+            '煤氣焦碳': '公斤',
+            '煤焦油': '公斤',
+            '石油焦': '公斤',
+            '石蠟': '公斤',
+            '都市廢棄物 - 非生質部分': '公斤',
+            '事業廢棄物': '公斤',
+            '泥煤': '公斤',
+            '木材/廢材': '公斤',
+            '亞硫酸鹽廢液 / 黑液': '公斤',
+            '其他初級固體生質': '公斤',
+            '木炭': '公斤',
+            '都市廢棄物 - 生質部分': '公斤',
+            
+            // 以下物料單位為 平方公尺
+            '天然氣': '平方公尺',
+            '煤氣廠氣體': '平方公尺',
+            '焦爐氣': '平方公尺',
+            '高爐氣': '平方公尺',
+            '轉爐氣': '平方公尺',
+            '掩埋沼氣': '平方公尺',
+            '污泥沼氣': '平方公尺',
+            '其他氣體生質燃料': '平方公尺',
+            
+            // 以下物料單位為 公升
+            '原油': '公升',
+            '奧里油': '公升',
+            '液化天然氣': '公升',
+            '汽油': '公升',
+            '車用汽油': '公升',
+            '航空汽油': '公升',
+            '航空燃油汽油型': '公升',
+            '航空燃油煤油型': '公升',
+            '其他煤油': '公升',
+            '頁岩油': '公升',
+            '柴油': '公升',
+            '燃料油': '公升',
+            '液化石油氣': '公升',
+            '乙烷': '公升',
+            '石油腦': '公升',
+            '瀝青': '公升',
+            '潤滑油': '公升',
+            '煉油廠進料': '公升',
+            '煉油氣': '公升',
+            '白精油': '公升',
+            '其他石油產品': '公升',
+            '廢油': '公升',
+            '生質汽油': '公升',
+            '生質柴油': '公升',
+            '其他液體生質燃料': '公升',
+            
+            // 外購能源
+            '電力': '度',
+            '蒸氣': '公斤'
+        };
+
+        // ========== 根據物料取得單位 ==========
+        function getUnitByMaterial(material) {
+            return unitMap[material] || '';  // 如果找不到對應，回傳空字串
+        }
+
+        // ========== 回上頁 (回到排放源清冊) ==========
+        function goBack() {
+            window.location.href = `/inventory_list/emission/${currentYear}`;
+        }
+
+        // ========== 載入邊界下拉選單 ==========
+        async function loadBoundaries() {
+            try {
+                const response = await fetch(`/inventory_list/activity/${currentYear}/boundaries`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const select = document.getElementById('boundarySelect');
+                    select.innerHTML = '<option value="">請選擇邊界</option>';
+                    
+                    result.data.forEach(b => {
+                        select.innerHTML += `<option value="${b.boundary_id}">${b.boundary_name}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('載入邊界失敗:', error);
+            }
+        }
+
+        // ========== 邊界變更時載入活動數據 ==========
+        async function onBoundaryChange() {
+            const select = document.getElementById('boundarySelect');
+            currentBoundaryId = select.value;
+            
+            if (currentBoundaryId) {
+                await loadActivityData(currentBoundaryId);
+            } else {
+                document.getElementById('activityList').innerHTML = '<div class="empty-state">請先選擇組織邊界</div>';
+                updateStats();
+            }
+        }
+
+        // ========== 載入活動數據 ==========
+        async function loadActivityData(boundaryId) {
+            try {
+                const response = await fetch(`/inventory_list/activity/${currentYear}/list?boundary_id=${boundaryId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    activityData = result.data;
+                    
+                    // ★★★ 重要：載入資料時，強制更新所有項目的單位為最新的物料對應單位 ★★★
+                    activityData = activityData.map(item => {
+                        const newUnit = getUnitByMaterial(item.material);
+                        // 如果單位有變化，需要更新資料庫
+                        if (item.unit !== newUnit) {
+                            // 非同步更新資料庫中的單位
+                            updateUnitInDatabase(item.source_id, newUnit);
+                            // 更新本地資料的單位
+                            item.unit = newUnit;
+                        }
+                        return item;
+                    });
+                    
+                    renderActivityList(activityData);
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('載入活動數據失敗:', error);
+            }
+        }
+
+        // ========== 更新資料庫中的單位 ==========
+        async function updateUnitInDatabase(sourceId, newUnit) {
+            try {
+                // 先取得該筆資料的原始值
+                const sourceItem = activityData.find(s => s.source_id === sourceId);
+                if (!sourceItem) return;
+
+                const dataToSave = {
+                    source_id: sourceId,
+                    year_value: sourceItem.year_value ? parseFloat(sourceItem.year_value) : 0,
+                    unit: newUnit,
+                    remark: sourceItem.remark || ''
+                };
+
+                const response = await fetch(`/inventory_list/activity/${currentYear}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToSave)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`單位已更新: source_id=${sourceId}, newUnit=${newUnit}`);
+                } else {
+                    console.error('單位更新失敗:', result.message);
+                }
+            } catch (error) {
+                console.error('單位更新錯誤:', error);
+            }
+        }
+
+        // ========== 檢查是否已填寫（兩個欄位都有值） ==========
+        function isCompleted(yearValue, unit) {
+            return yearValue && yearValue.toString().trim() !== '' && 
+                   unit && unit.toString().trim() !== '';
+        }
+
+        // ========== 更新統計數據（年度總排放量固定為0） ==========
+        function updateStats() {
+            if (!currentBoundaryId || activityData.length === 0) {
+                document.getElementById('totalSources').textContent = '0';
+                document.getElementById('completedCount').textContent = '0';
+                // 年度總排放量保持為 0
+                document.getElementById('progressPercent').textContent = '0';
+                document.getElementById('progressText').textContent = '0/0 (0%)';
+                document.getElementById('progressBar').style.width = '0%';
+                return;
+            }
+
+            const totalSources = activityData.length;
+            
+            // 計算已填寫的數量（兩個欄位都有值）- 使用最新的單位
+            const completedCount = activityData.filter(item => 
+                isCompleted(item.year_value, item.unit)
+            ).length;
+            
+            const progress = totalSources > 0 
+                ? ((completedCount / totalSources) * 100).toFixed(1)
+                : '0';
+            
+            document.getElementById('totalSources').textContent = totalSources;
+            document.getElementById('completedCount').textContent = completedCount;
+            document.getElementById('progressPercent').textContent = progress;
+            document.getElementById('progressText').textContent = `${completedCount}/${totalSources} (${progress}%)`;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        // ========== 渲染活動數據列表 ==========
+        function renderActivityList(data) {
+            const listElement = document.getElementById('activityList');
+            
+            if (data.length === 0) {
+                listElement.innerHTML = '<div class="empty-state">此邊界下沒有排放源資料</div>';
+                return;
+            }
+
+            let html = '';
+            data.forEach((item) => {
+                // 使用最新的單位（已經在 loadActivityData 中更新過）
+                const displayUnit = item.unit;
+                
+                // 檢查是否兩個欄位都有值
+                const completed = isCompleted(item.year_value, displayUnit);
+                
+                html += `
+                    <div class="table-row" data-id="${item.source_id}" data-material="${item.material}">
+                        <div>${escapeHtml(item.source_number)}</div>
+                        <div class="source-info">
+                            <span class="scope-badge ${item.scope === '範疇一' ? 'scope1-badge' : 'scope2-badge'}">${item.scope}</span>
+                            ${escapeHtml(item.source_name)}
+                        </div>
+                        <div>${escapeHtml(item.emission_type)}</div>
+                        <div>${escapeHtml(item.material)}</div>
+                        <div>
+                            <input type="number" 
+                                   id="value_${item.source_id}"
+                                   class="year-value-input"
+                                   value="${item.year_value || ''}" 
+                                   placeholder="請輸入"
+                                   step="0.01"
+                                   onchange="updateActivityData(${item.source_id})">
+                        </div>
+                        <div>
+                            <input type="text" 
+                                   id="unit_${item.source_id}"
+                                   class="unit-input"
+                                   value="${displayUnit}" 
+                                   placeholder="單位"
+                                   readonly
+                                   data-original-unit="${displayUnit}">
+                        </div>
+                        <div style="text-align: center;">
+                            <span class="status-badge ${completed ? 'status-completed' : 'status-pending'}">
+                                ${completed ? '✓ 已填寫' : '⏳ 待填寫'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            listElement.innerHTML = html;
+        }
+
+        // ========== 更新活動數據 ==========
+        async function updateActivityData(sourceId) {
+            const valueInput = document.getElementById(`value_${sourceId}`);
+            const unitInput = document.getElementById(`unit_${sourceId}`);
+            
+            const yearValue = valueInput.value;
+            // 使用當前的單位
+            const unit = unitInput.value;
+
+            // 取得該筆資料的原始狀態
+            const sourceIndex = activityData.findIndex(s => s.source_id === sourceId);
+            if (sourceIndex === -1) return;
+
+            // 準備要儲存的資料 - 包含單位
+            const dataToSave = {
+                source_id: sourceId,
+                year_value: yearValue ? parseFloat(yearValue) : 0,
+                unit: unit || '',  // 確保單位會被儲存
+                remark: ''
+            };
+
+            try {
+                const response = await fetch(`/inventory_list/activity/${currentYear}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToSave)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新本地資料
+                    activityData[sourceIndex].year_value = yearValue;
+                    activityData[sourceIndex].unit = unit;  // 儲存單位
+                    
+                    // 更新統計數據
+                    updateStats();
+                    
+                    // 只更新該行的狀態
+                    const completed = isCompleted(yearValue, unit);
+                    const statusBadge = document.querySelector(`.table-row[data-id="${sourceId}"] .status-badge`);
+                    if (statusBadge) {
+                        statusBadge.className = `status-badge ${completed ? 'status-completed' : 'status-pending'}`;
+                        statusBadge.textContent = completed ? '✓ 已填寫' : '⏳ 待填寫';
+                    }
+                } else {
+                    alert(result.message || '儲存失敗');
+                    // 恢復原值
+                    valueInput.value = activityData[sourceIndex].year_value || '';
+                    unitInput.value = activityData[sourceIndex].unit || '';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('系統錯誤，請稍後再試');
+                // 恢復原值
+                valueInput.value = activityData[sourceIndex].year_value || '';
+                unitInput.value = activityData[sourceIndex].unit || '';
+            }
+        }
+
+        // ========== 完成盤查（導向年度列表） ==========
+        function finish() {
+            window.location.href = '/inventory_list';
+        }
+
+        // ========== HTML跳脫 ==========
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', loadBoundaries);
+    </script>
+</body>
+</html>
