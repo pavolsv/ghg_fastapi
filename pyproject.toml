@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+exclude = "(venv|uploads|__pycache__)"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = ["venv", "uploads", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]

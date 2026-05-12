@@ -1,0 +1,294 @@
+/* 登出按鈕置中 */
+.logout-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* ─── Sidebar Container ─── */
+.sidebar {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    background: #ffffff;
+    border-right: none;
+}
+    .sidebar {
+        width: 260px;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        position: sticky;
+        top: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        font-family: 'Roboto', 'Noto Sans TC', 'Arial', sans-serif;
+        font-size: 1em;
+        line-height: 1.5;
+    }
+
+.nav-item-with-submenu {
+    margin-bottom: 2px;
+    width: 100%;
+    box-sizing: border-box;
+}
+    .nav-item-with-submenu {
+        margin-bottom: 2px;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 1em;
+        line-height: 1.5;
+    }
+
+/* Toggle button inherits .dashboard-btn flat style; only override layout specifics */
+.nav-submenu-toggle {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    font-size: 0.95em;
+    justify-content: flex-start;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+}
+    .nav-submenu-toggle {
+        width: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        text-align: left;
+        font-size: 1em;
+        line-height: 1.5;
+        justify-content: flex-start;
+        background: transparent;
+        border: none;
+        border-left: 3px solid transparent;
+    }
+
+.nav-submenu {
+    list-style: none;
+    margin: 8px 0 0 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.nav-item-with-submenu.is-open .nav-submenu {
+    max-height: 250px;
+    opacity: 1;
+}
+
+.nav-submenu li {
+    margin-bottom: 2px;
+}
+
+.nav-submenu li:last-child {
+    margin-bottom: 8px;
+}
+
+/* Submenu links inherit .dashboard-btn flat style; indent slightly */
+.nav-submenu a {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding-left: 40px;
+    font-size: 0.9em;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    text-decoration: none;
+    
+}
+    .nav-submenu a {
+        width: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        padding-left: 40px;
+        font-size: 0.95em;
+        line-height: 1.5;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        text-decoration: none;
+    }
+
+/* 讓導覽項目更有層次感 */
+.nav-submenu-toggle:hover {
+    background: #f8fafc; /* 極淺灰藍 */
+    color: #1e293b;
+    border-radius: 8px;
+}
+
+/* Auto-expand submenu on hover for 係數總覽 only */
+.coefficient-overview-submenu:hover .nav-submenu {
+    max-height: 250px;
+    opacity: 1;
+    transition: max-height 0.3s ease-out;
+}
+.coefficient-overview-submenu:hover .nav-submenu-toggle {
+    border-left: 4px solid #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+/* Highlight active submenu link */
+
+.nav-submenu a.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+    border-left: 3px solid #2563eb;
+}
+
+/* 係數總覽 sidebar label never turns blue or active */
+/* Removed custom coefficient-overview-label styles. 係數總覽 now uses dashboard-btn styles for full consistency. */
+
+/* ─── HTMX Global Loading Bar ─── */
+.global-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px; /* 稍微細一點更精緻 */
+    background: linear-gradient(90deg, #2563eb, #60a5fa, #2563eb); /* 改用品牌藍 */
+    background-size: 200% 100%;
+    animation: loading-slide 1.2s linear infinite;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.htmx-request .global-loading-bar,
+.global-loading-bar.htmx-request {
+    opacity: 1;
+}
+
+@keyframes loading-slide {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Fade main-content during swap */
+.htmx-swapping #main-content {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}
+
+/* 數據聚合表格的 CSS 預選 */
+.data-table-cell-number {
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+}
+/* 移除所有發光效果，改用扁平化設計 */
+.nav-submenu-toggle, .nav-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: none !important;
+    filter: none !important;
+    border: none;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+/* 覆蓋 index.css：移除 sidebar 按鈕實體邊框與底色 */
+.sidebar .nav-list a.dashboard-btn,
+.sidebar .logout-btn .dashboard-btn {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* 只有在 Hover 或 Active 時增加極輕微的陰影 */
+.nav-submenu-toggle:hover {
+    background: #f8fafc;
+}
+
+/* 圖示與文字的排版 */
+.nav-label-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.nav-label-group i {
+    width: 20px;
+    color: #2563eb;
+    display: flex;
+    justify-content: center;
+}
+
+/* 統一圖示區域寬度，確保文字垂直對齊 */
+.nav-submenu-toggle i,
+.nav-item i,
+.nav-submenu-toggle svg {
+    width: 24px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 圖標統一為 outline 風格（Lucide） */
+.sidebar .dashboard-btn svg,
+.sidebar .nav-submenu a svg {
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 文字區域自動填滿，溢出隱藏（若文字太長） */
+.nav-submenu-toggle span {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 當選單展開時，強化側邊指示條，取代發光效果 */
+.nav-item-with-submenu.is-open .nav-submenu-toggle {
+    border-left: 4px solid #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+    .nav-item-with-submenu.is-open .nav-submenu-toggle {
+        border-left: 4px solid #2563eb;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+
+/* 子選單項目的縮進與懸停 */
+.nav-submenu a:hover {
+    background: #f1f5f9;
+    padding-left: 30px;
+    transition: padding 0.2s ease;
+}
+
+/* HTMX 載入條精緻化 */
+.global-loading-bar {
+    height: 2px;
+    background: #2563eb;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+
