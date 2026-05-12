@@ -3,8 +3,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Form
 from fastapi.responses import JSONResponse
-from sqlmodel import create_engine, Session, SQLModel, select
+from sqlmodel import SQLModel, select
 from model import Account
+from dependencies import get_session
+from fastapi import Depends
 
 
 templates = Jinja2Templates(directory="templates") 
@@ -24,28 +26,23 @@ async def register_account(
     email: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
+    session=Depends(get_session),
 ):
-    print(email, username, password)
-
-    db = "sqlite:///database.db"
-    engine = create_engine(db, echo=True)
-
     filed_name = [ "email", "account", "password"]
     filed_data = {"email":email, "account":username, "password":password}
     remind = ["此電子郵件已有人使用!", "此帳號已有人使用!", "此密碼已有人使用!"]
 
     is_legal = True
-    with Session(engine) as session:
-        for i in range(3):
-            statement = select(Account).where(getattr(Account, filed_name[i]) == filed_data[filed_name[i]])
-            data = session.exec(statement).all()
-            if data != []:
-                is_legal = False
-                return templates.TemplateResponse("register.html", {"request": request , "message":remind[i]})
+    for i in range(3):
+        statement = select(Account).where(getattr(Account, filed_name[i]) == filed_data[filed_name[i]])
+        data = session.exec(statement).all()
+        if data != []:
+            is_legal = False
+            return templates.TemplateResponse("register.html", {"request": request , "message":remind[i]})
    
 
-        if is_legal:
-            new_account = Account(account=username, email=email, password=password)
-            session.add(new_account)  # 將資料加入 session
-            session.commit()           # 提交到資料庫
-            return templates.TemplateResponse("login.html", {"request": request, "message": "註冊成功！請登入。"})
+    if is_legal:
+        new_account = Account(account=username, email=email, password=password)
+        session.add(new_account)  # 將資料加入 session
+        session.commit()           # 提交到資料庫
+        return templates.TemplateResponse("login.html", {"request": request, "message": "註冊成功！請登入。"})

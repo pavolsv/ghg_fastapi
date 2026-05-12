@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}附表代碼管理{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<style>
+/* Appendix-specific tweaks */
+.appendix-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.badge-industry { background: #e3f2fd; color: #1565c0; }
+.badge-process   { background: #f3e5f5; color: #6a1b9a; }
+.badge-device    { background: #e8f5e9; color: #2e7d32; }
+.badge-material  { background: #fff3e0; color: #ef6c00; }
+
+.upload-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    background: #fafafa;
+    margin-bottom: 16px;
+    transition: border-color .2s;
+}
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: #1565c0;
+    background: #f0f7ff;
+}
+.upload-zone input[type="file"] { display: none; }
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+}
+.pagination a, .pagination span {
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.pagination a { background: #f0f0f0; color: #333; }
+.pagination a:hover { background: #e0e0e0; }
+.pagination .active { background: #1565c0; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+
+    <div class="fm-page-header">
+        <h1 class="fm-title">附表代碼管理（四 ~ 七）</h1>
+        <div class="fm-header-actions">
+            <button type="button" id="btnOpenCreate" class="btn-fm-create">＋ 新增代碼</button>
+            <button type="button" id="btnOpenUpload" class="btn-fm-log">📤 匯入 ODS</button>
+        </div>
+    </div>
+
+    <!-- 分類大按鈕 -->
+    <div class="fm-category-grid">
+        <a href="/appendix?page=1"
+           class="fm-category-btn {% if not current_type %}active{% endif %}">
+            <span class="fm-cat-icon">📋</span>
+            <span class="fm-cat-label">全部</span>
+        </a>
+        <a href="/appendix?appendix_type=industry&page=1"
+           class="fm-category-btn {% if current_type == 'industry' %}active{% endif %}">
+            <span class="fm-cat-icon">🏭</span>
+            <span class="fm-cat-label">附表四 行業</span>
+        </a>
+        <a href="/appendix?appendix_type=process&page=1"
+           class="fm-category-btn {% if current_type == 'process' %}active{% endif %}">
+            <span class="fm-cat-icon">⚙️</span>
+            <span class="fm-cat-label">附表五 製程</span>
+        </a>
+        <a href="/appendix?appendix_type=device&page=1"
+           class="fm-category-btn {% if current_type == 'device' %}active{% endif %}">
+            <span class="fm-cat-icon">🔧</span>
+            <span class="fm-cat-label">附表六 設備</span>
+        </a>
+        <a href="/appendix?appendix_type=material&page=1"
+           class="fm-category-btn {% if current_type == 'material' %}active{% endif %}">
+            <span class="fm-cat-icon">🧪</span>
+            <span class="fm-cat-label">附表七 物料</span>
+        </a>
+    </div>
+
+    <!-- 篩選列 -->
+    <div class="filter-bar">
+        <form method="get" action="/appendix" class="filter-form" id="filterForm">
+            {% if current_type %}
+            <input type="hidden" name="appendix_type" value="{{ current_type }}">
+            {% endif %}
+            <div class="filter-group">
+                <label for="qInput">關鍵字</label>
+                <input type="text" id="qInput" name="q" class="filter-input" placeholder="代碼或名稱..."
+                       value="{{ request.query_params.get('q', '') }}">
+            </div>
+            <div class="filter-actions">
+                <a href="/appendix{% if current_type %}?appendix_type={{ current_type }}{% endif %}" class="btn-clear">清除條件</a>
+                <button type="submit" class="btn-filter">🔍 搜尋</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 資料表格 -->
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>分類</th>
+                <th>序號</th>
+                <th>代碼</th>
+                <th style="text-align:left;">名稱</th>
+                <th>來源</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <span class="appendix-type-badge badge-{{ r.appendix_type }}">
+                        {% if r.appendix_type == 'industry' %}行業{% endif %}
+                        {% if r.appendix_type == 'process' %}製程{% endif %}
+                        {% if r.appendix_type == 'device' %}設備{% endif %}
+                        {% if r.appendix_type == 'material' %}物料{% endif %}
+                    </span>
+                </td>
+                <td>{{ r.seq or '-' }}</td>
+                <td><code>{{ r.code }}</code></td>
+                <td style="text-align:left;">{{ r.name }}</td>
+                <td>{{ r.source_sheet or '-' }}</td>
+                <td class="td-actions">
+                    <button type="button" class="btn-fm-edit"
+                        onclick="openEditModal({
+                            id: {{ r.id }},
+                            appendix_type: '{{ r.appendix_type }}',
+                            code: '{{ r.code | replace("'", "\\'") }}',
+                            name: '{{ r.name | replace("'", "\\'") }}',
+                            seq: {{ r.seq if r.seq is not none else 'null' }},
+                            source_sheet: '{{ (r.source_sheet or "") | replace("'", "\\'") }}',
+                            note: '{{ (r.note or "") | replace("'", "\\'") }}'
+                        })">編輯</button>
+                    <form action="/appendix/delete/{{ r.id }}" method="post" style="display:inline;" onsubmit="return confirm('確定刪除？')">
+                        <button type="submit" class="btn-factor-delete">刪除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="6" class="td-empty">查無資料，請調整篩選條件或匯入 ODS。</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- 分頁 -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="/appendix?page={{ page - 1 }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">上一頁</a>
+        {% endif %}
+        {% for p in page_range %}
+            {% if p == page %}
+            <span class="active">{{ p }}</span>
+            {% else %}
+            <a href="/appendix?page={{ p }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="/appendix?page={{ page + 1 }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">下一頁</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="fm-count">共 {{ total }} 筆資料，目前顯示第 {{ page }} / {{ total_pages }} 頁</div>
+</div>
+
+<!-- 新增 / 編輯 Modal -->
+<div id="appendixModal" class="factor-modal hidden">
+    <div class="factor-modal-content">
+        <div class="factor-modal-header">
+            <h3 id="appendixModalTitle">新增附表代碼</h3>
+            <button type="button" id="appendixModalClose" class="factor-modal-close">&times;</button>
+        </div>
+        <form id="appendixForm" action="/appendix/create" method="post" class="factor-form">
+            <div class="factor-form-grid">
+                <div class="factor-form-group">
+                    <label>分類 *</label>
+                    <select id="am_type" name="appendix_type" class="factor-input" required>
+                        <option value="industry">附表四 - 行業代碼</option>
+                        <option value="process">附表五 - 製程代碼</option>
+                        <option value="device">附表六 - 設備代碼</option>
+                        <option value="material">附表七 - 原(燃)物料代碼</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>代碼 *</label>
+                    <input type="text" id="am_code" name="code" class="factor-input" required placeholder="如 0111">
+                </div>
+                <div class="factor-form-group">
+                    <label>名稱 *</label>
+                    <input type="text" id="am_name" name="name" class="factor-input" required placeholder="如 稻作栽培業">
+                </div>
+                <div class="factor-form-group">
+                    <label>序號</label>
+                    <input type="number" id="am_seq" name="seq" class="factor-input" placeholder="如 1">
+                </div>
+                <div class="factor-form-group factor-form-full">
+                    <label>來源工作表</label>
+                    <input type="text" id="am_source_sheet" name="source_sheet" class="factor-input" placeholder="如 附表四">
+                </div>
+                <div class="factor-form-group factor-form-full">
+                    <label>備註</label>
+                    <input type="text" id="am_note" name="note" class="factor-input" placeholder="備註說明">
+                </div>
+            </div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">儲存</button>
+                <button type="button" id="appendixModalCancel" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 上傳 ODS Modal -->
+<div id="uploadModal" class="factor-modal hidden">
+    <div class="factor-modal-content" style="max-width: 520px;">
+        <div class="factor-modal-header">
+            <h3>匯入 ODS 附表四 ~ 七</h3>
+            <button type="button" id="uploadModalClose" class="factor-modal-close">&times;</button>
+        </div>
+        <form id="uploadForm" action="/appendix/import_ods" method="post" enctype="multipart/form-data" class="factor-form">
+            <div class="upload-zone" id="dropZone">
+                <p style="margin:0 0 8px 0; color:#666;">將 .ods / .xlsx 檔案拖曳至此，或點擊選擇</p>
+                <button type="button" class="btn-fm-log" onclick="document.getElementById('fileInput').click()">選擇檔案</button>
+                <input type="file" id="fileInput" name="file" accept=".ods,.xlsx,.xls" required>
+                <p id="fileName" style="margin:8px 0 0 0; font-size:0.9rem; color:#333;"></p>
+            </div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">開始匯入</button>
+                <button type="button" id="uploadModalCancel" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const modal = document.getElementById('appendixModal');
+    const uploadModal = document.getElementById('uploadModal');
+
+    // --- 新增 ---
+    document.getElementById('btnOpenCreate').addEventListener('click', () => {
+        document.getElementById('appendixForm').action = '/appendix/create';
+        document.getElementById('appendixModalTitle').textContent = '新增附表代碼';
+        document.getElementById('am_type').value = '{{ current_type or "industry" }}';
+        ['am_code','am_name','am_seq','am_source_sheet','am_note'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        modal.classList.remove('hidden');
+    });
+
+    // --- 編輯 ---
+    window.openEditModal = function(data) {
+        document.getElementById('appendixForm').action = '/appendix/update/' + data.id;
+        document.getElementById('appendixModalTitle').textContent = '編輯附表代碼';
+        document.getElementById('am_type').value = data.appendix_type;
+        document.getElementById('am_code').value = data.code;
+        document.getElementById('am_name').value = data.name;
+        document.getElementById('am_seq').value = data.seq !== null ? data.seq : '';
+        document.getElementById('am_source_sheet').value = data.source_sheet || '';
+        document.getElementById('am_note').value = data.note || '';
+        modal.classList.remove('hidden');
+    };
+
+    // --- 關閉 modal ---
+    document.getElementById('appendixModalClose').addEventListener('click', () => modal.classList.add('hidden'));
+    document.getElementById('appendixModalCancel').addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+
+    // --- 上傳 modal ---
+    document.getElementById('btnOpenUpload').addEventListener('click', () => {
+        document.getElementById('fileName').textContent = '';
+        uploadModal.classList.remove('hidden');
+    });
+    document.getElementById('uploadModalClose').addEventListener('click', () => uploadModal.classList.add('hidden'));
+    document.getElementById('uploadModalCancel').addEventListener('click', () => uploadModal.classList.add('hidden'));
+    uploadModal.addEventListener('click', e => { if (e.target === uploadModal) uploadModal.classList.add('hidden'); });
+
+    // --- 檔案選擇顯示 ---
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', () => {
+        const f = fileInput.files[0];
+        document.getElementById('fileName').textContent = f ? '已選擇：' + f.name : '';
+    });
+
+    // --- 拖曳上傳 ---
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            fileInput.files = files;
+            document.getElementById('fileName').textContent = '已選擇：' + files[0].name;
+        }
+    });
+})();
+</script>
+{% endblock %}

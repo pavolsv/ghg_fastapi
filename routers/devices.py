@@ -5,7 +5,7 @@ from sqlmodel import Session, col, select
 
 from audit_log import add_change_log
 from database import engine
-from model import Device, EmissionFactor, GWPReference
+from model import AppendixReference, Device, EmissionFactor, GWPReference
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 templates = Jinja2Templates(directory="templates")
@@ -94,6 +94,12 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
         )
     )
 
+    appendix_device_options = session.exec(
+        select(AppendixReference)
+        .where(AppendixReference.appendix_type == "device")
+        .order_by(col(AppendixReference.seq), AppendixReference.code)
+    ).all()
+
     return templates.TemplateResponse(
         "device_management.html",
         {
@@ -101,6 +107,7 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
             "devices": devices,
             "factor_map": factor_map,  # 傳送名稱對照表
             "factor_options_json": factor_options_json,
+            "appendix_device_options": appendix_device_options,
         },
     )
 
@@ -112,9 +119,11 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
 async def create_device(
     request: Request,
     name: str = Form(...),
-    location: str = Form(...),
+    location: str = Form(default=""),
     factor_ref_code: str = Form(...),
     emission_type: str = Form(default="固定燃燒"),
+    device_number: str = Form(default=""),
+    device_code: str = Form(default=""),
     session: Session = Depends(get_session),
 ):
     """處理設備新增：接收多選氣體並自動帶入類型/單位"""
@@ -126,8 +135,9 @@ async def create_device(
 
     normalized_emission_type = _norm_text(emission_type)
     normalized_factor_ref = _norm_text(factor_ref_code)
+    normalized_name = _norm_text(name)
 
-    if not normalized_emission_type or not normalized_factor_ref:
+    if not normalized_name or not normalized_emission_type or not normalized_factor_ref:
         return RedirectResponse(url="/devices/", status_code=303)
 
     # 2. 自動根據燃料代碼，找出該燃料的類型與單位
@@ -160,6 +170,8 @@ async def create_device(
         emission_type=normalized_emission_type,
         category=device_category,
         unit=device_unit,
+        device_number=device_number or None,
+        device_code=device_code or None,
     )
     session.add(new_device)
     session.flush()

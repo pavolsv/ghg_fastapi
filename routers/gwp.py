@@ -26,11 +26,11 @@ router = APIRouter(prefix="/gwp", tags=["gwp"])
 
 VALID_VERSIONS = {"AR4", "AR5", "AR6"}
 
-# 政府公告 ODS 檔案網址（附表四 = GWP 參考表）
-GWP_FETCH_URL = "https://ghgregistry.moenv.gov.tw/upload/Tools/AI/113年2月5日公告溫室氣體排放係數.ods"
+# 政府公告 ODS 檔案網址（附表二 = 溫暖化潛勢 GWP 來自排放量清冊表單範例）
+GWP_FETCH_URL = "https://ghgregistry.moenv.gov.tw/upload/Tools/AI/溫室氣體排放量清冊表單(範例).ods"
 
-# 附表四有效資料列數（標題列之後約 70 列資料 + 少數腳註，設 75 確保最後一行不被截斷）
-_APPENDIX_FOUR_NROWS = 75
+# 附表二有效資料列數
+_NROWS = 300
 
 
 # ---------------------------------------------------------------------------
@@ -186,96 +186,46 @@ def _parse_gwp_value(raw) -> tuple[float, bool]:
         return 0.0, True
 
 
-# 符合「中文名（English name）」格式，尾端可能有「註N」
-_NAME_RE = re.compile(
-    r"^(?P<zh>.+?)"             # 中文名稱（貪婪至第一個括號前）
-    r"(?:[（(]\s*(?P<en>.+?)\s*[）)])?"   # 可選英文名 (括號內)
-    r"\s*(?P<note>註\d+)?$"     # 可選腳註標記
-)
-
-
-def _split_name(raw: str) -> tuple[str, str, Optional[str]]:
-    """
-    解析 Column A 的複合名稱：
-      '二氧化碳（Carbon dioxide）'     → ('二氧化碳', 'Carbon dioxide', None)
-      '石化甲烷（Fossil methane）註1'   → ('石化甲烷', 'Fossil methane', '註1')
-      'PFC-c216'                       → ('PFC-c216', 'PFC-c216', None)
-    """
-    raw = str(raw).strip()
-    m = _NAME_RE.match(raw)
-    if m:
-        zh = m.group("zh").strip()
-        en = (m.group("en") or zh).strip()
-        note = m.group("note")
-        return zh, en, note
-    return raw, raw, None
-
-
 def process_appendix_four(file_path: str, version: str = "AR5") -> pd.DataFrame:
     """
-    解析 ODS 附表四（溫暖化潛勢 GWP）。
+    解析 ODS 附表二（溫暖化潛勢 GWP）。
 
-    版面結構：
-      行 0  : 大標題「附表四、溫暖化潛勢…」   → skiprows=1 跳過
-      行 1  : 欄位標題（A=名稱, B=化學式, C=溫暖化潛勢）→ header=0
-      行 2+ : 資料（含分類標題列、腳註列）
-      nrows : 最多讀 68 列，覆蓋全部氣體且不含腳註
+    欄位：原(燃)物料或產品代碼, 縮寫/通用名稱/化學名稱, 溫暖化潛勢, 備註說明
+    → 對應: code, gas_name_zh, gwp_raw, note
     """
     df = pd.read_excel(
         file_path,
-        sheet_name="附表四",
-        header=None,       # 自行處理標題
-        skiprows=1,        # 跳過第 0 列大標題
-        nrows=_APPENDIX_FOUR_NROWS,
+        sheet_name="附表二",
+        header=None,
+        skiprows=1,
+        nrows=_NROWS,
         engine="odf",
     )
 
-    # 只取前三欄，不論原始欄位名稱為何
-    df = df.iloc[:, :3].copy()
-    df.columns = ["raw_name", "formula", "gwp_raw"]
+    df = df.iloc[:, :4].copy()
+    df.columns = ["code", "gas_name_zh", "gwp_raw", "note"]
 
-    # 字串化以便後續判斷
-    df["raw_name"] = df["raw_name"].astype(str).str.strip()
-    df["formula"]  = df["formula"].astype(str).str.strip()
-    df["gwp_raw"]  = df["gwp_raw"].astype(str).str.strip()
+    df["code"] = df["code"].astype(str).str.strip()
+    df["gas_name_zh"] = df["gas_name_zh"].astype(str).str.strip()
+    df["gwp_raw"] = df["gwp_raw"].astype(str).str.strip()
+    df["note"] = df["note"].astype(str).str.strip()
 
-    # 第一列是子標題列（欄位名稱列），移除
-    df = df.iloc[1:].reset_index(drop=True)
+    df = df[df["gas_name_zh"].notna() & (df["gas_name_zh"] != "nan") & (df["gas_name_zh"] != "")]
 
-    # 去除：化學式為空的分類標題列（如「氫氟碳化物」、「全氟碳化物」）
-    df = df[~df["formula"].isin(["", "nan", "None"])]
+    df["gas_name_en"] = df["gas_name_zh"]
+    df["formula"] = df["code"]  # 原(燃)物料或產品代碼存入 formula 欄位
 
-    # 去除：名稱以「註」開頭且 formula 為空的腳註列（保留有 formula 的最後一行資料）
-    df = df[~((df["raw_name"].str.startswith("註")) & (df["formula"] == ""))]
-
-    # 解析名稱欄
-    parsed = df["raw_name"].apply(_split_name)
-    df["gas_name_zh"] = parsed.apply(lambda t: t[0])
-    df["gas_name_en"] = parsed.apply(lambda t: t[1])
-    df["note_flag"]   = parsed.apply(lambda t: t[2])   # 如 '註1'
-
-    # 解析 GWP 值
     gwp_parsed = df["gwp_raw"].apply(_parse_gwp_value)
-    df["gwp_value"]      = gwp_parsed.apply(lambda t: t[0])
+    df["gwp_value"] = gwp_parsed.apply(lambda t: t[0])
     df["is_qualitative"] = gwp_parsed.apply(lambda t: t[1])
 
     df["version"] = version
 
-    # 整理輸出欄位
     result = df[[
         "formula", "gas_name_zh", "gas_name_en",
-        "gwp_value", "is_qualitative", "version", "note_flag",
+        "gwp_value", "is_qualitative", "version", "note",
     ]].copy()
-    result = result.rename(columns={"note_flag": "note"})
     result = result.reset_index(drop=True)
-
-    # 跳過 石化甲烷（Fossil methane）註1 CH4 30
-    mask = ~(
-        (result["gas_name_zh"] == "石化甲烷") &
-        (result["formula"] == "CH4") &
-        (result["note"] == "註1")
-    )
-    result = result[mask].reset_index(drop=True)
 
     return result
 
@@ -288,7 +238,7 @@ def process_appendix_four(file_path: str, version: str = "AR5") -> pd.DataFrame:
 async def fetch_gwp(version: str = Form("AR5")):
     """
     POST /gwp/fetch
-    從政府公告 ODS 下載附表四，自動解析並 upsert 到 gwpreference 資料表。
+     從政府公告 ODS 下載附表二，自動解析並 upsert 到 gwpreference 資料表。
     Upsert 鍵：(formula, version)
     """
     if version not in VALID_VERSIONS:
@@ -302,7 +252,7 @@ async def fetch_gwp(version: str = Form("AR5")):
         with open(tmp_path, "wb") as f:
             f.write(resp.content)
 
-        # 2. 解析附表四
+        # 2. 解析附表二
         df = process_appendix_four(tmp_path, version)
 
     except requests.RequestException as exc:

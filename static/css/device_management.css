@@ -7,6 +7,11 @@
     margin-bottom: 30px;
 }
 
+.device-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

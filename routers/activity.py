@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict
 from datetime import datetime
 
-from model import ActivityData, EmissionSource, Boundary, Year
+from model import ActivityData, EmissionSource, Boundary, Year, EmissionFactor
 from dependencies import get_session, get_current_user
+from services.emission_calculator import calculate_emission_by_source
 
 router = APIRouter(prefix="/inventory_list", tags=["activity"])
 
@@ -24,16 +25,6 @@ class ActivityDataUpdate(BaseModel):
 
 class BatchActivityData(BaseModel):
     data: List[ActivityDataCreate]
-
-# 排放係數對照表
-EMISSION_FACTORS = {
-    ('柴油', '公升'): 2.64,
-    ('車用汽油', '公升'): 2.26,
-    ('天然氣', '立方公尺'): 2.02,
-    ('冷媒', '公斤'): 1810,
-    ('電力', '千度'): 500,
-    ('蒸氣', '公噸'): 300,
-}
 
 # ========== 取得該年度所有邊界 (供下拉選單使用) ==========
 @router.get("/activity/{year}/boundaries")
@@ -305,6 +296,68 @@ async def delete_activity_data(
             content={"success": False, "message": str(e)}
         )
 
+# ========== 輔助：依 material 名稱解析 original_code ==========
+def _resolve_original_code(session: Session, material: str, emission_type: str, year: int) -> str | None:
+    """
+    依 material 中文名稱 + emission_type 查找對應的 original_code。
+    先嘗試精確匹配，再嘗試模糊匹配（LIKE）。
+    """
+    # 1. 精確匹配
+    factor = session.exec(
+        select(EmissionFactor).where(
+            EmissionFactor.name == material,
+            EmissionFactor.emission_type == emission_type,
+            EmissionFactor.year == year,
+        )
+    ).first()
+    if factor:
+        return factor.original_code
+
+    # 2. 模糊匹配：material 包含於 factor.name
+    factor = session.exec(
+        select(EmissionFactor).where(
+            EmissionFactor.name.contains(material),
+            EmissionFactor.emission_type == emission_type,
+            EmissionFactor.year == year,
+        )
+    ).first()
+    if factor:
+        return factor.original_code
+
+    # 3. 模糊匹配：factor.name 包含於 material
+    factor = session.exec(
+        select(EmissionFactor).where(
+            EmissionFactor.name.in_([material]),
+            EmissionFactor.emission_type == emission_type,
+            EmissionFactor.year == year,
+        )
+    ).first()
+    if factor:
+        return factor.original_code
+
+    # 4. fallback：取該 emission_type 下最接近的（名稱最長匹配）
+    all_factors = session.exec(
+        select(EmissionFactor).where(
+            EmissionFactor.emission_type == emission_type,
+            EmissionFactor.year == year,
+        )
+    ).all()
+
+    best_match = None
+    best_len = 0
+    for f in all_factors:
+        if f.name in material or material in f.name:
+            match_len = len(f.name)
+            if match_len > best_len:
+                best_len = match_len
+                best_match = f
+
+    if best_match:
+        return best_match.original_code
+
+    return None
+
+
 # ========== 計算排放量 ==========
 @router.get("/activity/{year}/calculate")
 async def calculate_emissions(
@@ -320,25 +373,25 @@ async def calculate_emissions(
                 Year.year == year
             )
         ).first()
-        
+
         if not year_record:
             return JSONResponse(
                 status_code=404,
                 content={"success": False, "message": "年度不存在"}
             )
-        
+
         # 取得排放源
         query = select(EmissionSource).where(
             EmissionSource.account_id == account_id,
             EmissionSource.year_id == year_record.year_id
         )
-        
+
         if boundary_id:
             query = query.where(EmissionSource.boundary_id == boundary_id)
-        
+
         sources = session.exec(query).all()
         source_ids = [s.source_id for s in sources]
-        
+
         # 取得活動數據
         activities = {}
         if source_ids:
@@ -346,39 +399,98 @@ async def calculate_emissions(
                 select(ActivityData).where(ActivityData.source_id.in_(source_ids))
             ).all()
             activities = {a.source_id: a for a in acts}
-        
-        # 計算排放量
-        total_emission = 0
-        scope1_emission = 0
-        scope2_emission = 0
-        
+
+        # 計算排放量（分項）
+        total_co2 = 0.0
+        total_ch4 = 0.0
+        total_n2o = 0.0
+        total_co2e = 0.0
+        scope1_co2e = 0.0
+        scope2_co2e = 0.0
+
+        source_details = []
+
         for source in sources:
             activity = activities.get(source.source_id)
             if not activity:
                 continue
-            
-            factor = EMISSION_FACTORS.get((source.material, activity.unit), 1.0)
-            emission = activity.year_value * factor
-            
+
+            # 解析燃料代碼
+            original_code = _resolve_original_code(
+                session, source.material, source.emission_type, year
+            )
+
+            if not original_code:
+                # fallback：嘗試用 material 直接查（可能是舊資料無法匹配）
+                source_details.append({
+                    "source_id": source.source_id,
+                    "source_name": source.source_name,
+                    "material": source.material,
+                    "activity_value": activity.year_value,
+                    "unit": activity.unit,
+                    "co2": None,
+                    "ch4": None,
+                    "n2o": None,
+                    "co2e": None,
+                    "error": f"無法找到 '{source.material}' 的係數資料",
+                })
+                continue
+
+            # 計算各氣體排放
+            emission_result = calculate_emission_by_source(
+                session=session,
+                original_code=original_code,
+                activity_value=activity.year_value,
+                activity_unit=activity.unit,
+                year=year,
+                emission_type=source.emission_type,
+            )
+
+            co2 = emission_result["CO2"]
+            ch4 = emission_result["CH4"]
+            n2o = emission_result["N2O"]
+            co2e = emission_result["CO2e"]
+
+            total_co2 += co2
+            total_ch4 += ch4
+            total_n2o += n2o
+            total_co2e += co2e
+
             if source.scope == 'scope1':
-                scope1_emission += emission
+                scope1_co2e += co2e
             else:
-                scope2_emission += emission
-            
-            total_emission += emission
-        
+                scope2_co2e += co2e
+
+            source_details.append({
+                "source_id": source.source_id,
+                "source_name": source.source_name,
+                "material": source.material,
+                "original_code": original_code,
+                "activity_value": activity.year_value,
+                "unit": activity.unit,
+                "co2": co2,
+                "ch4": ch4,
+                "n2o": n2o,
+                "co2e": co2e,
+            })
+
         return JSONResponse(content={
             "success": True,
             "data": {
-                "total_emission": round(total_emission, 2),
-                "scope1_emission": round(scope1_emission, 2),
-                "scope2_emission": round(scope2_emission, 2),
+                "total_co2": round(total_co2, 4),
+                "total_ch4": round(total_ch4, 4),
+                "total_n2o": round(total_n2o, 4),
+                "total_co2e": round(total_co2e, 4),
+                "scope1_co2e": round(scope1_co2e, 4),
+                "scope2_co2e": round(scope2_co2e, 4),
                 "total_sources": len(sources),
-                "completed_sources": len(activities)
+                "completed_sources": len(activities),
+                "sources": source_details,
             }
         })
     except Exception as e:
+        import traceback
         return JSONResponse(
             status_code=500,
-            content={"success": False, "message": str(e)}
+            content={"success": False, "message": str(e), "traceback": traceback.format_exc()}
         )

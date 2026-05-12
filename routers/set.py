@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, create_engine, select
+from sqlmodel import select
+from fastapi import Depends
 
 from audit_log import add_change_log
 from model import CompanyInfo
+from dependencies import get_session
+from database import engine
+from sqlmodel import Session
 
 templates = Jinja2Templates(directory="templates")
 
@@ -13,17 +17,14 @@ router = APIRouter(
     tags=["set"]
 )
 
-db = "sqlite:///database.db"
-engine = create_engine(db, echo=True)
-
 @router.get("/", response_class=HTMLResponse)
 async def register_page(request: Request):
-        
+
         user_id = request.session.get("user")
 
         if not user_id:
             return RedirectResponse(url="/login", status_code=303)
-        
+
         with Session(engine) as session:
             # 查詢該帳號是否已有公司資料
             statement = select(CompanyInfo).where(CompanyInfo.account_id == user_id)
@@ -39,8 +40,6 @@ async def register_page(request: Request):
             "telephone": existing.telephone if existing else "",
             "email": existing.email if existing else "",
             "URL": existing.URL if existing else ""
-            
-            
             }
 
         return templates.TemplateResponse("set.html", {"request": request, "user": user_data})
@@ -107,6 +106,6 @@ async def set_company_info(
         )
         session.commit()
         return RedirectResponse(
-        url=router.prefix + "/", # 導向回 /set/ 頁面
-        status_code=303 
+        url=router.prefix + "/",
+        status_code=303
     )

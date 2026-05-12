@@ -21,7 +21,7 @@ const LogModal = (() => {
                             <option value="all">全部模組</option>
                             <option value="calculation">排放計算</option>
                             <option value="factor_management">排放因子</option>
-                            <option value="devices">設備管理</option>
+                            <option value="devices">排放源</option>
                             <option value="company_info">公司資料</option>
                         </select>
                         <select id="logFilterAction" class="log-filter-select">

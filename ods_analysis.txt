@@ -1,0 +1,64 @@
+=== 固定燃燒 ===
+Shape: (65, 16)
+Row 5: 燃料 |  | 英譯名稱 |  | 燃料單位熱值之排放係數 |  |  | 燃料單位熱值之排放係數(排放係數×4186.8×10-9×10-3 |  |  | 低位熱值 |  | 排放係數 |  |  | 排放係數單位
+Row 6:  |  |  |  | 公斤/兆焦耳(kg/TJ) |  |  | 公斤/千卡(Kg/Kcal) |  |  |  |  |  |  |  | 
+Row 7:  |  |  |  | CO2 | CH4 | N2O | CO2 | CH4 | N2O | 單位(下拉式選項) | 數值 | CO2 | CH4 | N2O | 
+Row 8: 原油 |  | Crude Oil |  | 73300 | 3 | 0.6 | 0.00030689244000000005 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+Row 9: 奧里油 |  | Orimulsion |  | 77000 | 3 | 0.6 | 0.0003223836 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+Row 10: 液化天然氣 |  | Natural Gas Liquids (NGLs) |  | 64200 | 3 | 0.6 | 0.00026879256000000005 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+Row 11: 汽油 | 車用汽油 | Gasoline | Motor Gasoline | 69300 | 3 | 0.6 | 0.00029014524 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+
+=== 移動燃燒 ===
+Shape: (35, 11)
+Row 5: 燃料 | 英譯名稱 | 燃料單位熱值之排放係數 | 燃料單位熱值之排放係數(排放係數×4186.8×10-9×10-3 | 低位熱值 |  | 排放係數 | 排放係數單位 |  |  | 
+Row 6:  |  | 公斤/兆焦耳(kg/TJ) | 公斤/千卡(Kg/Kcal) |  |  |  |  |  |  | 
+Row 7:  |  | CO2 | CO2 | 單位(下拉式選項) | 數值 | CO2 |  |  |  | 
+Row 8: 車用汽油 | Motor Gasoline | 69300 | 0.00029014524 |  |  |  |  |  |  | 
+Row 9: 柴油 | Gas/ Diesel | 74100 | 0.00031024188000000006 |  |  |  |  |  |  | 
+Row 10: 液化石油氣 | Liquefied Petroleum Gases | 63100 | 0.00026418708000000004 |  |  |  |  |  |  | 
+Row 11: 煤油 | Kerosene | 71900 | 0.00030103092000000005 |  |  |  |  |  |  | 
+
+=== 非金屬礦物 ===
+Shape: (54, 6)
+Row 7: FeCO3 | 菱鐵礦(Siderite) | 115.8539 | 0.37987 |  | 
+Row 8: Ca(Fe,Mg,Mn)(CO3)2 | 鐵白雲石(Ankerite) | 185.0225−215.6160 | 0.40822−0.47572 |  | 
+Row 9: MnCO3 | 菱錳礦(Rhodochrosite) | 114.947 | 0.38286 |  | 
+Row 10: Na2CO3 | 碳酸鈉或純鹼(Sodium carbonate or soda ash) | 106.0685 | 0.41492 |  | 
+Row 11: 註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inventories, Volume 3 Industrial Processes and Product Use, chapter 2: Mineral Industry Emissions, table 2.1。 |  |  |  |  | 
+Row 12:  |  |  |  |  | 
+Row 13: （二）水泥產品 |  |  |  |  | 
+Row 14: 產品 | CO2（公噸/公噸熟料） |  |  |  | 
+
+=== 化學製品 ===
+Shape: (160, 7)
+Row 5: 過量空氣重組-天然氣(Excess air reforming – natural gas) | 29.7 | 15.3 | 1 | 1.666 |  | 
+Row 6: 自發性熱重組-天然氣(Autothermal reforming – natural gas) | 30.2 | 15.3 | 1 | 1.694 |  | 
+Row 7: 部分氧化(Partial oxidation) | 36 | 21 | 1 | 2.772 |  | 
+Row 8: 從特定能源消耗量（現代和傳統工廠混合）的歐洲平均值得出Derived from European average values for specific energy consumption (Mix of modern and older plants) |  |  |  |  |  | 
+Row 9: 平均值-天然氣(Average value – natural gas) | 37.5 | 15.3 | 1 | 2.104 |  | 
+Row 10: 平均值-部分氧化(Average value – partial oxidation) | 42.5 | 21 | 1 | 3.273 |  | 
+Row 11: 註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inventories, Volume 3 Industrial Processes and Product Use, chapter 3:Chemical Industry Emissions, table 3.1。 |  |  |  |  |  | 
+
+=== 逸散排放(廢水) ===
+Shape: (124, 7)
+Row 7:  | 0.6 （公斤甲烷/公斤BOD）（kg CH4/kg BOD） |  |  |  |  | 
+Row 8:  | 0.25 （公斤甲烷/公斤COD）（kg CH4/kg COD） |  |  |  |  | 
+Row 9:  | 註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inventories, Volume 5 Waste, Chapter 6: Wastewater Treatment and Discharge, table 6.2。 |  |  |  |  | 
+Row 10:  |  |  |  |  |  | 
+Row 11:  | 表2、甲烷修正係數 |  |  |  |  | 
+Row 12:  | 處理系統 | 甲烷修正係數（MCFj） | 範圍 |  |  | 
+Row 13:  | 未經處理的系統 |  |  |  |  | 
+Row 14:  | 海洋、河、湖排放 | 0.1 | 0-0.2 |  |  | 
+
+=== GWP ===
+Shape: (74, 3)
+Row 0: 附表四、溫暖化潛勢（Global Warming Potential, GWP） |  | 
+Row 1: 縮寫/通用名稱/化學名稱 | 化學式 | 溫暖化潛勢 
+Row 2: 二氧化碳（Carbon dioxide） | CO2 | 1
+Row 3: 甲烷（Methane） | CH4 | 28
+Row 4: 石化甲烷（Fossil methane）註1 | CH4 | 30
+Row 5: 氧化亞氮（Nitrous Oxide） | N2O | 265
+Row 6: 氫氟碳化物（Hydrofluorocarbons） |  | 
+Row 7: 三氟甲烷（HFC-23） | CHF3 | 12400
+Row 8: 二氟甲烷（HFC-32） | CH2F2 | 677
+Row 9: 一氟甲烷（HFC-41） | CH3F | 116

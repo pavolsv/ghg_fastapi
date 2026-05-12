@@ -11,8 +11,20 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
-    // Remove click event from coefficientOverviewToggle to make it non-interactive
-    // Submenu will open on hover only (handled by CSS)
+    // Click toggle to expand/collapse submenu
+    toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isOpen = submenuWrapper.classList.contains('is-open');
+        if (isOpen) {
+            submenuWrapper.classList.remove('is-open');
+            toggle.setAttribute('aria-expanded', 'false');
+            submenu.setAttribute('aria-hidden', 'true');
+        } else {
+            submenuWrapper.classList.add('is-open');
+            toggle.setAttribute('aria-expanded', 'true');
+            submenu.setAttribute('aria-hidden', 'false');
+        }
+    });
 
     // Highlight active submenu link based on category param
     const params = new URLSearchParams(window.location.search);
@@ -79,8 +91,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             submenuEl.setAttribute('aria-hidden', 'false');
                         }
                     }
-                } else {
+                } else if (!this.classList.contains('nav-submenu-toggle')) {
                     // Only collapse submenu if clicked button is NOT inside any nav-submenu
+                    // and is NOT a submenu toggle itself
                     document.querySelectorAll('.nav-item-with-submenu.is-open').forEach(item => {
                         item.classList.remove('is-open');
                         const toggleBtn = item.querySelector('.nav-submenu-toggle');

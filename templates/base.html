@@ -15,9 +15,37 @@
 <body hx-ext="head-support">
 <div id="global-loading" class="htmx-indicator global-loading-bar"></div>
 
+<header class="topbar">
+    <a href="/index/"
+       hx-get="/index/"
+       hx-target="#main-content"
+       hx-select="#main-content"
+       hx-push-url="true"
+       hx-indicator="#global-loading"
+       class="topbar-brand">
+        <i data-lucide="layout-dashboard"></i>
+        <span>儀表板</span>
+    </a>
+
+    <div class="topbar-actions">
+        <span class="topbar-user">
+            <i data-lucide="user-circle"></i>
+            {{ request.session.get("username", "使用者") }}
+        </span>
+        <form action="/logout" method="post" class="topbar-logout-form">
+            <button type="submit" class="topbar-logout-btn">
+                <i data-lucide="log-out"></i>
+                <span>登出</span>
+            </button>
+        </form>
+    </div>
+</header>
+
+<div class="layout-body">
+
 <div class="sidebar">
 
-    <h2>儀表板</h2>
+
 
     <div class="nav-group">
         <h3>盤查年度</h3>
@@ -47,7 +75,10 @@
                    hx-push-url="true"
                    hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="upload-cloud"></i>提取管理</a></li>
             <li class="nav-item-with-submenu coefficient-overview-submenu">
-                <a id="coefficientOverviewToggle" class="dashboard-btn" tabindex="-1" style="pointer-events: none;"><i data-lucide="database"></i>係數總覽</a>
+                <a id="coefficientOverviewToggle" class="dashboard-btn nav-submenu-toggle">
+                    <span>係數總覽</span>
+                    <i data-lucide="chevron-down"></i>
+                </a>
                 <ul id="coefficientOverviewSubmenu" class="nav-submenu" aria-hidden="true">
                     <li><a id="submenu-link-能源間接" href="/etl/manage?category=能源間接"
                           hx-get="/etl/manage?category=能源間接"
@@ -72,21 +103,27 @@
                           hx-target="#main-content"
                           hx-select="#main-content"
                           hx-push-url="true"
-                          hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="snowflake"></i>冷媒</a></li>
+                           hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="snowflake"></i>GWP</a></li>
+                    <li><a href="/appendix/"
+                           hx-get="/appendix/"
+                           hx-target="#main-content"
+                           hx-select="#main-content"
+                           hx-push-url="true"
+                           hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="book-open"></i>附表代碼管理</a></li>
                 </ul>
             </li>
         </ul>
     </div>
 
     <div class="nav-group">
-        <h3>設備管理</h3>
+        <h3>排放源管理</h3>
         <ul class="nav-list">
             <li><a href="/devices/"
                  hx-get="/devices/"
                  hx-target="#main-content"
                  hx-select="#main-content"
                  hx-push-url="true"
-                 hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="settings-2"></i>排放設備設定</a></li>
+                  hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="settings-2"></i>排放源管理</a></li>
         </ul>
     </div>
 
@@ -169,6 +206,8 @@
 
 <div class="main-content" id="main-content">
     {% block content %}{% endblock %}
+</div>
+
 </div>
 
 <script src="/static/js/sidebar_submenu.js"></script>

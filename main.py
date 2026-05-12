@@ -28,6 +28,7 @@ from routers import emission
 from routers import activity
 from routers import boundary
 from routers import ocr_recognition
+from routers import appendix as appendix_router
 import os
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
@@ -56,6 +57,7 @@ app.include_router(emission.router)
 app.include_router(activity.router)
 app.include_router(boundary.router)
 app.include_router(ocr_recognition.router)
+app.include_router(appendix_router.router)
 app.mount("/static", StaticFiles(directory="static"))
 
 

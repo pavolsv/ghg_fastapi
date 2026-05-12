@@ -93,6 +93,7 @@
             <th class="center-header">CH4</th>
             <th class="center-header">N2O</th>
             <th class="center-header">單位</th>
+            <th class="center-header">低位熱值(LHV)</th>
             <th class="center-header">年度</th>
             <th class="center-header">操作</th>
         </tr>
@@ -142,6 +143,14 @@
             <td class="td-value">{{ g.gas_values.get('CH4', '-') }}</td>
             <td class="td-value">{{ g.gas_values.get('N2O', '-') }}</td>
             <td class="td-unit">{{ g.unit }}</td>
+            <td class="td-unit">
+                {% set first_factor = g.gas_factors.values()|list|first %}
+                {% if first_factor and first_factor.lower_heating_value %}
+                    {{ first_factor.lower_heating_value }} {{ first_factor.lhv_unit or '' }}
+                {% else %}
+                    <span style="color:#999">未設定</span>
+                {% endif %}
+            </td>
             <td>{{ g.year }}</td>
             <td class="td-actions">
                 {% set edit_gas = g.gas_factors.get('CO2') or g.gas_factors.get('CO2e') or g.gas_factors.values()|list|first %}
@@ -157,6 +166,8 @@
                         factor_emission_type: '{{ edit_gas.emission_type }}',
                         factor_source: '{{ edit_gas.factor_source | replace("'", "\\'") }}',
                         factor_calculation_method: '{{ edit_gas.calculation_method | replace("'", "\\'") }}',
+                        factor_lhv_value: '{{ edit_gas.lower_heating_value or '' }}',
+                        factor_lhv_unit: '{{ edit_gas.lhv_unit or 'Kcal/公升' }}',
                         delete_gas_types: {{ g.gas_factors.keys()|list }}
                     })">編輯</button>
                 {# 刪除按鈕移至編輯 modal，modal 內根據 delete_gas_types 顯示 #}
@@ -230,6 +241,27 @@
                     <input type="text" id="factor_calculation_method" name="calculation_method"
                            class="factor-input" value="total_co2e = activity_data × emission_factor"
                            placeholder="計算方法說明">
+                </div>
+                <div class="factor-form-group" style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 8px;">
+                    <h4 style="margin: 0 0 12px 0; color: #1e293b;">低位熱值 (LHV) 設定</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label>低位熱值數值</label>
+                            <input type="number" step="0.01" id="factor_lhv_value" class="factor-input" placeholder="如 8400">
+                        </div>
+                        <div>
+                            <label>熱值單位</label>
+                            <select id="factor_lhv_unit" class="factor-input">
+                                <option value="Kcal/公升">Kcal/公升</option>
+                                <option value="Kcal/公斤">Kcal/公斤</option>
+                                <option value="Kcal/立方公尺">Kcal/立方公尺</option>
+                                <option value="MJ/公升">MJ/公升</option>
+                                <option value="MJ/公斤">MJ/公斤</option>
+                                <option value="MJ/立方公尺">MJ/立方公尺</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" onclick="updateLhv()" class="btn-fm-save" style="margin-top: 12px; width: auto;">更新 LHV</button>
                 </div>
             </div>
             <div class="factor-form-footer">

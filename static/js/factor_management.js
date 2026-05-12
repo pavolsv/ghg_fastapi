@@ -45,7 +45,8 @@ function editFactor(data) {
         "factor_code", "factor_gas_type", "factor_original_code",
         "factor_name", "factor_value", "factor_unit",
         "factor_year", "factor_emission_type",
-        "factor_source", "factor_calculation_method"
+        "factor_source", "factor_calculation_method",
+        "factor_lhv_value", "factor_lhv_unit"
     ];
 
     fields.forEach(fieldId => {
@@ -63,6 +64,43 @@ function resetFactorForm() {
     if (form) form.reset();
     const methodField = document.getElementById("factor_calculation_method");
     if (methodField) methodField.value = "total_co2e = activity_data × emission_factor";
+}
+
+async function updateLhv() {
+    const originalCode = document.getElementById('factor_original_code')?.value;
+    const year = document.getElementById('factor_year')?.value;
+    const emissionType = document.getElementById('factor_emission_type')?.value;
+    const lhvValue = document.getElementById('factor_lhv_value')?.value;
+    const lhvUnit = document.getElementById('factor_lhv_unit')?.value;
+
+    if (!originalCode || !year || !emissionType || !lhvValue || !lhvUnit) {
+        alert('請填寫完整的 LHV 資訊');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('original_code', originalCode);
+    formData.append('year', year);
+    formData.append('emission_type', emissionType);
+    formData.append('lower_heating_value', lhvValue);
+    formData.append('lhv_unit', lhvUnit);
+
+    try {
+        const response = await fetch('/etl/factor/lhv/update', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            alert('LHV 更新成功');
+            window.location.reload();
+        } else {
+            alert('LHV 更新失敗');
+        }
+    } catch (error) {
+        console.error('LHV 更新錯誤:', error);
+        alert('系統錯誤');
+    }
 }
 
 function setupDeleteConfirm() {

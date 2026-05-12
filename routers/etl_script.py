@@ -366,6 +366,45 @@ async def create_factor(
     return RedirectResponse(url="/etl/manage", status_code=303)
 
 
+@router.post("/factor/lhv/update")
+async def update_lhv(
+    request: Request,
+    original_code: str = Form(...),
+    year: int = Form(...),
+    emission_type: str = Form(...),
+    lower_heating_value: float = Form(...),
+    lhv_unit: str = Form(...),
+):
+    """更新燃料的低位熱值（同一 original_code 的所有 gas_type 一起更新）"""
+    with Session(engine) as session:
+        factors = session.exec(
+            select(EmissionFactor).where(
+                EmissionFactor.original_code == original_code,
+                EmissionFactor.year == year,
+                EmissionFactor.emission_type == emission_type,
+            )
+        ).all()
+
+        for factor in factors:
+            factor.lower_heating_value = lower_heating_value
+            factor.lhv_unit = lhv_unit
+            factor.updated_at = datetime.utcnow()
+            session.add(factor)
+
+        add_change_log(
+            session=session,
+            module="factor_management",
+            entity_name="EmissionFactor",
+            record_key=f"{original_code}|LHV",
+            action_type="UPDATE",
+            changed_by=str(request.session.get("user", "manual")),
+            change_details=f"LHV={lower_heating_value} {lhv_unit}",
+        )
+        session.commit()
+
+    return RedirectResponse(url="/etl/manage", status_code=303)
+
+
 @router.post("/factor/delete")
 async def delete_factor(
     request: Request,

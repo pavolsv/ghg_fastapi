@@ -32,6 +32,8 @@ def ensure_schema_updates():
                 "factor_source": "TEXT",
                 "calculation_method": "TEXT",
                 "updated_at": "DATETIME",
+                "lower_heating_value": "FLOAT",
+                "lhv_unit": "TEXT",
             }
 
             for column_name, column_ddl in ef_required.items():
@@ -58,6 +60,37 @@ def ensure_schema_updates():
                 conn.exec_driver_sql(
                     "ALTER TABLE device ADD COLUMN emission_type TEXT DEFAULT '固定燃燒'"
                 )
+
+            dev_new_columns = {
+                "device_number": "TEXT",
+                "device_code": "TEXT",
+            }
+            for col_name, col_ddl in dev_new_columns.items():
+                if col_name not in dev_columns:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE device ADD COLUMN {col_name} {col_ddl}"
+                    )
+
+            # --- AppendixReference 表迁移 ---
+            try:
+                app_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('appendix_reference')"
+                    ).fetchall()
+                }
+                if len(app_columns) > 0:
+                    app_required = {
+                        "source_sheet": "TEXT",
+                        "note": "TEXT",
+                    }
+                    for column_name, column_ddl in app_required.items():
+                        if column_name not in app_columns:
+                            conn.exec_driver_sql(
+                                f"ALTER TABLE appendix_reference ADD COLUMN {column_name} {column_ddl}"
+                            )
+            except Exception:
+                pass
 
         except Exception:
             # 新環境或尚未建立資料表時，create_all 會處理

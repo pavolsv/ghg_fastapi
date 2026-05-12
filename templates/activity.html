@@ -613,6 +613,17 @@
             return unitMap[material] || '';  // 如果找不到對應，回傳空字串
         }
 
+        // ========== 根據排放類型取得可用單位列表 ==========
+        function getUnitsByEmissionType(emissionType) {
+            const commonUnits = {
+                '固定燃燒': ['公升', '公斤', '立方公尺', '公噸', '公秉'],
+                '移動燃燒': ['公升', '公斤', '立方公尺', '公噸', '公秉'],
+                '逸散排放': ['公斤', '公噸'],
+                '能源間接排放': ['度', '千度', '公斤', '公噸'],
+            };
+            return commonUnits[emissionType] || ['公升', '公斤', '立方公尺', '公噸'];
+        }
+
         // ========== 回上頁 (回到排放源清冊) ==========
         function goBack() {
             window.location.href = `/inventory_list/emission/${currentYear}`;
@@ -659,18 +670,7 @@
                 if (result.success) {
                     activityData = result.data;
                     
-                    // ★★★ 重要：載入資料時，強制更新所有項目的單位為最新的物料對應單位 ★★★
-                    activityData = activityData.map(item => {
-                        const newUnit = getUnitByMaterial(item.material);
-                        // 如果單位有變化，需要更新資料庫
-                        if (item.unit !== newUnit) {
-                            // 非同步更新資料庫中的單位
-                            updateUnitInDatabase(item.source_id, newUnit);
-                            // 更新本地資料的單位
-                            item.unit = newUnit;
-                        }
-                        return item;
-                    });
+                    // 單位由使用者自行選擇，不再強制覆蓋
                     
                     renderActivityList(activityData);
                     updateStats();
@@ -704,6 +704,11 @@
                 
                 if (result.success) {
                     console.log(`單位已更新: source_id=${sourceId}, newUnit=${newUnit}`);
+                    // 更新本地資料
+                    const sourceItem = activityData.find(s => s.source_id === sourceId);
+                    if (sourceItem) {
+                        sourceItem.unit = newUnit;
+                    }
                 } else {
                     console.error('單位更新失敗:', result.message);
                 }
@@ -784,13 +789,13 @@
                                    onchange="updateActivityData(${item.source_id})">
                         </div>
                         <div>
-                            <input type="text" 
-                                   id="unit_${item.source_id}"
-                                   class="unit-input"
-                                   value="${displayUnit}" 
-                                   placeholder="單位"
-                                   readonly
-                                   data-original-unit="${displayUnit}">
+                            <select id="unit_${item.source_id}"
+                                    class="unit-input"
+                                    onchange="updateUnitInDatabase(${item.source_id}, this.value)">
+                                ${getUnitsByEmissionType(item.emission_type).map(u =>
+                                    `<option value="${u}" ${u === displayUnit ? 'selected' : ''}>${u}</option>`
+                                ).join('')}
+                            </select>
                         </div>
                         <div style="text-align: center;">
                             <span class="status-badge ${completed ? 'status-completed' : 'status-pending'}">

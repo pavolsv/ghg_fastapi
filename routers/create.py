@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlmodel import create_engine, Session, select
+from sqlmodel import Session, select
 from model import Year
 from dependencies import get_session, get_current_user
 

@@ -2,19 +2,17 @@ import pandas as pd
 import os
 from datetime import datetime
 from typing import Optional
-from sqlmodel import Field, SQLModel, create_engine, Session
+from sqlmodel import Field, SQLModel, Session
 import model
+from database import engine
 
 
 def save_single_record(date_str, p98, p95, p92, diesel):
 
-    db = "sqlite:///database.db"
-    engine = create_engine(db, echo=True)
-
     publish_dt = datetime.strptime(date_str, "%Y-%m-%d")
 
     new_price = model.OilPrice(
-        publish_date=publish_dt, 
+        publish_date=publish_dt,
         price_92=p92,
         price_95=p95,
         price_98=p98,
@@ -55,4 +53,3 @@ try:
 
 except Exception as e:
     print(f"處理過程中發生錯誤: {e}")
-

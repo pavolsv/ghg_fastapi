@@ -10,9 +10,11 @@ from fastapi import Form
 from fastapi.responses import HTMLResponse
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import create_engine, Session, select
+from sqlmodel import select
+from fastapi import Depends
 
 from model import Account
+from dependencies import get_session
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/login", tags=["login"])
@@ -29,8 +31,6 @@ async def get_captcha_image(request: Request):
     captcha_text = "".join(secrets.choice(chars) for _ in range(4))
     request.session["captcha_code"] = captcha_text
 
-    print(request.session["captcha_code"])
-
     image = ImageCaptcha(width=220, height=80, font_sizes=[40, 50])
     data = image.generate(captcha_text)
 
@@ -43,33 +43,27 @@ async def login_user(
     username: str = Form(...),
     password: str = Form(...),
     VerificationCode: str = Form(...),
+    session=Depends(get_session),
 ):
 
-    print(f"從表單接收到的用戶名: {username}")
-    print(f"從表單接收到的密碼: {password}")
-    print(f"從表單接收到的密碼: {VerificationCode}")
+    session_captcha_code = request.session.pop("captcha_code", "")
 
-    db = "sqlite:///database.db"
-    engine = create_engine(db, echo=True)
+    statement = select(Account).where(Account.account == username, Account.password == password)  # type: ignore
+    existing_utilities = session.exec(statement).all()
 
-    with Session(engine) as session:
-        statement = select(Account).where(Account.account == username, Account.password == password)  # type: ignore
-        existing_utilities = session.exec(statement).all()
+    context = {"request": request, "username_value": username}
 
-        session_captcha_code = request.session.pop("captcha_code", "")
-
-        context = {"request": request, "username_value": username}
-
-        if existing_utilities:
-            if VerificationCode == session_captcha_code:
-                request.session["user"] = existing_utilities[
-                    0
-                ].id  # 如果登入成功，則將使用者帳號的id儲存到session中，用來做後續的資料權限的驗證
-                return RedirectResponse(url="/index/", status_code=303)
-            else:
-                context["message"] = "驗證碼錯誤！"
-                return templates.TemplateResponse("login.html", context)
+    if existing_utilities:
+        if VerificationCode == session_captcha_code:
+            request.session["user"] = existing_utilities[
+                0
+            ].id  # 如果登入成功，則將使用者帳號的id儲存到session中，用來做後續的資料權限的驗證
+            request.session["username"] = existing_utilities[0].account
+            return RedirectResponse(url="/index/", status_code=303)
         else:
-            return templates.TemplateResponse(
-                "login.html", {"request": request, "message": "帳號或密碼錯誤！"}
-            )
+            context["message"] = "驗證碼錯誤！"
+            return templates.TemplateResponse("login.html", context)
+    else:
+        return templates.TemplateResponse(
+            "login.html", {"request": request, "message": "帳號或密碼錯誤！"}
+        )

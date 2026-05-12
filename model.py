@@ -15,6 +15,8 @@ class EmissionFactor(SQLModel, table=True):
     year: int
     factor_source: Optional[str] = None
     calculation_method: Optional[str] = None
+    lower_heating_value: Optional[float] = None
+    lhv_unit: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -56,6 +58,8 @@ class Device(SQLModel, table=True):
     factor_ref_code: str
     gas_type: str
     unit: str
+    device_number: Optional[str] = None
+    device_code: Optional[str] = None
 
 
 class EmissionRecord(SQLModel, table=True):
@@ -209,9 +213,9 @@ class ActivityData(SQLModel, table=True):
 class OilPrice(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    
+
     publish_date: datetime = Field(index=True, unique=True, description="油價公布日期")
-    
+
     price_92: float = Field(default=0.0, description="92無鉛汽油")
     price_95: float = Field(default=0.0, description="95無鉛汽油")
     price_98: float = Field(default=0.0, description="98無鉛汽油")
@@ -220,3 +224,20 @@ class OilPrice(SQLModel, table=True):
     source_url: Optional[str] = Field(default="https://www.cpc.com.tw/historyprice.aspx?n=2890")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AppendixReference(SQLModel, table=True):
+    __tablename__ = "appendix_reference"
+    __table_args__ = (
+        UniqueConstraint("appendix_type", "code", name="uq_appendix_type_code"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    appendix_type: str = Field(index=True)
+    seq: Optional[int] = None
+    code: str = Field(index=True)
+    name: str = Field(index=True)
+    source_sheet: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
