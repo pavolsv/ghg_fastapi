@@ -7,6 +7,9 @@ templates/1.txt
 # Generated report output
 uploads/ai_reports/
 
+# Markdown files
+*.md
+
 # Python cache artifacts
 __pycache__/
 *.py[cod]
