@@ -1,20 +1,11 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>公司資料設定</title>
-  <style>
+{% extends "base.html" %}
+
+{% block title %}基本資料{% endblock %}
+
+{% block head %}
+<style>
     html {
-      scroll-behavior: smooth; 
-    }
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f5f6fa;
-      display: block;
-      height: auto;
-      min-height: 100vh;
-      margin: 0;
+      scroll-behavior: smooth;
     }
 
     .form-container {
@@ -100,9 +91,10 @@
       text-decoration: underline;
     }
   </style>
-</head>
-<body>
-  <div class="form-container">
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
     <h2>基本資料</h2>
     <form id="profileForm" action="/set" method="post">
       <div class="form-group">
@@ -199,22 +191,22 @@
     <div class="back-link">
       <a href="/index">返回首頁</a>
     </div>
-  </div>
+</div>
 
-  <script>
+<script>
+  (function initSetPage() {
     const fields = ['companyName','taxId','address','owner','contact_person','telephone','email','URL'];
-
-    // 點擊文字切換成可編輯輸入框
-    fields.forEach(field => {
+    fields.forEach(function(field) {
       const input = document.getElementById(field);
       const text = document.getElementById(field + 'Text');
-
-      text.addEventListener('click', () => {
-        text.style.display = 'none';
-        input.style.display = 'inline';
-        input.focus();
-      });
+      if (text && input) {
+        text.addEventListener('click', function() {
+          text.style.display = 'none';
+          input.style.display = 'inline';
+          input.focus();
+        });
+      }
     });
-  </script>
-</body>
-</html>
+  })();
+</script>
+{% endblock %}

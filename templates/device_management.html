@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/device_management.css">
+{% endblock %}
+
+{% block content %}
+<div style="padding: 30px; max-width: 1200px; margin: auto;">
+    <h1>設備管理</h1>
+
+    <div class="device-card">
+        <h3 style="margin-top:0;">新增排放設備</h3>
+        <form action="/devices/create" method="post" class="form-grid">
+            <div class="form-group">
+                <label>設備名稱</label>
+                <input type="text" name="name" class="ui-input" placeholder="如：1號鍋爐" required>
+            </div>
+
+            <div class="form-group">
+                <label>設備位置</label>
+                <input type="text" name="location" class="ui-input" placeholder="如：A棟廠區">
+            </div>
+
+            <div class="form-group">
+                <label>排放類型</label>
+                <select id="emissionTypeSelect" name="emission_type" class="ui-select" required>
+                    <option value="">請選擇排放類型</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>選擇使用的燃料/電力</label>
+                <select id="factorSelect" name="factor_ref_code" class="ui-select" required>
+                    <option value="">請先選擇排放類型</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-add">＋ 新增設備</button>
+        </form>
+    </div>
+
+    <table class="device-table">
+        <thead style="background: #f8f9fa;">
+        <tr>
+            <th>設備名稱</th>
+            <th>位置</th>
+            <th>排放類型</th>
+            <th>綁定燃料/電力 名稱</th>
+            <th>綁定燃料/電力 代號</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in devices %}
+        <tr>
+            <td><strong>{{ d.name }}</strong></td>
+            <td>{{ d.location }}</td>
+
+            <td>
+                {% if d.emission_type == '移動燃燒' %}
+                    <span style="color:#6a1b9a; font-weight:600;"> 移動燃燒</span>
+                {% elif d.emission_type == '能源間接排放' or d.factor_ref_code == 'ELECTRICITY' %}
+                    <span style="color:#0277bd; font-weight:600;"> 間接排放</span>
+                {% elif d.emission_type == '逸散排放' %}
+                    <span style="color:#2e7d32; font-weight:600;"> 逸散排放</span>
+                {% else %}
+                    <span style="color:#e65100; font-weight:600;"> 固定燃燒</span>
+                {% endif %}
+            </td>
+
+            <td>{{ factor_map.get(d.factor_ref_code, "未知燃料") }}</td>
+
+            <td><code>{{ d.factor_ref_code }}</code></td>
+
+            <td>
+                <form action="/devices/delete/{{ d.id }}" method="post" style="display:inline;">
+                    <button type="submit" style="color:red; border:none; background:none; cursor:pointer;"
+                            onclick="return confirm('確定刪除？')">刪除
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+<script>
+    const factorOptionsRaw = {{ factor_options_json | tojson | safe }};
+    const factorOptions = Array.isArray(factorOptionsRaw) ? factorOptionsRaw : [];
+        });
+
+    function updateSubmitState() {
+        const emissionTypeSelect = document.getElementById('emissionTypeSelect');
+        const factorSelect = document.getElementById('factorSelect');
+        const submitBtn = document.querySelector('form[action="/devices/create"] button[type="submit"]');
+        if (!emissionTypeSelect || !factorSelect || !submitBtn) {
+            return;
+        }
+
+        const selectedType = (emissionTypeSelect.value || '').trim();
+        const selectedFactor = (factorSelect.value || '').trim();
+        const hasRealOption = Array.from(factorSelect.options).some(
+            (opt) => Boolean(opt.value)
+        );
+        submitBtn.disabled = !(selectedType && selectedFactor && hasRealOption);
+    }
+
+    function populateEmissionTypes() {
+        const sel = document.getElementById('emissionTypeSelect');
+        // keep placeholder
+        sel.innerHTML = '<option value="">請選擇排放類型</option>';
+        uniqueEmissionTypes.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.text = t;
+            sel.appendChild(opt);
+        });
+    }
+
+    function filterFuelOptions() {
+        const emissionTypeSelect = document.getElementById('emissionTypeSelect');
+        const factorSelect = document.getElementById('factorSelect');
+        const selectedType = (emissionTypeSelect.value || '').trim();
+
+        factorSelect.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.text = selectedType ? '請選擇...' : '請先選擇排放類型';
+        factorSelect.appendChild(placeholder);
+        factorSelect.disabled = !selectedType;
+
+        if (!selectedType) {
+            updateSubmitState();
+            return;
+        }
+
+        const filteredOptions = factorOptions.filter(
+            (option) => option.emission_type === selectedType
+        );
+
+        if (filteredOptions.length === 0) {
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.text = '此排放類型目前無可用選項';
+            emptyOption.disabled = true;
+            factorSelect.appendChild(emptyOption);
+            factorSelect.disabled = true;
+            updateSubmitState();
+            return;
+        }
+
+        filteredOptions.forEach((option) => {
+            const fuelOption = document.createElement('option');
+            fuelOption.value = option.original_code;
+            fuelOption.text = option.name;
+            factorSelect.appendChild(fuelOption);
+        });
+        updateSubmitState();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        populateEmissionTypes();
+        const emissionTypeSelect = document.getElementById('emissionTypeSelect');
+        const factorSelect = document.getElementById('factorSelect');
+        emissionTypeSelect.addEventListener('change', filterFuelOptions);
+        factorSelect.addEventListener('change', updateSubmitState);
+        filterFuelOptions();
+        updateSubmitState();
+    });
+</script>
+{% endblock %}

@@ -1,157 +1,128 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登入頁面</title>
+    <title>溫室氣體盤查系統 - 登入</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .login-container {
-            background-color: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            width: 400px; 
-            padding: 60px 80px; 
-            text-align: center;
-        }
-        
-        .login-container form {
-            display: block;
-            margin: 0;
-            padding: 0;
-        }
-
-        .login-container h1 {
-            margin-bottom: 40px;
-            color: #2C3E50;
-        }
-
-        .login-container input[type="text"]:not([name="VerificationCode"]),
-        .login-container input[type="password"] {
-            box-sizing: border-box;
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            font-size: 16px;
-        }
-        
-        .captcha-group {
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 20px; 
-        }
-
-        .captcha-group input[name="VerificationCode"] {
-            box-sizing: border-box;
-            width: 40%; 
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            font-size: 16px;
-            margin-bottom: 0;
-        }
-        
-        .captcha-display {
-            display: flex;
-            align-items: center;
-            width: 58%; 
-        }
-        
-        .captcha-group img {
-            width:65%; 
-            height: auto;
-            display: block; 
-            margin-bottom: 0; 
-            cursor: pointer;
-        }
-
-        .resend-captcha {
-            margin-left: 20px; 
-            font-size: 14px;
-            color: #2C3E50; 
-            cursor: pointer;
-            text-decoration: underline;
-            white-space: nowrap; 
-            margin-top: 40px; 
-        }
-
-
-        
-        .login-container button {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            background-color: #59ce7a;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-top: 20px;
-        }
-        .login-container button:hover {
-            background-color: #4AB66B;
-        }
-
-        
-        .login-container p {
-            text-align: center;
-        }
-        
-       
-        a[href="/register"] {
-            color: #2C3E50; 
-            display: inline-block; 
-            margin-top: 20px;
-            margin-left: 0; 
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background: linear-gradient(135deg, #f0f4f1 0%, #e6ece9 100%); }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .spinner { border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 1.2rem; height: 1.2rem; animation: spin 0.8s linear infinite; display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input::-ms-reveal,
+        input::-ms-clear {
+        display: none;
         }
     </style>
 </head>
-<body>
-    <div class="login-container">
-        <h1>溫室氣體盤查系統</h1>
-            <form action="/login" method="POST">
-                <input type="text" name="username" placeholder="帳號" required value="{{ username_value if username_value is not none else '' }}">
-                <input type="password" name="password" placeholder="密碼" required >
-                
-                <div class="captcha-group">
-                    <input type="text" name="VerificationCode" placeholder="驗證碼" required>
-                    
-                    <div class="captcha-display">
-                        <img id="captchaImage" src="/login/captcha-image" alt="驗證碼">
-                        
-                        <a class="resend-captcha" onclick="reloadCaptcha()">重新傳送</a>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-40">
+        <div class="absolute top-[-10%] right-[-5%] w-96 h-96 bg-green-100 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-[-10%] left-[-5%] w-80 h-80 bg-blue-50 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-700 rounded-2xl shadow-lg mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3a1 1 0 10-2 0M15 3h-1a1 1 0 100 2h1a2 2 0 012 2v1a1 1 0 102 0V7a4 4 0 00-4-4zM9 5a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">溫室氣體盤查系統</h1>
+            <p class="text-slate-500 text-sm mt-2">GHG Inventory Management System</p>
+        </div>
+
+        <div class="glass-card shadow-2xl rounded-3xl p-8 md:p-10">
+            <h2 class="text-xl font-semibold text-slate-700 mb-6">歡迎回來</h2>
+            
+            {% if message %}
+            <div class="mb-6 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r-lg animate-pulse">
+                {{ message }}
+            </div>
+            {% endif %}
+
+            <form action="/login/" method="POST" class="space-y-6" onsubmit="showLoading()">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1">帳號</label>
+                    <input type="text" id="username" name="username" required 
+                        value="{{ username_value if username_value else '' }}"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                        placeholder="請輸入您的帳號">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-600 mb-1">密碼</label>
+                    <div class="relative">
+                        <input type="password" id="password" name="password" required 
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                            placeholder="••••••••">
+                        <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600">
+                            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
-                <button type="submit">登入</button>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">安全驗證碼</label>
+                    <div class="flex gap-3">
+                        <input type="text" id="VerificationCode" name="VerificationCode" required 
+                            class="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 uppercase"
+                            placeholder="輸入驗證碼">
+                        
+                        <div class="relative flex flex-col items-center">
+                            <div class="w-32 h-[48px] border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner cursor-pointer" onclick="refreshCaptcha()">
+                                <img id="captcha-img" 
+                                    src="/login/captcha-image" 
+                                    alt="Captcha" 
+                                    class="w-full h-full object-contain bg-white"> </div>
+                            <button type="button" onclick="refreshCaptcha()" class="mt-1 text-[10px] text-slate-400 hover:text-emerald-700 transition-colors uppercase tracking-tighter">點擊更換</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn"
+                    class="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transform transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span id="btnText">進入系統</span>
+                    <div id="btnSpinner" class="spinner"></div>
+                </button>
             </form>
-            <p>新用戶?  <a href="/register">註冊</a></p>
-            {% if message %}
-                <script>
-                    alert("{{ message }}");
-                </script>
-            {% endif %}
+
+            <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+                <p class="text-sm text-slate-500">
+                    尚未擁有帳號？ <a href="/register" class="text-emerald-700 font-medium hover:underline">立即註冊</a>
+                </p>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // JavaScript 函數：重新載入驗證碼圖片
-        function reloadCaptcha() {
-            const captchaImage = document.getElementById('captchaImage');
-            // 透過更改 src 屬性，強制瀏覽器重新向伺服器請求圖片
-            captchaImage.src = "/login/captcha-image?" + new Date().getTime();
+        function togglePassword() {
+            const pwd = document.getElementById('password');
+            pwd.type = pwd.type === 'password' ? 'text' : 'password';
+        }
+
+        function refreshCaptcha() {
+            const img = document.getElementById('captcha-img');
+            img.src = '/login/captcha-image?t=' + new Date().getTime();
+        }
+
+        function showLoading() {
+            const btn = document.getElementById('submitBtn');
+            const text = document.getElementById('btnText');
+            const spinner = document.getElementById('btnSpinner');
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-80', 'cursor-not-allowed');
+            text.innerText = '驗證中...';
+            spinner.style.display = 'block';
         }
     </script>
 </body>

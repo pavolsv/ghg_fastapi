@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
-from sqlmodel import create_engine, Session, SQLModel, select
-from fastapi import Form
+from sqlmodel import Session, create_engine, select
+
+from audit_log import add_change_log
 from model import CompanyInfo
 
 templates = Jinja2Templates(directory="templates")
@@ -60,9 +60,12 @@ async def set_company_info(
 
 ):
 
+    user_id = request.session.get("user")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=303)
+
     with Session(engine) as session:
         # 查詢該帳號是否已有公司資料
-        user_id = request.session.get("user")
         statement = select(CompanyInfo).where(CompanyInfo.account_id == user_id)
         existing = session.exec(statement).first()
 
@@ -92,17 +95,17 @@ async def set_company_info(
             )
             session.add(new_info)
 
+        action = "UPDATE" if existing else "CREATE"
+        add_change_log(
+            session=session,
+            module="company_info",
+            entity_name="CompanyInfo",
+            record_key=str(user_id),
+            action_type=action,
+            changed_by=str(user_id),
+            change_details=f"company_name={companyName}, tax_id={taxId}, owner={owner}",
+        )
         session.commit()
-
-        statement = select(CompanyInfo).where(CompanyInfo.account_id == request.session["user"])
-        updated = session.exec(statement).first()
-
-        user_data = {
-            "companyName": updated.company_name,
-            "taxId": updated.tax_id,
-            "address": updated.address,
-            "owner": updated.owner
-        }
         return RedirectResponse(
         url=router.prefix + "/", # 導向回 /set/ 頁面
         status_code=303 

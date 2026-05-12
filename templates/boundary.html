@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>組織邊界設定 - 溫室氣體盤查系統</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* 頂部導航 */
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        /* 主要內容區 */
+        .content {
+            padding: 40px;
+        }
+
+        /* 步驟指示器 */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex: 1;
+        }
+
+        .step:not(:last-child):before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: -50%;
+            width: 100%;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 1;
+        }
+
+        .step.active .step-number {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+
+        .step.completed .step-number {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 8px;
+            z-index: 2;
+            transition: all 0.3s;
+        }
+
+        .step-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .step.active .step-label {
+            color: #4f46e5;
+            font-weight: 500;
+        }
+
+        /* 表單卡片 */
+        .form-card {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .form-title {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #1e293b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: #94a3b8;
+        }
+
+        /* 提示訊息 */
+        .hint {
+            margin-top: 6px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        /* 邊界列表 */
+        .boundary-list {
+            margin-top: 30px;
+        }
+
+        .boundary-list h3 {
+            font-size: 16px;
+            color: #1e293b;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .boundary-count {
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: normal;
+        }
+
+        .boundary-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .boundary-item:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .boundary-number {
+            width: 36px;
+            height: 36px;
+            background: #4f46e5;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .boundary-info {
+            flex: 1;
+        }
+
+        .boundary-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .boundary-address {
+            font-size: 13px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+        }
+
+        .boundary-address:before {
+            content: '📍';
+            margin-right: 5px;
+            font-size: 12px;
+        }
+
+        .boundary-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            padding: 6px 10px;
+            cursor: pointer;
+            color: #64748b;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .btn-icon:hover {
+            background: #f1f5f9;
+            color: #4f46e5;
+        }
+
+        /* 按鈕 */
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #4f46e5;
+            border: 2px solid #4f46e5;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background: #eef2ff;
+        }
+
+        /* 按鈕群組 - 水平排列 */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .button-group .btn-secondary,
+        .button-group .btn-primary {
+            width: auto;
+            min-width: 150px;
+        }
+
+        /* 下一步區域 (保留但隱藏，改用 button-group) */
+        .next-section {
+            display: none;
+        }
+
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            color: #64748b;
+        }
+
+        .empty-state p {
+            margin-bottom: 15px;  
+        }
+
+        /* 編輯模態框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 500px;
+            max-width: 90%;
+            padding: 30px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #1e293b;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .close-btn:hover {
+            color: #1e293b;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        /* 載入動畫 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 頂部導航 -->
+        <div class="header">
+            <h1>組織邊界設定</h1>
+            <p>請設定本次盤查的組織邊界</p>
+            <span class="badge" id="yearBadge">盤查年度：<span id="currentYear"></span></span>
+        </div>
+
+        <!-- 主要內容區 -->
+        <div class="content">
+            <!-- 步驟指示器 -->
+            <div class="step-indicator">
+                <div class="step active">
+                    <div class="step-number">1</div>
+                    <div class="step-label">組織邊界</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-label">排放源清冊</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-label">活動數據</div>
+                </div>
+            </div>
+
+            <!-- 輸入表單 -->
+            <div class="form-card">
+                <h2 class="form-title">新增組織邊界</h2>
+                
+                <div class="form-group">
+                    <label for="boundaryName">邊界名稱 <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="boundaryName" placeholder="例如：台北總公司、高雄廠區" autocomplete="off">
+                    <div class="hint">請輸入易於識別的名稱，建議包含地點或部門資訊</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="boundaryAddress">地址 <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="boundaryAddress" placeholder="例如：台北市信義區信義路100號" autocomplete="off">
+                    <div class="hint">請填寫完整的實體地址</div>
+                </div>
+
+                <button class="btn-primary" onclick="addBoundary()" id="addBtn">新增邊界</button>
+            </div>
+
+            <!-- 已設定的邊界列表 -->
+            <div class="boundary-list">
+                <h3>
+                    已設定的組織邊界
+                    <span class="boundary-count" id="boundaryCount">0 筆</span>
+                </h3>
+                
+                <div id="boundaryList">
+                    <!-- 動態載入邊界列表 -->
+                </div>
+
+                <!-- 空狀態 -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div class="icon">📋</div>
+                    <p>尚未設定任何組織邊界</p>
+                    <button class="btn-secondary" onclick="focusOnForm()">+ 新增第一個邊界</button>
+                </div>
+            </div>
+
+            <!-- 按鈕群組：返回列表 + 下一步 -->
+            <div class="button-group">
+                <button class="btn-secondary" onclick="goToList()">返回列表</button>
+                <button class="btn-primary" onclick="nextStep()">下一步 : 排放源清冊</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯模態框 -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>編輯邊界</h3>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>邊界名稱</label>
+                <input type="text" id="editName" placeholder="請輸入邊界名稱">
+            </div>
+            <div class="form-group">
+                <label>地址</label>
+                <input type="text" id="editAddress" placeholder="請輸入地址">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEditModal()" style="padding: 10px 20px;">取消</button>
+                <button class="btn-primary" onclick="saveEdit()" style="padding: 10px 20px; width: auto;">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 從 URL 取得年度
+        function getYearFromUrl() {
+            const pathParts = window.location.pathname.split('/');
+            return pathParts[pathParts.length - 1] || '2024';
+        }
+
+        const currentYear = getYearFromUrl();
+        document.getElementById('currentYear').textContent = currentYear;
+
+        let currentEditId = null;
+
+        // 返回年度列表
+        function goToList() {
+            window.location.href = '/inventory_list';
+        }
+
+        // 載入邊界資料
+        async function loadBoundaries() {
+            try {
+                const response = await fetch(`/inventory_list/boundary/${currentYear}/list`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const boundaryList = document.getElementById('boundaryList');
+                    boundaryList.innerHTML = '';
+                    
+                    result.data.forEach(boundary => {
+                        addBoundaryToList(boundary.boundary_name, boundary.address, boundary.boundary_id, false);
+                    });
+                    
+                    updateBoundaryNumbers();
+                    updateEmptyState();
+                    updateBoundaryCount();
+                }
+            } catch (error) {
+                console.error('載入邊界資料失敗:', error);
+            }
+        }
+
+        // 新增邊界
+        async function addBoundary() {
+            const name = document.getElementById('boundaryName').value.trim();
+            const address = document.getElementById('boundaryAddress').value.trim();
+
+            if (!name) {
+                alert('請輸入邊界名稱');
+                document.getElementById('boundaryName').focus();
+                return;
+            }
+
+            if (!address) {
+                alert('請輸入地址');
+                document.getElementById('boundaryAddress').focus();
+                return;
+            }
+
+            const addBtn = document.getElementById('addBtn');
+            const originalText = addBtn.textContent;
+            addBtn.innerHTML = '<span class="loading"></span> 新增中...';
+            addBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/inventory_list/boundary/${currentYear}/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        boundary_name: name,
+                        address: address
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    addBoundaryToList(name, address, result.boundary_id, true);
+                    document.getElementById('boundaryName').value = '';
+                    document.getElementById('boundaryAddress').value = '';
+                } else {
+                    alert(result.message || '新增失敗');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('系統錯誤，請稍後再試');
+            } finally {
+                addBtn.textContent = originalText;
+                addBtn.disabled = false;
+            }
+        }
+
+        // 將邊界加入列表
+        function addBoundaryToList(name, address, boundaryId, showAlert = false) {
+            const boundaryList = document.getElementById('boundaryList');
+            
+            const newItem = document.createElement('div');
+            newItem.className = 'boundary-item';
+            newItem.setAttribute('data-id', boundaryId);
+            newItem.innerHTML = `
+                <div class="boundary-number">${getNextNumber()}</div>
+                <div class="boundary-info">
+                    <div class="boundary-name">${escapeHtml(name)}</div>
+                    <div class="boundary-address">${escapeHtml(address)}</div>
+                </div>
+                <div class="boundary-actions">
+                    <button class="btn-icon" onclick="editBoundary(this)" title="編輯">✎</button>
+                    <button class="btn-icon" onclick="deleteBoundary(this)" title="刪除">🗑️</button>
+                </div>
+            `;
+
+            boundaryList.appendChild(newItem);
+            
+            updateBoundaryNumbers();
+            updateEmptyState();
+            updateBoundaryCount();
+        }
+
+        function getNextNumber() {
+            const items = document.querySelectorAll('.boundary-item');
+            return items.length + 1;
+        }
+
+        function updateBoundaryNumbers() {
+            const items = document.querySelectorAll('.boundary-item');
+            items.forEach((item, index) => {
+                const numberDiv = item.querySelector('.boundary-number');
+                if (numberDiv) {
+                    numberDiv.textContent = index + 1;
+                }
+            });
+        }
+
+        function editBoundary(button) {
+            const boundaryItem = button.closest('.boundary-item');
+            currentEditId = boundaryItem.getAttribute('data-id');
+            
+            const name = boundaryItem.querySelector('.boundary-name').textContent;
+            const address = boundaryItem.querySelector('.boundary-address').textContent;
+
+            document.getElementById('editName').value = name;
+            document.getElementById('editAddress').value = address;
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            currentEditId = null;
+            document.getElementById('editName').value = '';
+            document.getElementById('editAddress').value = '';
+        }
+
+        async function saveEdit() {
+            const name = document.getElementById('editName').value.trim();
+            const address = document.getElementById('editAddress').value.trim();
+
+            if (!name || !address) {
+                alert('請填寫完整資訊');
+                return;
+            }
+
+            const saveBtn = document.querySelector('#editModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.innerHTML = '<span class="loading"></span> 儲存中...';
+            saveBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/inventory_list/boundary/${currentYear}/edit/${currentEditId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        boundary_name: name,
+                        address: address
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const boundaryItem = document.querySelector(`.boundary-item[data-id="${currentEditId}"]`);
+                    if (boundaryItem) {
+                        boundaryItem.querySelector('.boundary-name').textContent = name;
+                        boundaryItem.querySelector('.boundary-address').textContent = address;
+                    }
+                    closeEditModal();
+                    alert('編輯成功！');
+                } else {
+                    alert(result.message || '編輯失敗');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('系統錯誤，請稍後再試');
+            } finally {
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+
+        async function deleteBoundary(button) {
+            if (!confirm('確定要刪除此組織邊界嗎？')) return;
+
+            const boundaryItem = button.closest('.boundary-item');
+            const boundaryId = boundaryItem.getAttribute('data-id');
+
+            button.disabled = true;
+            button.textContent = '⋯';
+
+            try {
+                const response = await fetch(`/inventory_list/boundary/${currentYear}/delete/${boundaryId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    boundaryItem.remove();
+                    updateBoundaryNumbers();
+                    updateEmptyState();
+                    updateBoundaryCount();
+                } else {
+                    alert(result.message || '刪除失敗');
+                    button.disabled = false;
+                    button.textContent = '🗑️';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('系統錯誤，請稍後再試');
+                button.disabled = false;
+                button.textContent = '🗑️';
+            }
+        }
+
+        function updateEmptyState() {
+            const items = document.querySelectorAll('.boundary-item');
+            const emptyState = document.getElementById('emptyState');
+            emptyState.style.display = items.length === 0 ? 'block' : 'none';
+        }
+
+        function updateBoundaryCount() {
+            const items = document.querySelectorAll('.boundary-item');
+            document.getElementById('boundaryCount').textContent = items.length + ' 筆';
+        }
+
+        function focusOnForm() {
+            document.getElementById('boundaryName').focus();
+        }
+
+        function nextStep() {
+            const boundaryCount = document.querySelectorAll('.boundary-item').length;
+            if (boundaryCount === 0) {
+                alert('請至少設定一個組織邊界');
+                return;
+            }
+            window.location.href = `/inventory_list/emission/${currentYear}`;
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', loadBoundaries);
+
+        // 點擊模態框背景關閉
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
+        });
+
+        // 鍵盤ESC關閉
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeEditModal();
+        });
+    </script>
+</body>
+</html>

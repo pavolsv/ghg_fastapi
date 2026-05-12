@@ -1,0 +1,65 @@
+.fm-overview-menu {
+    margin: 20px 0 24px;
+    border: 1px solid #d7dde3;
+    border-radius: 10px;
+    background: #f7f8fa;
+    overflow: hidden;
+}
+
+.fm-overview-toggle {
+    width: 100%;
+    border: none;
+    background: #eef1f4;
+    color: #2f3a44;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.fm-overview-toggle:hover {
+    background: #e6eaee;
+}
+
+.fm-overview-submenu {
+    display: flex;
+    flex-direction: column;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.24s ease;
+    border-top: 1px solid transparent;
+}
+
+.fm-overview-menu.is-open .fm-overview-submenu {
+    max-height: 220px;
+    opacity: 1;
+    border-top-color: #d7dde3;
+}
+
+.fm-overview-link {
+    display: block;
+    padding: 10px 16px;
+    text-decoration: none;
+    color: #3d4752;
+    background: #fafbfd;
+    border-bottom: 1px solid #e6eaef;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.fm-overview-link:last-child {
+    border-bottom: none;
+}
+
+.fm-overview-link:hover {
+    background: #f1f4f7;
+    color: #2d3a45;
+}
+
+.fm-overview-link.active {
+    background: #e4e9ef;
+    color: #24313b;
+    font-weight: 600;
+}

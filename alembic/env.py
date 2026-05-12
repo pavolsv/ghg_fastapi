@@ -1,4 +1,7 @@
 from logging.config import fileConfig
+import os
+import sys
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -6,15 +9,13 @@ from sqlalchemy import pool
 from alembic import context
 
 # --- START: 導入和路徑設定 ---
-import sys
-import os
-from pathlib import Path
 # 確保 Python 可以找到您的專案模組
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlmodel import SQLModel 
 # 導入您的資料模型 (這行必須確保 CompanyInfo 和所有模型被載入)
-from model import CompanyInfo 
+from model import CompanyInfo, GWPReference  # noqa: F401 
+from model import *
 # --- END: 導入和路徑設定 ---
 
 
@@ -29,8 +30,16 @@ if config.config_file_name is not None:
 # target_metadata 現在指向 SQLModel 的 metadata
 target_metadata = SQLModel.metadata
 
-# 設定 SQLite 資料庫連線字串
-SQLITE_URL = "sqlite:///./database.db"
+# DATABASE_URL has highest priority, then DATABASE_FILE, then default local file
+DEFAULT_DB_FILE = Path(__file__).parent.parent.joinpath("database.db").resolve()
+db_url_from_env = os.getenv("DATABASE_URL")
+db_file_from_env = os.getenv("DATABASE_FILE")
+
+if db_url_from_env:
+    SQLITE_URL = db_url_from_env
+else:
+    db_file = Path(db_file_from_env).resolve() if db_file_from_env else DEFAULT_DB_FILE
+    SQLITE_URL = f"sqlite:///{db_file.as_posix()}"
 
 
 def run_migrations_offline() -> None:

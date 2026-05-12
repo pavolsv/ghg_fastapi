@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}結果{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/result.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="result-page-wrap">
+    <div class="result-header">
+        <h1 class="result-title">結果</h1>
+        <div class="result-meta">
+            <span>盤查年度：<strong>{{ inventory_year }}</strong></span>
+            <span>當下時間：<strong>{{ current_time }}</strong></span>
+        </div>
+    </div>
+
+    <div class="result-chart-grid">
+        <section class="result-card">
+            <h3>總排放 (kg CO₂e)</h3>
+            <div class="chart-wrap">
+                <canvas id="totalPie"></canvas>
+            </div>
+            <p class="result-value">{{ "{:,.4f}".format(total_co2e) }} kg CO₂e</p>
+        </section>
+
+        <section class="result-card">
+            <h3>排放類型比例</h3>
+            <div class="chart-wrap">
+                <canvas id="typePie"></canvas>
+            </div>
+            <div class="emission-type-percentages">
+                {% for label in emission_type_labels %}
+                    {% set value = emission_type_values[loop.index0] %}
+                    {% set percent = (value / (emission_type_values|sum) * 100) if (emission_type_values|sum) else 0 %}
+                    <div>{{ label }}：{{ '%.1f' % percent }}%</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="result-card report-generator-card">
+            <h3>AI 盤查報告</h3>
+            <p class="report-generator-desc">
+                根據目前資料生成報告，下載 Word 檔。
+            </p>
+            <button id="generateAiReportBtn" class="report-generate-btn" type="button">
+                生成 AI 溫室氣體盤查報告
+            </button>
+            <p id="aiReportStatus" class="ai-report-status" aria-live="polite"></p>
+        </section>
+    </div>
+</div>
+
+<script>
+    window.resultPageData = {
+        totalCo2e: {{ total_co2e | tojson | safe }},
+        emissionTypeLabels: {{ emission_type_labels | tojson | safe }},
+        emissionTypeValues: {{ emission_type_values | tojson | safe }},
+        endpoints: {
+            generate: "/result/generate-ai-report",
+            statusBase: "/result/ai-report-status/"
+        }
+    };
+</script>
+<script src="/static/js/result.js"></script>
+{% endblock %}

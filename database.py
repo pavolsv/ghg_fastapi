@@ -1,27 +1,82 @@
-from sqlmodel import create_engine, Session, SQLModel, select
-from model import Utility, Account
+import os
+from pathlib import Path
+from sqlmodel import SQLModel, Session, create_engine
+import model
 
+# DATABASE_URL has highest priority, then DATABASE_FILE, then default local file
+default_db_file = Path(__file__).parent.joinpath("database.db").resolve()
+db_file_from_env = os.getenv("DATABASE_FILE")
 
-
-db = "sqlite:///database.db"
+if _db_url := os.getenv("DATABASE_URL"):
+    db: str = _db_url
+    DB_FILE = None
+else:
+    DB_FILE = Path(db_file_from_env).resolve() if db_file_from_env else default_db_file
+    db = f"sqlite:///{DB_FILE.as_posix()}"
+# For typical local usage with SQLModel/SQLAlchemy and SQLite
 engine = create_engine(db, echo=True)
 
 
+def ensure_schema_updates():
+    with engine.begin() as conn:
+        try:
+            # --- EmissionFactor 表迁移 ---
+            ef_columns = {
+                row[1]
+                for row in conn.exec_driver_sql(
+                    "PRAGMA table_info('emissionfactor')"
+                ).fetchall()
+            }
+
+            ef_required = {
+                "factor_source": "TEXT",
+                "calculation_method": "TEXT",
+                "updated_at": "DATETIME",
+            }
+
+            for column_name, column_ddl in ef_required.items():
+                if column_name not in ef_columns:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE emissionfactor ADD COLUMN {column_name} {column_ddl}"
+                    )
+
+            # 移除 factor_version 栏位（SQLite 不支持 DROP COLUMN，保留但不再使用）
+
+            conn.exec_driver_sql(
+                "UPDATE emissionfactor SET updated_at=CURRENT_TIMESTAMP WHERE updated_at IS NULL"
+            )
+
+            # --- Device 表迁移 ---
+            dev_columns = {
+                row[1]
+                for row in conn.exec_driver_sql(
+                    "PRAGMA table_info('device')"
+                ).fetchall()
+            }
+
+            if "emission_type" not in dev_columns and len(dev_columns) > 0:
+                conn.exec_driver_sql(
+                    "ALTER TABLE device ADD COLUMN emission_type TEXT DEFAULT '固定燃燒'"
+                )
+
+        except Exception:
+            # 新環境或尚未建立資料表時，create_all 會處理
+            pass
+
+
 def create_db_and_tables():
+    # Ensure models are imported so their tables are registered on metadata
+    try:
+        import model  # noqa: F401
+    except Exception:
+        # If models cannot be imported, still attempt create_all and surface errors
+        pass
+
     SQLModel.metadata.create_all(engine)
-    
-    with Session(engine) as session:
-        statement = select(Utility).where(Utility.id.in_([0, 1])) # type: ignore
-        existing_utilities = session.exec(statement).all()
-        
-        if not existing_utilities:
-            electricity = Utility(id=0, utility_name="電", utility_unit="kWh")
-            water = Utility(id=1, utility_name="水", utility_unit="m³")
-            
-            session.add(electricity)
-            session.add(water)
-            session.commit()
-            print("預設成功")
+    ensure_schema_updates()
+
+
 def get_session():
     with Session(engine) as session:
         yield session
+

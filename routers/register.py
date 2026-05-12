@@ -42,10 +42,10 @@ async def register_account(
             if data != []:
                 is_legal = False
                 return templates.TemplateResponse("register.html", {"request": request , "message":remind[i]})
-    
+   
 
         if is_legal:
             new_account = Account(account=username, email=email, password=password)
             session.add(new_account)  # 將資料加入 session
             session.commit()           # 提交到資料庫
-            return templates.TemplateResponse("login.html", {"request": request })
+            return templates.TemplateResponse("login.html", {"request": request, "message": "註冊成功！請登入。"})
