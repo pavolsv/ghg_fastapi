@@ -3,10 +3,6 @@ function getResultData() {
         totalCo2e: 0,
         emissionTypeLabels: [],
         emissionTypeValues: [],
-        endpoints: {
-            generate: "/result/generate-ai-report",
-            statusBase: "/result/ai-report-status/",
-        },
     };
 }
 
@@ -21,38 +17,8 @@ const palette = [
     "#BC6C25",
 ];
 
-let pollingTimer = null;
 let totalChart = null;
 let typeChart = null;
-
-function getGenerateElements() {
-    return {
-        generateBtn: document.getElementById("generateAiReportBtn"),
-        statusText: document.getElementById("aiReportStatus"),
-    };
-}
-
-function setStatus(message, type = "info") {
-    const { statusText } = getGenerateElements();
-    if (!statusText) {
-        return;
-    }
-
-    statusText.textContent = message;
-    statusText.dataset.state = type;
-}
-
-function setGeneratingState(isGenerating) {
-    const { generateBtn } = getGenerateElements();
-    if (!generateBtn) {
-        return;
-    }
-
-    generateBtn.disabled = isGenerating;
-    generateBtn.textContent = isGenerating
-        ? "報告生成中，請稍候..."
-        : "生成 AI 溫室氣體盤查報告";
-}
 
 function renderCharts() {
     if (typeof window.Chart === "undefined") {
@@ -147,40 +113,6 @@ function waitForChartLibrary(onReady, retry = 0) {
     }, 100);
 }
 
-function initReportGenerator() {
-    const { generateBtn } = getGenerateElements();
-    if (!generateBtn || generateBtn.dataset.bound === "true") {
-        return;
-    }
-
-    generateBtn.dataset.bound = "true";
-    generateBtn.addEventListener("click", async () => {
-        setGeneratingState(true);
-        setStatus("正在建立生成任務...", "info");
-
-        try {
-            const resultData = getResultData();
-            const generateUrl = resultData.endpoints?.generate || "/result/generate-ai-report";
-            const data = await fetchJson(generateUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
-
-            if (!data.task_id) {
-                throw new Error("未取得任務編號，請稍後重試。");
-            }
-
-            setStatus(data.message || "任務已建立，開始生成報告...", "info");
-            await pollTaskStatus(data.task_id);
-        } catch (error) {
-            setStatus(error.message || "任務建立失敗", "error");
-            setGeneratingState(false);
-        }
-    });
-}
-
 function initResultPage() {
     const hasResultCanvas = !!document.getElementById("totalPie") || !!document.getElementById("typePie");
     if (!hasResultCanvas) {
@@ -190,59 +122,6 @@ function initResultPage() {
     waitForChartLibrary(() => {
         renderCharts();
     });
-    initReportGenerator();
-}
-
-async function fetchJson(url, options = {}) {
-    const response = await fetch(url, options);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        const detail = data.detail || data.message || "請稍後再試";
-        throw new Error(detail);
-    }
-    return data;
-}
-
-async function pollTaskStatus(taskId) {
-    const resultData = getResultData();
-    const statusBase = resultData.endpoints?.statusBase || "/result/ai-report-status/";
-    const statusUrl = `${statusBase}${encodeURIComponent(taskId)}`;
-
-    if (pollingTimer) {
-        clearInterval(pollingTimer);
-    }
-
-    pollingTimer = setInterval(async () => {
-        try {
-            const data = await fetchJson(statusUrl);
-            if (data.status === "completed") {
-                clearInterval(pollingTimer);
-                pollingTimer = null;
-                setStatus(data.message || "報告生成完成，準備下載...", "success");
-                setGeneratingState(false);
-
-                if (data.download_url) {
-                    window.location.href = data.download_url;
-                }
-                return;
-            }
-
-            if (data.status === "failed") {
-                clearInterval(pollingTimer);
-                pollingTimer = null;
-                setStatus(data.error || data.message || "報告生成失敗", "error");
-                setGeneratingState(false);
-                return;
-            }
-
-            setStatus(data.message || "報告生成中...", "info");
-        } catch (error) {
-            clearInterval(pollingTimer);
-            pollingTimer = null;
-            setStatus(error.message || "狀態查詢失敗", "error");
-            setGeneratingState(false);
-        }
-    }, 2500);
 }
 
 document.addEventListener("DOMContentLoaded", initResultPage);

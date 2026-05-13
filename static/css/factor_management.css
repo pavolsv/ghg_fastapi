@@ -408,15 +408,21 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+    min-width: 0;
 }
 
 .factor-form-group label {
     font-size: 0.84rem;
     font-weight: 600;
     color: #555;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
 }
 
 .factor-input {
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px 10px;
     border: 1px solid #ccc;
     border-radius: 5px;

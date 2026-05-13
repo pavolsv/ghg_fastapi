@@ -12,8 +12,17 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import engine
-from model import ActivityData, Boundary, CompanyInfo, Device, EmissionRecord, EmissionSource
-from routers.calculation import TARGET_YEAR
+from model import ActivityData, Boundary, CompanyInfo, Device, EmissionFactor, EmissionRecord, EmissionSource, GWPReference
+from constants.lhv_defaults import get_lhv_value
+from constants.refrigerant_factors import get_rate_by_code
+from datetime import datetime
+
+# ...
+def _get_target_year(session: Session) -> int:
+    from model import EmissionFactor
+    from sqlmodel import select
+    all_factors = session.exec(select(EmissionFactor)).all()
+    return max((f.year for f in all_factors), default=datetime.now().year)
 
 router = APIRouter(prefix="/result", tags=["result"])
 templates = Jinja2Templates(directory="templates")
@@ -228,7 +237,7 @@ def _build_report_snapshot(session: Session) -> dict[str, Any]:
         numeric_sources[f"scope_source_counts[{index}].source_count"] = float(item["source_count"])
 
     return {
-        "inventory_year": TARGET_YEAR,
+        "inventory_year": _get_target_year(session),
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "summary": {
             "total_co2e": round(total_co2e, 4),
@@ -631,29 +640,232 @@ def _run_ai_report_task(task_id: str, snapshot: dict[str, Any]) -> None:
 async def result_page(request: Request, session: Session = Depends(get_session)):
     records = session.exec(select(EmissionRecord)).all()
     devices = session.exec(select(Device)).all()
+    all_factors = session.exec(select(EmissionFactor)).all()
     device_map = {device.id: device for device in devices}
 
-    total_co2e = round(sum(record.total_co2e for record in records), 4)
-
-    emission_type_totals = {}
-    for record in records:
-        device = device_map.get(record.device_id)
-        emission_type = (device.emission_type if device else "未分類") or "未分類"
-        emission_type_totals[emission_type] = round(
-            emission_type_totals.get(emission_type, 0.0) + record.total_co2e,
-            4,
+    # --- build factor lookup maps (same logic as calculation page) ---
+    def _factor_matches_device(factor: EmissionFactor, device: Device) -> bool:
+        ref_code = str(device.factor_ref_code).strip()
+        return (
+            factor.emission_type == device.emission_type
+            and (
+                str(factor.original_code).strip() == ref_code
+                or str(factor.code).strip() == ref_code
+            )
         )
 
-    emission_type_labels = list(emission_type_totals.keys())
-    emission_type_values = [emission_type_totals[label] for label in emission_type_labels]
+    target_year = max((f.year for f in all_factors), default=datetime.now().year)
+
+    gwp_refs = session.exec(select(GWPReference).order_by(GWPReference.gas_name_zh)).all()
+    gwp_lookup: dict[str, dict] = {}
+    for g in gwp_refs:
+        gwp_lookup[g.formula] = {"name": g.gas_name_zh, "gwp": float(g.gwp_value or 0)}
+
+    factor_detail_map: dict[int, list[dict]] = {}
+    device_calc_info: dict[int, dict] = {}
+
+    for d in devices:
+        etype = str(d.emission_type or "").strip()
+        if etype == "逸散排放" and d.refrigerant_code:
+            from services.emission_calculator import _lookup_gwp
+            gwp_info = gwp_lookup.get(d.refrigerant_code)
+            if not gwp_info:
+                gwp_val = _lookup_gwp(session, d.refrigerant_code)
+                gwp_info = {"name": d.refrigerant_code, "gwp": gwp_val}
+            rate = get_rate_by_code(d.equipment_category or "")
+            fill_kg = (d.fill_amount or 0) * 1000.0
+            device_calc_info[d.id] = {
+                "type": "refrigerant",
+                "gwp_value": gwp_info.get("gwp", 0),
+                "emission_rate": rate,
+                "fill_kg": fill_kg,
+            }
+            factor_detail_map[d.id] = [
+                {"gas": "CO2e", "val": gwp_info.get("gwp", 0)}
+            ]
+        elif etype == "能源間接排放":
+            elec_factors = [f for f in all_factors if f.original_code == "ELECTRICITY" and f.gas_type == "CO2e"]
+            latest_elec = max((f.year for f in elec_factors), default=target_year)
+            elec_factor = next((f for f in elec_factors if f.year == latest_elec), None)
+            factor_value = elec_factor.factor_value if elec_factor else 0.0
+            device_calc_info[d.id] = {
+                "type": "electricity",
+                "factor_value": factor_value,
+            }
+            factor_detail_map[d.id] = [
+                {"gas": "CO2e", "val": factor_value}
+            ]
+        else:
+            matched = [f for f in all_factors if _factor_matches_device(f, d)]
+            if not matched:
+                factor_detail_map[d.id] = []
+                device_calc_info[d.id] = {"type": "combustion", "has_lhv": False}
+                continue
+            latest_year = max(f.year for f in matched)
+            latest_factors = [f for f in matched if f.year == latest_year]
+            factor_detail_map[d.id] = [
+                {"gas": f.gas_type, "val": f.factor_value}
+                for f in latest_factors
+            ]
+            lhv_val, lhv_unit = get_lhv_value(d.factor_ref_code)
+            device_calc_info[d.id] = {
+                "type": "combustion",
+                "has_lhv": lhv_val is not None,
+                "lhv_value": lhv_val,
+                "lhv_unit": lhv_unit,
+            }
+
+    # --- helper: compute gas breakdown for one record ---
+    GWP = {"CO2": 1, "CH4": 28, "N2O": 265}
+
+    def _gas_breakdown(record: EmissionRecord) -> dict[str, float]:
+        device = device_map.get(record.device_id)
+        if not device:
+            return {"CO2e": round(float(record.total_co2e or 0), 4)}
+
+        did = device.id
+        calc_info = device_calc_info.get(did, {})
+        factors = factor_detail_map.get(did, [])
+        ctype = calc_info.get("type", "combustion")
+
+        if ctype == "combustion":
+            lhv = record.heat_value or calc_info.get("lhv_value") or 0
+            if lhv and float(record.activity_data or 0) > 0:
+                tj = float(record.activity_data) * float(lhv) * 4.1868e-9
+                result: dict[str, float] = {}
+                for f in factors:
+                    gas = f["gas"]
+                    if gas in ("CO2", "CH4", "N2O"):
+                        result[gas] = round(tj * f["val"], 4)
+                # CO₂e = CO₂×1 + CH₄×28 + N₂O×265
+                co2e_calc = (
+                    result.get("CO2", 0) * GWP["CO2"]
+                    + result.get("CH4", 0) * GWP["CH4"]
+                    + result.get("N2O", 0) * GWP["N2O"]
+                )
+                result["CO2e"] = round(co2e_calc, 4)
+                return result
+            return {"CO2e": round(float(record.total_co2e or 0), 4)}
+
+        # electricity / refrigerant – use stored total
+        co2e = round(float(record.total_co2e or 0), 4)
+        return {"CO2e": co2e}
+
+    # --- aggregate with gas breakdown ---
+    scope_order = ["scope1", "scope2"]
+    scope_display = {
+        "scope1": "範疇一：直接排放",
+        "scope2": "範疇二：能源間接排放",
+    }
+    emission_type_to_scope: dict[str, str] = {
+        "固定燃燒": "scope1",
+        "移動燃燒": "scope1",
+        "逸散排放": "scope1",
+        "能源間接排放": "scope2",
+    }
+
+    scope_data: list[dict] = []
+    scope_totals: dict[str, float] = {"scope1": 0.0, "scope2": 0.0}
+    emission_type_totals_raw: dict[str, float] = {}
+
+    for scope_key in scope_order:
+        emission_types_in_scope: dict[str, dict] = {}
+
+        for record in records:
+            device = device_map.get(record.device_id)
+            etype = ((device.emission_type if device else "未分類") or "未分類").strip()
+            dev_name = ((device.name if device else f"設備#{record.device_id}") or "未命名").strip()
+            factor_code = (device.factor_ref_code if device else "") or ""
+
+            if emission_type_to_scope.get(etype, "scope1") != scope_key:
+                continue
+
+            co2e_stored = float(record.total_co2e or 0.0)
+            gases = _gas_breakdown(record)
+            co2e_val = gases.get("CO2e", co2e_stored)
+
+            emission_type_totals_raw[etype] = emission_type_totals_raw.get(etype, 0.0) + co2e_val
+
+            if etype not in emission_types_in_scope:
+                emission_types_in_scope[etype] = {
+                    "emission_type": etype,
+                    "devices": {},
+                    "type_total_co2e": 0.0,
+                    "type_gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
+                }
+
+            et_data = emission_types_in_scope[etype]
+            et_data["type_total_co2e"] += co2e_val
+            for g in ("CO2", "CH4", "N2O"):
+                et_data["type_gas_totals"][g] = et_data["type_gas_totals"].get(g, 0.0) + gases.get(g, 0.0)
+
+            if dev_name not in et_data["devices"]:
+                et_data["devices"][dev_name] = {
+                    "device_name": dev_name,
+                    "factor_code": factor_code,
+                    "records": [],
+                    "total_co2e": 0.0,
+                    "gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
+                }
+
+            dev_data = et_data["devices"][dev_name]
+            dev_data["records"].append({
+                "record_date": record.record_date,
+                "activity_data": record.activity_data,
+                "unit": record.unit or "",
+                "heat_value": record.heat_value,
+                "co2e": co2e_val,
+                "gases": gases,
+            })
+            dev_data["total_co2e"] += co2e_val
+            for g in ("CO2", "CH4", "N2O"):
+                dev_data["gas_totals"][g] = dev_data["gas_totals"].get(g, 0.0) + gases.get(g, 0.0)
+            scope_totals[scope_key] += co2e_val
+
+        type_list = []
+        for etype_key in sorted(emission_types_in_scope.keys()):
+            et = emission_types_in_scope[etype_key]
+            device_list = []
+            for dev_key in sorted(et["devices"].keys()):
+                dev = et["devices"][dev_key]
+                dev["total_co2e"] = round(dev["total_co2e"], 4)
+                for g in ("CO2", "CH4", "N2O"):
+                    dev["gas_totals"][g] = round(dev["gas_totals"][g], 4)
+                device_list.append(dev)
+            for g in ("CO2", "CH4", "N2O"):
+                et["type_gas_totals"][g] = round(et["type_gas_totals"][g], 4)
+            type_list.append({
+                "emission_type": etype_key,
+                "devices": device_list,
+                "type_total_co2e": round(et["type_total_co2e"], 4),
+                "type_gas_totals": et["type_gas_totals"],
+            })
+
+        scope_total = round(scope_totals[scope_key], 4)
+        if type_list or scope_total > 0:
+            scope_data.append({
+                "scope_key": scope_key,
+                "scope_name": scope_display.get(scope_key, scope_key),
+                "emission_types": type_list,
+                "scope_total_co2e": scope_total,
+            })
+
+    total_co2e = round(sum(scope_totals.values()), 4)
+    emission_type_labels = list(emission_type_totals_raw.keys())
+    emission_type_values = [round(emission_type_totals_raw[k], 4) for k in emission_type_labels]
+    record_count = len(records)
+    device_count = len(devices)
 
     return templates.TemplateResponse(
         "result.html",
         {
             "request": request,
-            "inventory_year": TARGET_YEAR,
+            "inventory_year": _get_target_year(session),
             "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "total_co2e": total_co2e,
+            "record_count": record_count,
+            "device_count": device_count,
+            "scope_data": scope_data,
             "emission_type_labels": emission_type_labels,
             "emission_type_values": emission_type_values,
         },

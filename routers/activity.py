@@ -8,6 +8,7 @@ from datetime import datetime
 from model import ActivityData, EmissionSource, Boundary, Year, EmissionFactor
 from dependencies import get_session, get_current_user
 from services.emission_calculator import calculate_emission_by_source
+from constants.lhv_defaults import get_lhv_by_name, get_lhv_unit_options
 
 router = APIRouter(prefix="/inventory_list", tags=["activity"])
 
@@ -16,11 +17,17 @@ class ActivityDataCreate(BaseModel):
     source_id: int
     year_value: float
     unit: str
+    data_source: Optional[str] = "manual"
+    lower_heating_value: Optional[float] = None
+    lhv_unit: Optional[str] = None
     remark: Optional[str] = None
 
 class ActivityDataUpdate(BaseModel):
     year_value: float
     unit: str
+    data_source: Optional[str] = "manual"
+    lower_heating_value: Optional[float] = None
+    lhv_unit: Optional[str] = None
     remark: Optional[str] = None
 
 class BatchActivityData(BaseModel):
@@ -138,6 +145,9 @@ async def get_activity_data(
                 "has_data": activity is not None,
                 "year_value": activity.year_value if activity else None,
                 "unit": activity.unit if activity else "",
+                "data_source": activity.data_source if activity else "manual",
+                "lower_heating_value": activity.lower_heating_value if activity else None,
+                "lhv_unit": activity.lhv_unit if activity else None,
                 "remark": activity.remark if activity else None,
                 "data_id": activity.data_id if activity else None
             })
@@ -178,6 +188,9 @@ async def save_activity_data(
             # 更新
             existing.year_value = data.year_value
             existing.unit = data.unit
+            existing.data_source = data.data_source or "manual"
+            existing.lower_heating_value = data.lower_heating_value
+            existing.lhv_unit = data.lhv_unit
             existing.remark = data.remark
             existing.updated_at = datetime.utcnow()
             session.add(existing)
@@ -188,11 +201,13 @@ async def save_activity_data(
                 source_id=data.source_id,
                 year_value=data.year_value,
                 unit=data.unit,
+                data_source=data.data_source or "manual",
+                lower_heating_value=data.lower_heating_value,
+                lhv_unit=data.lhv_unit,
                 remark=data.remark,
                 account_id=account_id,
                 year_id=source.year_id,
                 boundary_id=source.boundary_id,
-                data_source="manual"
             )
             session.add(new_data)
             message = "活動數據新增成功"
@@ -232,6 +247,9 @@ async def batch_save_activity_data(
             if existing:
                 existing.year_value = item.year_value
                 existing.unit = item.unit
+                existing.data_source = item.data_source or "manual"
+                existing.lower_heating_value = item.lower_heating_value
+                existing.lhv_unit = item.lhv_unit
                 existing.remark = item.remark
                 existing.updated_at = datetime.utcnow()
                 session.add(existing)
@@ -240,11 +258,13 @@ async def batch_save_activity_data(
                     source_id=item.source_id,
                     year_value=item.year_value,
                     unit=item.unit,
+                    data_source=item.data_source or "manual",
+                    lower_heating_value=item.lower_heating_value,
+                    lhv_unit=item.lhv_unit,
                     remark=item.remark,
                     account_id=account_id,
                     year_id=source.year_id,
                     boundary_id=source.boundary_id,
-                    data_source="batch"
                 )
                 session.add(new_data)
             
@@ -295,6 +315,58 @@ async def delete_activity_data(
             status_code=500,
             content={"success": False, "message": str(e)}
         )
+
+# ========== 依物料名稱查詢低位熱值預設值 ==========
+@router.get("/activity/{year}/lhv_lookup")
+async def lhv_lookup(
+    year: int,
+    material: str,
+    session: Session = Depends(get_session),
+    account_id: int = Depends(get_current_user)
+):
+    try:
+        lhv_value, lhv_unit = get_lhv_by_name(material)
+
+        if lhv_value is None and lhv_unit is None:
+            year_record = session.exec(
+                select(Year).where(
+                    Year.account_id == account_id,
+                    Year.year == year
+                )
+            ).first()
+            if year_record:
+                original_code = _resolve_original_code(session, material, "", year)
+                if original_code:
+                    factor = session.exec(
+                        select(EmissionFactor).where(
+                            EmissionFactor.original_code == original_code
+                        )
+                    ).first()
+                    if factor and factor.lower_heating_value is not None:
+                        lhv_value = factor.lower_heating_value
+                        lhv_unit = factor.lhv_unit
+
+        return JSONResponse(content={
+            "success": True,
+            "data": {
+                "material": material,
+                "lower_heating_value": lhv_value,
+                "lhv_unit": lhv_unit,
+            }
+        })
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": str(e)}
+        )
+
+# ========== 取得 LHV 單位選項 ==========
+@router.get("/activity/{year}/lhv_units")
+async def get_lhv_units():
+    return JSONResponse(content={
+        "success": True,
+        "data": get_lhv_unit_options()
+    })
 
 # ========== 輔助：依 material 名稱解析 original_code ==========
 def _resolve_original_code(session: Session, material: str, emission_type: str, year: int) -> str | None:

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>排放源清冊登錄 - 溫室氣體盤查系統</title>
+    <title>排放源管理 - 溫室氣體盤查系統</title>
     <style>
         * {
             margin: 0;
@@ -540,28 +540,12 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>排放源清冊登錄</h1>
+            <h1>排放源管理</h1>
             <p>建立並管理各類排放源</p>
             <span class="badge">盤查年度：<span id="currentYear"></span></span>
         </div>
 
         <div class="content">
-            <!-- 步驟指示器 -->
-            <div class="step-indicator">
-                <div class="step completed">
-                    <div class="step-number">1</div>
-                    <div class="step-label">組織邊界</div>
-                </div>
-                <div class="step active">
-                    <div class="step-number">2</div>
-                    <div class="step-label">排放源清冊</div>
-                </div>
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-label">活動數據</div>
-                </div>
-            </div>
-
             <!-- 邊界選擇器 -->
             <div class="org-selector">
                 <span>🏢 目前組織：</span>
@@ -612,7 +596,6 @@
             <!-- 按鈕群組 -->
             <div class="button-group">
                 <button class="btn-secondary" onclick="goBack()">回上頁</button>
-                <button class="btn-primary" onclick="nextStep()">下一步 : 活動數據</button>
             </div>
         </div>
     </div>
@@ -1193,20 +1176,6 @@
         }
 
         // ========== 下一步 ==========
-        function nextStep() {
-            if (!currentBoundaryId) {
-                showAlert('請先選擇組織邊界', 'warning');
-                return;
-            }
-            
-            if (emissionSources.length === 0) {
-                showAlert('請至少新增一個排放源', 'warning');
-                return;
-            }
-            
-            window.location.href = `/inventory_list/activity/${currentYear}`;
-        }
-
         // ========== HTML跳脫 ==========
         function escapeHtml(unsafe) {
             return unsafe

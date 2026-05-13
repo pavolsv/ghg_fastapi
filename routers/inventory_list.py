@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select, Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -84,23 +84,16 @@ async def emission_page(
         }
     )
 
+# ========== 活動數據頁面（直接使用設備資料） ==========
+@router.get("/activity/", response_class=HTMLResponse)
 @router.get("/activity/{year}", response_class=HTMLResponse)
+@router.get("/emission/{year}/activity", response_class=HTMLResponse)
 async def activity_page(
     request: Request,
-    year: int,
+    year: Optional[int] = None,
     session: Session = Depends(get_session),
     account_id: int = Depends(get_current_user)
 ):
-    year_record = session.exec(
-        select(Year).where(
-            Year.account_id == account_id,
-            Year.year == year
-        )
-    ).first()
-    
-    if not year_record:
-        return RedirectResponse(url="/inventory_list", status_code=302)
-    
     return templates.TemplateResponse(
         "activity.html",
         {

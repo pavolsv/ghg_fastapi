@@ -41,66 +41,6 @@
     margin-bottom: 20px;
 }
 
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    align-items: flex-end;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.form-group label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 0.9em;
-}
-
-.ui-input,
-.ui-select {
-    padding: 10px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background-color: #ffffff;
-    font-size: 0.95em;
-    height: 42px;
-    box-sizing: border-box;
-}
-
-.usage-input-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.usage-input {
-    flex: 1;
-}
-
-.unit-badge {
-    background: #e9ecef;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-weight: bold;
-    min-width: 60px;
-    text-align: center;
-}
-
-.btn-calc {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 25px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-    height: 42px;
-}
-
 .btn-log {
     background-color: #343a40;
     color: white;
@@ -239,6 +179,13 @@ details summary {
 
 .log-module-filter {
     min-width: 160px;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #ffffff;
+    font-size: 0.95em;
+    height: 42px;
+    box-sizing: border-box;
 }
 
 .log-table-wrap {

@@ -64,6 +64,11 @@ def ensure_schema_updates():
             dev_new_columns = {
                 "device_number": "TEXT",
                 "device_code": "TEXT",
+                "quantity": "INTEGER DEFAULT 1",
+                "fill_amount": "FLOAT",
+                "fill_unit": "TEXT",
+                "equipment_category": "TEXT",
+                "refrigerant_code": "TEXT",
             }
             for col_name, col_ddl in dev_new_columns.items():
                 if col_name not in dev_columns:
@@ -88,6 +93,49 @@ def ensure_schema_updates():
                         if column_name not in app_columns:
                             conn.exec_driver_sql(
                                 f"ALTER TABLE appendix_reference ADD COLUMN {column_name} {column_ddl}"
+                            )
+            except Exception:
+                pass
+
+            # --- ActivityData 表遷移 ---
+            try:
+                ad_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('activity_data')"
+                    ).fetchall()
+                }
+                if len(ad_columns) > 0:
+                    ad_new_columns = {
+                        "lower_heating_value": "FLOAT",
+                        "lhv_unit": "TEXT",
+                    }
+                    for col_name, col_ddl in ad_new_columns.items():
+                        if col_name not in ad_columns:
+                            conn.exec_driver_sql(
+                                f"ALTER TABLE activity_data ADD COLUMN {col_name} {col_ddl}"
+                            )
+            except Exception:
+                pass
+
+            # --- EmissionRecord 表遷移 ---
+            try:
+                er_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('emissionrecord')"
+                    ).fetchall()
+                }
+                if len(er_columns) > 0:
+                    er_new_columns = {
+                        "unit": "TEXT",
+                        "data_source": "TEXT DEFAULT 'manual'",
+                        "lhv_unit": "TEXT",
+                    }
+                    for col_name, col_ddl in er_new_columns.items():
+                        if col_name not in er_columns:
+                            conn.exec_driver_sql(
+                                f"ALTER TABLE emissionrecord ADD COLUMN {col_name} {col_ddl}"
                             )
             except Exception:
                 pass

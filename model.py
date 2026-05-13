@@ -60,6 +60,13 @@ class Device(SQLModel, table=True):
     unit: str
     device_number: Optional[str] = None
     device_code: Optional[str] = None
+    quantity: int = 1
+
+    # 冷媒設備專用欄位
+    fill_amount: Optional[float] = None
+    fill_unit: Optional[str] = None
+    equipment_category: Optional[str] = None
+    refrigerant_code: Optional[str] = None
 
 
 class EmissionRecord(SQLModel, table=True):
@@ -68,7 +75,10 @@ class EmissionRecord(SQLModel, table=True):
     record_date: str
     activity_data: float
     total_co2e: float
+    unit: Optional[str] = None
+    data_source: Optional[str] = "manual"
     heat_value: Optional[float] = None
+    lhv_unit: Optional[str] = None
 
 
 class ETLStatus(SQLModel, table=True):
@@ -199,8 +209,10 @@ class ActivityData(SQLModel, table=True):
     year_id: int = Field(foreign_key="year.year_id")
     boundary_id: int = Field(foreign_key="boundary.boundary_id")
 
-    remark: Optional[str] = None
     data_source: Optional[str] = "manual"
+    lower_heating_value: Optional[float] = None
+    lhv_unit: Optional[str] = None
+    remark: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

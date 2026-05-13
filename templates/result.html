@@ -10,45 +10,119 @@
 {% block content %}
 <div class="result-page-wrap">
     <div class="result-header">
-        <h1 class="result-title">結果</h1>
-        <div class="result-meta">
-            <span>盤查年度：<strong>{{ inventory_year }}</strong></span>
-            <span>當下時間：<strong>{{ current_time }}</strong></span>
+        <div>
+            <h1 class="result-title">溫室氣體排放量彙總表</h1>
+            <p class="result-subtitle">盤查年度：<strong>{{ inventory_year }}</strong>｜{{ current_time }}</p>
         </div>
     </div>
 
+    <div class="result-summary-bar">
+        <div class="summary-stat">
+            <span class="stat-value">{{ "{:,.4f}".format(total_co2e) }}</span>
+            <span class="stat-label">總排放量 (kg CO₂e)</span>
+        </div>
+        <div class="summary-stat">
+            <span class="stat-value">{{ record_count }}</span>
+            <span class="stat-label">排放紀錄筆數</span>
+        </div>
+        <div class="summary-stat">
+            <span class="stat-value">{{ device_count }}</span>
+            <span class="stat-label">設備數量</span>
+        </div>
+    </div>
+
+    {% for scope in scope_data %}
+    <div class="scope-section">
+        <div class="scope-header scope-{{ scope.scope_key }}">
+            <h2>{{ scope.scope_name }}</h2>
+            <span class="scope-total">小計：{{ "{:,.4f}".format(scope.scope_total_co2e) }} kg CO₂e</span>
+        </div>
+
+        {% for et in scope.emission_types %}
+        <div class="type-group">
+            <div class="type-header">
+                <h3>{{ et.emission_type }}</h3>
+                <span class="type-total">{{ "{:,.4f}".format(et.type_total_co2e) }} kg CO₂e</span>
+            </div>
+            <table class="emission-table">
+                {% set is_combustion = et.devices[0].gas_totals.CO2 > 0 or et.devices[0].gas_totals.CH4 > 0 or et.devices[0].gas_totals.N2O > 0 if et.devices else False %}
+                <thead>
+                    <tr>
+                        <th>設備名稱</th>
+                        <th>活動數據</th>
+                        <th>排放係數代碼</th>
+                        <th>熱值</th>
+                        {% if is_combustion %}<th>CO₂ (kg)</th><th>CH₄ (kg)</th><th>N₂O (kg)</th>{% endif %}
+                        <th>CO₂e (kg)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dev in et.devices %}
+                    <tr>
+                        <td class="cell-device">{{ dev.device_name }}</td>
+                        <td class="cell-data">
+                            {% set ns = namespace(activity_total=0.0) %}
+                            {% for r in dev.records %}
+                                {% set ns.activity_total = ns.activity_total + r.activity_data %}
+                            {% endfor %}
+                            {{ "{:,.4f}".format(ns.activity_total) }}
+                            <small class="unit-text">{{ dev.records[0].unit if dev.records else '' }}</small>
+                        </td>
+                        <td class="cell-code">{{ dev.factor_code }}</td>
+                        <td class="cell-data">
+                            {% set heat_vals = dev.records | map(attribute='heat_value') | reject('none') | list %}
+                            {{ "{:,.2f}".format(heat_vals[0]) if heat_vals else '-' }}
+                        </td>
+                        {% if is_combustion %}
+                        <td class="cell-gas">{{ "{:,.4f}".format(dev.gas_totals.CO2) if dev.gas_totals.CO2 else '-' }}</td>
+                        <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.CH4) if dev.gas_totals.CH4 else '-' }}</td>
+                        <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.N2O) if dev.gas_totals.N2O else '-' }}</td>
+                        {% endif %}
+                        <td class="cell-co2e">{{ "{:,.4f}".format(dev.total_co2e) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="type-subtotal">
+                        <td colspan="{{ 7 if is_combustion else 4 }}">{{ et.emission_type }} 小計</td>
+                        {% if is_combustion %}
+                        <td class="cell-gas">{{ "{:,.4f}".format(et.type_gas_totals.CO2) if et.type_gas_totals.CO2 else '-' }}</td>
+                        <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.CH4) if et.type_gas_totals.CH4 else '-' }}</td>
+                        <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.N2O) if et.type_gas_totals.N2O else '-' }}</td>
+                        {% endif %}
+                        <td class="cell-co2e">{{ "{:,.4f}".format(et.type_total_co2e) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if scope_data %}
+    <div class="grand-total-row">
+        <span class="grand-total-label">總排放量合計</span>
+        <span class="grand-total-value">{{ "{:,.4f}".format(total_co2e) }} kg CO₂e</span>
+    </div>
+    {% endif %}
+
+    <div class="section-title">視覺化摘要</div>
     <div class="result-chart-grid">
         <section class="result-card">
-            <h3>總排放 (kg CO₂e)</h3>
-            <div class="chart-wrap">
-                <canvas id="totalPie"></canvas>
-            </div>
+            <h3>總排放量</h3>
+            <div class="chart-wrap"><canvas id="totalPie"></canvas></div>
             <p class="result-value">{{ "{:,.4f}".format(total_co2e) }} kg CO₂e</p>
         </section>
-
         <section class="result-card">
             <h3>排放類型比例</h3>
-            <div class="chart-wrap">
-                <canvas id="typePie"></canvas>
-            </div>
+            <div class="chart-wrap"><canvas id="typePie"></canvas></div>
             <div class="emission-type-percentages">
                 {% for label in emission_type_labels %}
                     {% set value = emission_type_values[loop.index0] %}
                     {% set percent = (value / (emission_type_values|sum) * 100) if (emission_type_values|sum) else 0 %}
-                    <div>{{ label }}：{{ '%.1f' % percent }}%</div>
+                    <div class="pct-row"><span class="pct-label">{{ label }}</span><span class="pct-val">{{ '%.1f' % percent }}%</span></div>
                 {% endfor %}
             </div>
-        </section>
-
-        <section class="result-card report-generator-card">
-            <h3>AI 盤查報告</h3>
-            <p class="report-generator-desc">
-                根據目前資料生成報告，下載 Word 檔。
-            </p>
-            <button id="generateAiReportBtn" class="report-generate-btn" type="button">
-                生成 AI 溫室氣體盤查報告
-            </button>
-            <p id="aiReportStatus" class="ai-report-status" aria-live="polite"></p>
         </section>
     </div>
 </div>
@@ -58,10 +132,6 @@
         totalCo2e: {{ total_co2e | tojson | safe }},
         emissionTypeLabels: {{ emission_type_labels | tojson | safe }},
         emissionTypeValues: {{ emission_type_values | tojson | safe }},
-        endpoints: {
-            generate: "/result/generate-ai-report",
-            statusBase: "/result/ai-report-status/"
-        }
     };
 </script>
 <script src="/static/js/result.js"></script>
