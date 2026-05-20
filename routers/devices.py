@@ -16,6 +16,11 @@ from constants.refrigerant_factors import (
     get_rate_by_code,
     REFRIGERANT_EQUIPMENT,
 )
+from services.emission_calculator import (
+    calculate_combustion_emission,
+    calculate_electricity_emission,
+    calculate_refrigerant_emission,
+)
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 templates = Jinja2Templates(directory="templates")
@@ -65,6 +70,45 @@ def _map_lhv_unit(unit: str) -> str:
         "GJ/立方公尺": "公斤/兆焦耳(kg/TJ)",
     }
     return mapping.get(unit, unit)
+
+
+def _calculate_record_total_co2e(
+    session: Session,
+    device: Device,
+    activity_data: float,
+    heat_value: Optional[float] = None,
+    lhv_unit: Optional[str] = None,
+) -> float:
+    emission_type = _norm_text(device.emission_type)
+
+    if emission_type in {"固定燃燒", "移動燃燒"}:
+        result = calculate_combustion_emission(
+            session=session,
+            original_code=device.factor_ref_code,
+            emission_type=emission_type,
+            activity_value=activity_data,
+            lhv_value=heat_value,
+            lhv_unit=lhv_unit,
+        )
+        return float(result.get("CO2e", 0.0) or 0.0)
+
+    if emission_type == "能源間接排放":
+        result = calculate_electricity_emission(
+            session=session,
+            activity_value=activity_data,
+        )
+        return float(result.get("CO2e", 0.0) or 0.0)
+
+    if emission_type == "逸散排放":
+        result = calculate_refrigerant_emission(
+            session=session,
+            refrigerant_code=device.refrigerant_code or device.factor_ref_code,
+            fill_amount_tonnes=float(device.fill_amount or 0.0),
+            equipment_category=device.equipment_category or "",
+        )
+        return float(result.get("CO2e", 0.0) or 0.0)
+
+    return 0.0
 
 
 # 取得資料庫 Session 的輔助函式
@@ -465,9 +509,17 @@ async def save_device_activity(
         existing = session.exec(
             select(EmissionRecord).where(EmissionRecord.device_id == data.device_id)
         ).first()
+        total_co2e = _calculate_record_total_co2e(
+            session=session,
+            device=device,
+            activity_data=data.activity_data,
+            heat_value=data.heat_value,
+            lhv_unit=data.lhv_unit,
+        )
 
         if existing:
             existing.activity_data = data.activity_data
+            existing.total_co2e = total_co2e
             existing.unit = data.unit
             existing.data_source = data.data_source or "manual"
             existing.heat_value = data.heat_value
@@ -479,7 +531,7 @@ async def save_device_activity(
             new_record = EmissionRecord(
                 device_id=data.device_id,
                 activity_data=data.activity_data,
-                total_co2e=0.0,
+                total_co2e=total_co2e,
                 unit=data.unit,
                 data_source=data.data_source or "manual",
                 heat_value=data.heat_value,

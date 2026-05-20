@@ -140,6 +140,57 @@ def ensure_schema_updates():
             except Exception:
                 pass
 
+            # --- ReportSnapshot 表遷移 ---
+            try:
+                rs_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('reportsnapshot')"
+                    ).fetchall()
+                }
+                if len(rs_columns) > 0:
+                    rs_new_columns = {
+                        "account_id": "INTEGER",
+                        "inventory_year": "INTEGER",
+                        "snapshot_payload": "TEXT",
+                        "created_by": "TEXT",
+                        "created_at": "DATETIME",
+                    }
+                    for col_name, col_ddl in rs_new_columns.items():
+                        if col_name not in rs_columns:
+                            conn.exec_driver_sql(
+                                f"ALTER TABLE reportsnapshot ADD COLUMN {col_name} {col_ddl}"
+                            )
+            except Exception:
+                pass
+
+            # --- ReportDraft 表遷移 ---
+            try:
+                rd_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('reportdraft')"
+                    ).fetchall()
+                }
+                if len(rd_columns) > 0:
+                    rd_new_columns = {
+                        "account_id": "INTEGER",
+                        "title": "TEXT",
+                        "status": "TEXT",
+                        "sections_payload": "TEXT",
+                        "exported_file_path": "TEXT",
+                        "created_by": "TEXT",
+                        "created_at": "DATETIME",
+                        "updated_at": "DATETIME",
+                    }
+                    for col_name, col_ddl in rd_new_columns.items():
+                        if col_name not in rd_columns:
+                            conn.exec_driver_sql(
+                                f"ALTER TABLE reportdraft ADD COLUMN {col_name} {col_ddl}"
+                            )
+            except Exception:
+                pass
+
         except Exception:
             # 新環境或尚未建立資料表時，create_all 會處理
             pass

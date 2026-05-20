@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}報告{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/report_editor.css">
+{% endblock %}
+
+{% block content %}
+<div class="report-page-wrap">
+    <div class="report-page-header">
+        <div>
+            <p class="report-breadcrumb">計算 / 報告</p>
+            <h1 class="report-page-title">報告草稿中心</h1>
+            <p class="report-page-subtitle">可建立多份草稿，並逐章續編、插入數據、AI 生成與匯出 Word。</p>
+        </div>
+        <div class="report-page-actions">
+            <a href="/calculation"
+               hx-get="/calculation"
+               hx-target="#main-content"
+               hx-select="#main-content"
+               hx-push-url="true"
+               hx-indicator="#global-loading"
+               class="btn-report-light">回排放計算</a>
+            <button type="button" id="createReportDraftBtn" class="btn-report-primary">新增草稿</button>
+            <button type="button" id="exportReportDraftBtn" class="btn-report-secondary" disabled>匯出 Word</button>
+        </div>
+    </div>
+
+    <div class="report-page-grid">
+        <aside class="report-draft-list-card">
+            <div class="report-card-header">
+                <h2>草稿列表</h2>
+                <button type="button" id="refreshDraftListBtn" class="btn-report-inline">重新整理</button>
+            </div>
+            <div id="reportDraftList" class="report-draft-list">
+                {% if draft_summaries %}
+                    {% for draft in draft_summaries %}
+                    <article class="report-draft-item{% if draft.draft_id == active_draft_id %} is-active{% endif %}" data-draft-id="{{ draft.draft_id }}">
+                        <div class="report-draft-row">
+                            <strong>{{ draft.title }}</strong>
+                            <span class="draft-status">{{ draft.status }}</span>
+                        </div>
+                        <div class="report-draft-meta-row">草稿編號：{{ draft.draft_id }}</div>
+                        <div class="report-draft-meta-row">年度：{{ draft.inventory_year or '-' }}｜更新：{{ draft.updated_at or '-' }}</div>
+                        <div class="report-draft-meta-row">已完成章節：{{ draft.completed_sections }}/{{ draft.total_sections }}</div>
+                        <button type="button" class="btn-report-inline btn-open-draft" data-draft-id="{{ draft.draft_id }}">續編</button>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                    <div class="report-empty-state">目前沒有草稿，請先建立一份新的報告草稿。</div>
+                {% endif %}
+            </div>
+        </aside>
+
+        <section class="report-editor-card">
+            <div id="reportDraftMeta" class="report-draft-meta">
+                {% if active_draft_id %}
+                    正在載入草稿 {{ active_draft_id }} ...
+                {% else %}
+                    請從左側選擇草稿續編，或新增一份草稿。
+                {% endif %}
+            </div>
+
+            <div id="reportEditorPanel" class="report-editor-panel{% if not active_draft_id %} hidden{% endif %}">
+                {% for section in report_sections %}
+                <section class="report-section" data-section-id="{{ section.id }}">
+                    <div class="report-section-header">
+                        <h3>{{ section.title }}</h3>
+                        <div class="report-section-actions">
+                            <button type="button" class="btn-report-inline btn-insert-data" data-section-id="{{ section.id }}">插入數據</button>
+                            <button type="button" class="btn-report-inline btn-generate-ai" data-section-id="{{ section.id }}">AI 生成</button>
+                            <button type="button" class="btn-report-inline btn-save-section" data-section-id="{{ section.id }}">儲存</button>
+                        </div>
+                    </div>
+                    <textarea class="report-section-editor" id="section-editor-{{ section.id }}" rows="6" placeholder="請輸入或生成本章節內容..."></textarea>
+                    <div class="report-section-status" id="section-status-{{ section.id }}"></div>
+                </section>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    window.reportEditorConfig = {
+        initialDraftId: {{ active_draft_id | tojson | safe }},
+    };
+</script>
+<script src="/static/js/report_editor.js"></script>
+{% endblock %}

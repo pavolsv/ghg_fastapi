@@ -1,41 +1,44 @@
+import os
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, col, select
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
-from database import create_db_and_tables
+from database import create_db_and_tables, engine
 from model import Device, EmissionFactor
-from sqlmodel import Session, select, col
-from database import engine
-from routers import calculation
-from routers import devices
-from routers import electricity as electricity_router
-from routers import etl_script
-from routers import factor_management
-from routers import gwp
-from routers import index
-from routers import login
-from routers import logout
-from routers import logs as logs_router
-from routers import register
-from routers import result
-from routers import set
-from routers import documents
-from routers import inventory_list
-from routers import emission
-from routers import activity
-from routers import boundary
-from routers import ocr_recognition
+from routers import (
+    activity,
+    boundary,
+    calculation,
+    devices,
+    documents,
+    emission,
+    etl_script,
+    factor_management,
+    gwp,
+    index,
+    inventory_list,
+    login,
+    logout,
+    ocr_recognition,
+    register,
+    report_editor,
+    result,
+    set,
+)
 from routers import appendix as appendix_router
-import os
+from routers import electricity as electricity_router
+from routers import logs as logs_router
+
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.add_middleware(SessionMiddleware, secret_key="1shh3345sknn1h1b244xf")
-
 
 
 app.include_router(electricity_router.router)
@@ -50,6 +53,7 @@ app.include_router(gwp.router)
 app.include_router(devices.router)
 app.include_router(calculation.router)
 app.include_router(result.router)
+app.include_router(report_editor.router)
 app.include_router(set.router)
 app.include_router(logs_router.router)
 app.include_router(inventory_list.router)

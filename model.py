@@ -253,3 +253,25 @@ class AppendixReference(SQLModel, table=True):
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ReportSnapshot(SQLModel, table=True):
+    snapshot_id: str = Field(primary_key=True, index=True)
+    account_id: Optional[int] = Field(default=None, index=True)
+    inventory_year: Optional[int] = None
+    snapshot_payload: str = Field(default="{}")
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class ReportDraft(SQLModel, table=True):
+    draft_id: str = Field(primary_key=True, index=True)
+    snapshot_id: str = Field(foreign_key="reportsnapshot.snapshot_id", index=True)
+    account_id: Optional[int] = Field(default=None, index=True)
+    title: str = Field(default="溫室氣體盤查報告草稿")
+    status: str = Field(default="draft", index=True)
+    sections_payload: str = Field(default="{}")
+    exported_file_path: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)

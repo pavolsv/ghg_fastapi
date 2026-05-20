@@ -102,6 +102,13 @@
     </div>
 
     <div class="calc-footer-action">
+        <a href="/calculation/report"
+           hx-get="/calculation/report"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading"
+           class="btn-report-entry">報告</a>
         <a href="/result" class="btn-finish-calc">計算</a>
     </div>
 </div>

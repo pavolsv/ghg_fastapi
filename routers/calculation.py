@@ -9,6 +9,7 @@ from database import engine
 from model import Device, EmissionFactor, EmissionRecord, DataChangeLog, GWPReference
 from constants.lhv_defaults import get_lhv_value
 from constants.refrigerant_factors import get_rate_by_code
+from services.report_editor import get_report_section_definitions, list_report_drafts
 
 router = APIRouter(prefix="/calculation", tags=["calculation"])
 templates = Jinja2Templates(directory="templates")
@@ -123,6 +124,27 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
             "device_emission_type_map": device_emission_type_map,
             "factor_detail_map": factor_detail_map,
             "device_calc_info": device_calc_info,
+        },
+    )
+
+
+@router.get("/report", response_class=HTMLResponse)
+async def report_editor_page(request: Request, session: Session = Depends(get_session)):
+    account_id = request.session.get("user")
+    if not account_id:
+        return RedirectResponse(url="/login", status_code=303)
+
+    draft_summaries = list_report_drafts(session, int(account_id))
+    requested_draft_id = str(request.query_params.get("draft_id") or "").strip()
+    active_draft_id = requested_draft_id or (draft_summaries[0]["draft_id"] if draft_summaries else "")
+
+    return templates.TemplateResponse(
+        "report_editor.html",
+        {
+            "request": request,
+            "report_sections": get_report_section_definitions(),
+            "draft_summaries": draft_summaries,
+            "active_draft_id": active_draft_id,
         },
     )
 
