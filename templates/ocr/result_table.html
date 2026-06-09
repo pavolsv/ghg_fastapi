@@ -1,0 +1,19 @@
+{% for result in results %}
+<tr>
+    <td class="col-idx">{{ loop.index }}</td>
+    <td class="col-view">
+        <button type="button" class="btn-table-action" onclick="viewSpecificImage({{ loop.index0 }})">
+            <i data-lucide="eye" size="16"></i>
+        </button>
+    </td>
+    <td class="col-action">
+        <button type="button" class="btn-table-action text-danger"><i data-lucide="trash-2" size="16"></i></button>
+    </td>
+    <td class="col-filename" title="{{ result.filename }}">{{ result.filename }}</td>
+    <td class="col-date">{{ result.日期 }}</td>
+    <td class="col-type"><span class="badge">{{ result.類型 }}</span></td>
+    <td class="col-vol">{{ result.公升 }}</td>
+    <td class="col-status" style="color: #10b981; font-weight: 600;">辨識完成</td>
+</tr>
+{% endfor %}
+<script>if(window.lucide) lucide.createIcons();</script>

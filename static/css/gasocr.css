@@ -1,0 +1,263 @@
+/* static/css/ocr_style.css */
+
+:root {
+    --primary-color: #0056b3; /* 專業藍 */
+    --primary-hover: #004494;
+    --bg-color: #f4f7f6; /* 淺灰背景，舒服 */
+    --card-bg: #ffffff;
+    --text-main: #333333;
+    --text-muted: #6c757d;
+    --border-color: #e0e6ed;
+    --radius-md: 8px;
+    --radius-sm: 4px;
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --transition: all 0.2s ease;
+}
+
+.ocr-container {
+    padding: 1.5rem;
+    font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    color: var(--text-main);
+    background-color: var(--bg-color);
+    min-height: 100%;
+}
+
+/* 頁面標題 */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--primary-color);
+    background: rgba(0, 86, 179, 0.1);
+    padding: 10px;
+    border-radius: 50%;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* 工作區佈局 (左上傳，右結果) */
+.ocr-workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 1:1 分割 */
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .ocr-workspace {
+        grid-template-columns: 1fr; /* 窄螢幕時堆疊 */
+    }
+}
+
+/* 卡片通用樣式 */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #fafbfc;
+}
+
+.card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+/* 上傳區域 (Dropzone) */
+.dropzone {
+    margin: 1.5rem;
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: var(--transition);
+    background-color: #fafbfc;
+}
+
+.dropzone:hover, .dropzone.dragover {
+    border-color: var(--primary-color);
+    background-color: rgba(0, 86, 179, 0.02);
+}
+
+.dropzone.has-thumbnail {
+    border-style: solid; /* 有圖片時變成實線 */
+    padding: 10px;
+}
+
+/* 隱藏真正的 file input */
+#fileInput {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.dropzone-content {
+    text-align: center;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none; /* 讓點擊穿透到 input */
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 1rem;
+    color: silver;
+}
+
+.browse-text {
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+.file-limits {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+/* 圖片預覽 */
+.preview-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#imagePreview {
+    max-width: 100%;
+    max-height: 230px; /* 限制預覽高度 */
+    border-radius: var(--radius-sm);
+    object-fit: contain; /* 保持比例 */
+}
+
+.remove-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: rgba(255, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20; /* 在 input 之上 */
+    transition: var(--transition);
+}
+
+.remove-btn:hover {
+    background: rgba(255, 0, 0, 1);
+}
+
+/* 操作按鈕區 */
+.action-bar {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* 按鈕樣式 (專業且顯眼) */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid transparent;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-primary lucide {
+    width: 18px;
+    height: 18px;
+}
+
+/* 結果區域的空白狀態 */
+.empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.empty-icon {
+    width: 64px;
+    height: 64px;
+    color: #e0e6ed;
+    margin-bottom: 1.5rem;
+}
+
+/* 小型的 HTMX Indicator */
+.spinner-sm {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 86, 179, 0.1);
+    border-left-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

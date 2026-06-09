@@ -1,0 +1,15 @@
+# Local secrets (each developer sets their own values)
+env.local.txt
+.env
+*.env
+templates/1.txt
+
+# Generated report output
+uploads/ai_reports/
+
+# Markdown files
+*.md
+
+# Python cache artifacts
+__pycache__/
+*.py[cod]

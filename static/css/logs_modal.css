@@ -1,0 +1,204 @@
+/* =============================
+   Shared Audit Log Modal Styles
+   ============================= */
+
+.log-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+}
+
+.log-modal.hidden {
+    display: none;
+}
+
+.log-modal-content {
+    width: min(1100px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.log-modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.log-modal-header h3 {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.log-modal-close {
+    border: none;
+    background: none;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #666;
+}
+
+.log-modal-toolbar {
+    padding: 12px 18px;
+    border-bottom: 1px solid #e9ecef;
+    background: #fdfdfd;
+}
+
+.log-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.log-filter-select,
+.log-filter-input {
+    padding: 7px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9em;
+    min-width: 130px;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.btn-log-secondary {
+    background: #6c757d;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    height: 36px;
+}
+
+.btn-log-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-log-export {
+    background: #28a745;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    height: 36px;
+    margin-left: auto;
+}
+
+.log-pagination-info {
+    font-size: 0.85em;
+    color: #999;
+    margin-top: 6px;
+}
+
+.log-table-wrap {
+    overflow: auto;
+    flex: 1;
+    padding: 0 18px;
+}
+
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.log-table th,
+.log-table td {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 9px 10px;
+    vertical-align: top;
+    text-align: left;
+}
+
+.log-table th {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 12px;
+    color: #495057;
+}
+
+.log-td-time {
+    white-space: nowrap;
+    color: #888;
+    font-size: 12px;
+}
+
+.log-td-detail {
+    max-width: 320px;
+    word-break: break-all;
+    color: #555;
+}
+
+.log-key {
+    color: #aaa;
+}
+
+.log-loading,
+.log-empty {
+    text-align: center;
+    padding: 30px;
+    color: #999;
+}
+
+.log-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.log-badge-create {
+    background: #d4edda;
+    color: #155724;
+}
+
+.log-badge-update {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.log-badge-delete {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.log-badge-upsert {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+.log-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 10px 18px;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.log-page-label {
+    font-size: 0.9em;
+    color: #555;
+}

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}活動數據 - 溫室氣體盤查系統{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<link rel="stylesheet" href="/static/css/device_management.css">
+<style>
+.activity-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.activity-table th, .activity-table td { padding: 10px 8px; border: 1px solid #dee2e6; font-size: 13px; text-align: center; white-space: nowrap; }
+.activity-table th { background: #f8f9fa; font-weight: 600; }
+.activity-table td { vertical-align: middle; }
+.activity-table td input[type="number"],
+.activity-table td input[type="text"] {
+    width: 100%; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px;
+}
+.activity-table td input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,0.1); }
+.activity-table td select { width: 100%; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; background: #fff; }
+.activity-table td select:focus { outline: none; border-color: #4f46e5; }
+.badge-type { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.type-固定燃燒 { background: #fef3c7; color: #92400e; }
+.type-移動燃燒 { background: #ede9fe; color: #5b21b6; }
+.type-逸散排放 { background: #dcfce7; color: #166534; }
+.type-能源間接排放 { background: #dbeafe; color: #1e40af; }
+.status-ok { background: #dcfce7; color: #16a34a; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+.status-no { background: #fff3cd; color: #856404; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+.na { color: #94a3b8; font-size: 12px; }
+.filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-bar label { font-weight: 600; font-size: 14px; color: #1e293b; }
+.filter-bar select, .filter-bar input { padding: 6px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 30px; max-width: 1600px; margin: auto;">
+    <h1>活動數據</h1>
+    <p style="color:#64748b; margin-bottom:16px;">依排放源設備填寫活動數據、數據單位、數據來源、低位熱值</p>
+
+    <div class="filter-bar">
+        <label>排放類型：</label>
+        <select id="filterType" onchange="render()">
+            <option value="">全部</option>
+            <option value="固定燃燒">固定燃燒</option>
+            <option value="移動燃燒">移動燃燒</option>
+            <option value="逸散排放">逸散排放</option>
+            <option value="能源間接排放">能源間接排放</option>
+        </select>
+        <label>搜尋：</label>
+        <input type="text" id="filterSearch" placeholder="設備名稱或編號" oninput="render()">
+    </div>
+
+    <table class="activity-table" id="activityTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>設備名稱</th>
+                <th>排放類型</th>
+                <th>燃料/物料</th>
+                <th>活動數據</th>
+                <th>數據單位</th>
+                <th>數據來源</th>
+                <th>低位熱值</th>
+                <th>熱值單位</th>
+                <th>狀態</th>
+            </tr>
+        </thead>
+        <tbody id="deviceList">
+            <tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">載入中...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const EMISSION_TYPE_UNITS = {
+    '固定燃燒': ['公升','公斤','立方公尺','公噸','公秉'],
+    '移動燃燒': ['公升','公斤','立方公尺','公噸','公秉'],
+    '逸散排放': ['公斤','公噸'],
+    '能源間接排放': ['度','千度','公斤','公噸'],
+};
+let devices = [];
+let lhvUnitOptions = [];
+
+function needsLHV(t) { return t === '固定燃燒' || t === '移動燃燒'; }
+
+function typeClass(t) {
+    const m = {'固定燃燒':'type-固定燃燒','移動燃燒':'type-移動燃燒','逸散排放':'type-逸散排放','能源間接排放':'type-能源間接排放'};
+    return m[t] || 'type-固定燃燒';
+}
+
+function esc(s) { if(s==null||s===undefined)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function loadData() {
+    try {
+        const r1 = await fetch('/devices/api/activities');
+        const d1 = await r1.json();
+        if (d1.success) devices = d1.data;
+        const r2 = await fetch('/devices/api/lhv_units');
+        const d2 = await r2.json();
+        if (d2.success) lhvUnitOptions = d2.data;
+    } catch(e) { console.error(e); }
+    render();
+}
+
+function render() {
+    const ft = document.getElementById('filterType').value;
+    const fs = document.getElementById('filterSearch').value.toLowerCase();
+    let list = devices;
+    if (ft) list = list.filter(d => d.emission_type === ft);
+    if (fs) list = list.filter(d => (d.name||'').toLowerCase().includes(fs) || (d.device_number||'').toLowerCase().includes(fs) || (d.factor_ref_name||'').toLowerCase().includes(fs));
+
+    const tbody = document.getElementById('deviceList');
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">無設備資料</td></tr>';
+        return;
+    }
+    let html = '';
+    for (const d of list) {
+        const done = d.activity_data && d.activity_data > 0 && d.activity_unit && d.activity_unit.trim() !== '';
+        const showLHV = needsLHV(d.emission_type);
+        const isRefrigerant = d.emission_type === '逸散排放' && d.equipment_category;
+        const units = EMISSION_TYPE_UNITS[d.emission_type] || ['公升','公斤','立方公尺','公噸'];
+        const unitOpts = units.map(u => `<option value="${u}" ${u===d.activity_unit?'selected':''}>${u}</option>`).join('');
+        const lhvOpts = lhvUnitOptions.map(u => `<option value="${u}" ${u===d.lhv_unit?'selected':''}>${u}</option>`).join('');
+        const hv = d.heat_value !== null && d.heat_value !== undefined ? d.heat_value : '';
+        const ds = esc(d.data_source || 'manual');
+        const ad = d.activity_data || '';
+
+        // 冷媒設備：燃料欄位顯示冷媒+設備類型；LHV欄位顯示填充量
+        let fuelCell = esc(d.factor_ref_name);
+        let lhvCell = showLHV ? `<input type="number" step="0.01" id="lhv_${d.device_id}" value="${hv}" placeholder="帶入" onchange="saveData(${d.device_id})">` : `<span class="na">N/A</span>`;
+        let lhvuCell = showLHV ? `<select id="lhvu_${d.device_id}" onchange="saveData(${d.device_id})"><option value="">請選擇</option>${lhvOpts}</select>` : `<span class="na">N/A</span>`;
+
+        if (isRefrigerant) {
+            fuelCell = `<div style="line-height:1.5;">${esc(d.factor_ref_name)}<br>${d.fill_amount!==null?d.fill_amount:'--'} 公噸</div>`;
+            lhvCell = `<span class="na">冷媒設備</span>`;
+            lhvuCell = `<span class="na">冷媒設備</span>`;
+        }
+
+        html += `<tr data-id="${d.device_id}">
+<td>${esc(d.device_number||d.device_id)}</td>
+<td><strong>${esc(d.name)}</strong></td>
+<td><span class="badge-type ${typeClass(d.emission_type)}">${esc(d.emission_type)}</span></td>
+<td>${fuelCell}</td>
+<td><input type="number" step="0.01" id="val_${d.device_id}" value="${ad}" placeholder="輸入" onchange="saveData(${d.device_id})"></td>
+<td><select id="unit_${d.device_id}" onchange="saveData(${d.device_id})">${unitOpts}</select></td>
+<td><input type="text" id="src_${d.device_id}" value="${ds}" placeholder="手動" onchange="saveData(${d.device_id})"></td>
+<td>${lhvCell}</td>
+<td>${lhvuCell}</td>
+<td><span class="${done?'status-ok':'status-no'}">${done?'✓ 已填':'待填寫'}</span></td>
+</tr>`;
+    }
+    tbody.innerHTML = html;
+}
+
+async function saveData(deviceId) {
+    const valEl = document.getElementById(`val_${deviceId}`);
+    const unitEl = document.getElementById(`unit_${deviceId}`);
+    const srcEl = document.getElementById(`src_${deviceId}`);
+    const lhvEl = document.getElementById(`lhv_${deviceId}`);
+    const lhvuEl = document.getElementById(`lhvu_${deviceId}`);
+
+    const activityData = valEl ? parseFloat(valEl.value) || 0 : 0;
+    const unit = unitEl ? unitEl.value : '';
+    const dataSource = srcEl ? srcEl.value : 'manual';
+    const heatValue = lhvEl ? (lhvEl.value ? parseFloat(lhvEl.value) : null) : null;
+    const lhvUnit = lhvuEl ? lhvuEl.value : null;
+
+    const idx = devices.findIndex(d => d.device_id === deviceId);
+    if (idx === -1) return;
+
+    try {
+        const resp = await fetch('/devices/api/activities/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                device_id: deviceId,
+                activity_data: activityData,
+                unit: unit,
+                data_source: dataSource,
+                heat_value: heatValue,
+                lhv_unit: lhvUnit,
+            })
+        });
+        const result = await resp.json();
+        if (result.success) {
+            devices[idx].activity_data = activityData;
+            devices[idx].activity_unit = unit;
+            devices[idx].data_source = dataSource;
+            devices[idx].heat_value = heatValue;
+            devices[idx].lhv_unit = lhvUnit;
+            render();
+        } else {
+            alert(result.message || '儲存失敗');
+        }
+    } catch (e) {
+        console.error('儲存失敗:', e);
+        alert('系統錯誤');
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadData);
+} else {
+    loadData();
+}
+</script>
+{% endblock %}

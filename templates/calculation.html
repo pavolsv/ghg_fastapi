@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/calculation.css">
+{% endblock %}
+
+{% block content %}
+<div class="calc-page-wrap">
+    <div class="calc-page-header">
+        <div>
+            <h1 class="calc-title">排放量計算</h1>
+            <p class="calc-year-note">
+                <span class="calc-year-tag">
+            係數年度：<strong>{{ target_year }}</strong>
+        </span>
+            </p>
+        </div>
+        <button type="button" id="openLogModal" class="btn-log">查看操作紀錄</button>
+    </div>
+
+    <div class="calc-card calc-table-card">
+        <table class="record-table">
+            <thead>
+            <tr>
+                <th>日期</th>
+                <th>設備名稱</th>
+                <th>排放類型</th>
+                <th>數據 / 單位</th>
+                <th>熱值</th>
+                <th style="width: 350px;">計算過程 ({{ target_year }} 年度)</th>
+                <th>結果 (kg CO₂e)</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in records %}
+            <tr>
+                <td>{{ r.record_date }}</td>
+                <td><strong>{{ device_map.get(r.device_id) }}</strong></td>
+                <td>
+                    {% set etype = device_emission_type_map.get(r.device_id, "") %}
+                    {% if etype == "逸散排放" %}
+                        <span class="badge-fugitive">逸散排放</span>
+                    {% elif etype == "能源間接排放" %}
+                        <span class="badge-indirect">間接排放</span>
+                    {% else %}
+                        <span class="badge-combustion">{{ etype }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ r.activity_data }} <small>{{ device_unit_map.get(r.device_id) }}</small></td>
+                <td>{{ r.heat_value if r.heat_value else '-' }}</td>
+                <td>
+                    {% set code = device_to_code.get(r.device_id) %}
+                    {% set emission_type = device_emission_type_map.get(r.device_id) %}
+                    {% set calc_info = device_calc_info.get(r.device_id, {}) %}
+                    {% set calc_type = calc_info.get("type", "combustion") %}
+                    <details>
+                        <summary>計算過程 ({{ code }} / {{ emission_type }})</summary>
+                        <div class="detail-box">
+                            {% if calc_type == "refrigerant" %}
+                                冷媒計算：填充量 {{ calc_info.get("fill_kg", 0) }} kg × GWP({{ calc_info.get("gwp_value", 0) }}) × 洩漏率({{ calc_info.get("emission_rate", 0) }})<br>
+                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
+                                {{ f_info.get("gas", "") }}：{{ calc_info.get("fill_kg", 0) }} kg × {{ f_info.get("val", 0) }} × {{ calc_info.get("emission_rate", 0) }} = {{ r.total_co2e }}<br>
+                                {% endfor %}
+                            {% elif calc_type == "electricity" %}
+                                電力計算：活動數據(kWh) × 排放係數(kg CO₂e/kWh)<br>
+                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
+                                {{ f_info.get("gas", "CO2e") }}：{{ r.activity_data }} × {{ f_info.get("val", 0) }} = {{ (r.activity_data * f_info.get("val", 0)) | round(4) }}<br>
+                                {% endfor %}
+                            {% else %}
+                                燃燒計算 (TJ公式)：<br>
+                                {% set lhv_val = r.heat_value if r.heat_value else calc_info.get("lhv_value", 0) %}
+                                {% set total_kcal = r.activity_data * lhv_val %}
+                                {% set tj_total = total_kcal * 0.0000000041868 %}
+                                1. 計算總熱值：<br>
+                                &nbsp;&nbsp;{{ r.activity_data }} (活動數據) × {{ lhv_val }} (熱值) = {{ "{:,.2f}".format(total_kcal) }} Kcal<br>
+                                2. 換算兆焦耳(TJ)：<br>
+                                &nbsp;&nbsp;{{ "{:,.2f}".format(total_kcal) }} Kcal × 4.1868×10⁻⁹ = {{ "{:,.6f}".format(tj_total) }} TJ<br>
+                                3. 各氣體排放量 (TJ × 排放係數)：<br>
+                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
+                                {% set gas_emission = tj_total * f_info.get("val", 0) %}
+                                &nbsp;&nbsp;{{ f_info.get("gas", "?") }}：{{ "{:,.6f}".format(tj_total) }} × {{ f_info.get("val", 0) }} = {{ "{:,.4f}".format(gas_emission) }}<br>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="detail-total">
+                                總計：{{ r.total_co2e }}
+                            </div>
+                        </div>
+                    </details>
+                </td>
+                <td class="text-result">{{ "{:,.4f}".format(r.total_co2e) }}</td>
+                <td>
+                    <form action="/calculation/delete/{{ r.id }}" method="post" class="delete-record-form">
+                        <button type="submit" class="btn-delete-record">刪除
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="calc-footer-action">
+        <a href="/result" class="btn-finish-calc">計算</a>
+    </div>
+</div>
+
+<div id="logModal" class="log-modal hidden">
+    <div class="log-modal-content">
+        <div class="log-modal-header">
+            <h3>資料變更紀錄</h3>
+            <button type="button" id="closeLogModal" class="log-modal-close">X</button>
+        </div>
+        <div class="log-modal-toolbar">
+            <select id="logModuleFilter" class="log-module-filter">
+                <option value="all">全部模組</option>
+                <option value="calculation">排放計算</option>
+                <option value="factor_management">排放因子</option>
+            </select>
+            <button type="button" id="refreshLogBtn" class="btn-log-secondary">重新整理</button>
+        </div>
+        <div class="log-table-wrap">
+            <table class="log-table">
+                <thead>
+                <tr>
+                    <th>時間</th>
+                    <th>模組</th>
+                    <th>動作</th>
+                    <th>資料</th>
+                    <th>操作者</th>
+                    <th>內容</th>
+                </tr>
+                </thead>
+                <tbody id="logTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.calculationConfig = {
+        unitMap: {{ device_unit_map | tojson | safe }},
+        deviceCalcInfo: {{ device_calc_info | tojson | safe }},
+    };
+</script>
+<script src="/static/js/calculation.js"></script>
+<style>
+    .badge-fugitive { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }
+    .badge-indirect { background: #cce5ff; color: #004085; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }
+    .badge-combustion { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }
+</style>
+{% endblock %}

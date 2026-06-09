@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<link rel="stylesheet" href="/static/css/device_management.css">
+{% endblock %}
+
+{% block content %}
+<div style="padding: 30px; max-width: 1400px; margin: auto;">
+    <h1>排放源管理</h1>
+
+    <div class="device-card device-toolbar" style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn-add" onclick="openDeviceModal()">＋ 新增排放源</button>
+        <button type="button" class="btn-add" style="background:#10b981;" onclick="openRefrigerantModal()">＋ 新增冷媒設備</button>
+    </div>
+
+    <table class="device-table">
+        <thead style="background: #f8f9fa;">
+        <tr>
+            <th>編號</th>
+            <th>名稱</th>
+            <th>排放類型</th>
+            <th>燃料 / 冷媒</th>
+            <th>填充量</th>
+            <th>溫室氣體</th>
+            <th>位置</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in devices %}
+        <tr>
+            <td>{{ d.device_number or d.id }}</td>
+            <td><strong>{{ d.name }}</strong></td>
+            <td>
+                {% if d.equipment_category %}
+                    <span style="color:#2e7d32; font-weight:600;">逸散排放</span>
+                {% elif d.emission_type == '移動燃燒' %}
+                    <span style="color:#6a1b9a; font-weight:600;">移動燃燒</span>
+                {% elif d.emission_type == '能源間接排放' or d.factor_ref_code == 'ELECTRICITY' %}
+                    <span style="color:#0277bd; font-weight:600;">間接排放</span>
+                {% elif d.emission_type == '逸散排放' %}
+                    <span style="color:#2e7d32; font-weight:600;">逸散排放</span>
+                {% else %}
+                    <span style="color:#e65100; font-weight:600;">固定燃燒</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if d.equipment_category %}
+                    <span style="color:#059669;">{{ factor_map.get(d.refrigerant_code, d.refrigerant_code) }}</span>
+                {% else %}
+                    {{ factor_map.get(d.factor_ref_code, '—') }}
+                {% endif %}
+            </td>
+            <td>
+                {% if d.equipment_category and d.fill_amount is not none %}
+                    {{ d.fill_amount }} 公噸
+                {% elif d.equipment_category %}
+                    —
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>
+                {% if d.gas_type %}
+                    {% for gas in d.gas_type.split(',') %}
+                        <span class="badge-gas">{{ gas }}</span>
+                    {% endfor %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>{{ d.location or '—' }}</td>
+            <td>
+                <form action="/devices/delete/{{ d.id }}" method="post" style="display:inline;">
+                    <button type="submit" style="color:red; border:none; background:none; cursor:pointer; font-size:13px;" onclick="return confirm('確定刪除？')">刪除</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 新增排放源 Modal -->
+<div id="deviceModal" class="factor-modal hidden">
+    <div class="factor-modal-content">
+        <div class="factor-modal-header">
+            <h3>新增排放源</h3>
+            <button type="button" id="deviceModalClose" class="factor-modal-close">&times;</button>
+        </div>
+        <form action="/devices/create" method="post" class="factor-form" id="deviceForm">
+            <div class="factor-form-grid">
+                <div class="factor-form-group">
+                    <label>設備編號</label>
+                    <input type="text" id="deviceNumber" name="device_number" class="factor-input" placeholder="如：GS01">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備名稱 <span class="required">*</span></label>
+                    <input type="text" id="deviceName" name="name" class="factor-input" placeholder="可輸入自訂名稱" required>
+                </div>
+                <div class="factor-form-group">
+                    <label>選擇附表六設備（帶入名稱與代碼）</label>
+                    <select id="appendixDeviceSelect" class="factor-input">
+                        <option value="">請選擇附表六設備</option>
+                        {% for item in appendix_device_options %}
+                        <option value="{{ item.name }}" data-code="{{ item.code }}">{{ item.code }} - {{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>設備代碼</label>
+                    <input type="text" id="deviceCode" name="device_code" class="factor-input" placeholder="選擇附表六後自動帶入，也可手動輸入">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備位置</label>
+                    <input type="text" name="location" class="factor-input" placeholder="如：A棟廠區">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備數量</label>
+                    <input type="number" id="deviceQuantity" name="quantity" class="factor-input" placeholder="預設 1" min="1" value="1">
+                </div>
+                <div class="factor-form-group factor-form-full">
+                    <label>溫室氣體種類</label>
+                    <div class="gas-checkbox-group">
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="CO2"> CO₂</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="CH4"> CH₄</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="N2O"> N₂O</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="HFCs"> HFCs</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="PFCs"> PFCs</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="SF6"> SF₆</label>
+                    </div>
+                </div>
+                <div class="factor-form-group">
+                    <label>排放類型 <span class="required">*</span></label>
+                    <select id="emissionTypeSelect" name="emission_type" class="factor-input" required>
+                        <option value="">請選擇排放類型</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>原(燃)物料 <span class="required">*</span></label>
+                    <select id="factorSelect" name="factor_ref_code" class="factor-input" required>
+                        <option value="">請先選擇排放類型</option>
+                    </select>
+                </div>
+            </div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">新增</button>
+                <button type="button" id="deviceModalCancel" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 新增冷媒設備 Modal -->
+<div id="refrigerantModal" class="factor-modal hidden">
+    <div class="factor-modal-content">
+        <div class="factor-modal-header">
+            <h3>新增冷媒設備</h3>
+            <button type="button" id="refrigerantModalClose" class="factor-modal-close">&times;</button>
+        </div>
+        <form class="factor-form" id="refrigerantForm" onsubmit="event.preventDefault(); submitRefrigerant();">
+            <div class="factor-form-grid">
+                <div class="factor-form-group">
+                    <label>設備編號</label>
+                    <input type="text" id="refDeviceNumber" class="factor-input" placeholder="如：RF01">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備名稱 <span class="required">*</span></label>
+                    <input type="text" id="refDeviceName" class="factor-input" placeholder="如：會議室冷氣機" required>
+                </div>
+                <div class="factor-form-group">
+                    <label>設備類型（附表六）<span class="required">*</span></label>
+                    <select id="refCategory" class="factor-input" required>
+                        <option value="">請選擇設備類型</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>冷媒 <span class="required">*</span></label>
+                    <select id="refGas" class="factor-input" required>
+                        <option value="">請選擇冷媒</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>填充量 <span class="required">*</span></label>
+                    <input type="number" id="refFillAmount" class="factor-input" step="0.01" min="0" placeholder="輸入數量" required>
+                </div>
+                <div class="factor-form-group">
+                    <label>單位 <span class="required">*</span></label>
+                    <select id="refFillUnit" class="factor-input" required>
+                        <option value="公克">公克 (g)</option>
+                        <option value="公斤">公斤 (kg)</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>設備位置</label>
+                    <input type="text" id="refLocation" class="factor-input" placeholder="如：A棟3F">
+                </div>
+            </div>
+            <div id="refPreview" style="margin-top:12px; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:13px; display:none;"></div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">新增</button>
+                <button type="button" id="refrigerantModalCancel" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const factorOptionsRaw = {{ factor_options_json | tojson | safe }};
+    const factorOptions = Array.isArray(factorOptionsRaw) ? factorOptionsRaw : [];
+    const uniqueEmissionTypes = [...new Set(factorOptions.map(o => o.emission_type))]
+        .filter(t => t !== '逸散排放');
+
+    // ========== 排放源 Modal ==========
+    function updateSubmitState() {
+        const et = document.getElementById('emissionTypeSelect');
+        const fs = document.getElementById('factorSelect');
+        const dn = document.getElementById('deviceName');
+        const btn = document.querySelector('#deviceForm button[type="submit"]');
+        if (!et || !fs || !dn || !btn) return;
+        btn.disabled = !(dn.value.trim() && et.value && fs.value);
+    }
+
+    function populateEmissionTypes() {
+        const sel = document.getElementById('emissionTypeSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">請選擇排放類型</option>';
+        uniqueEmissionTypes.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.text = t;
+            sel.appendChild(opt);
+        });
+    }
+
+    function filterFuelOptions() {
+        const et = document.getElementById('emissionTypeSelect');
+        const fs = document.getElementById('factorSelect');
+        if (!et || !fs) return;
+        const type = (et.value || '').trim();
+        fs.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.text = type ? '請選擇...' : '請先選擇排放類型';
+        fs.appendChild(ph);
+        fs.disabled = !type;
+        if (!type) { updateSubmitState(); return; }
+        const filtered = factorOptions.filter(o => o.emission_type === type);
+        if (!filtered.length) {
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.text = '此排放類型目前無可用選項';
+            empty.disabled = true;
+            fs.appendChild(empty);
+            fs.disabled = true;
+        } else {
+            filtered.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.original_code;
+                opt.text = o.name;
+                fs.appendChild(opt);
+            });
+        }
+        updateSubmitState();
+    }
+
+    function fillFromAppendix() {
+        const sel = document.getElementById('appendixDeviceSelect');
+        const nameInput = document.getElementById('deviceName');
+        const codeInput = document.getElementById('deviceCode');
+        const selected = sel.options[sel.selectedIndex];
+        if (selected && selected.value) {
+            nameInput.value = selected.value;
+            if (selected.dataset.code) codeInput.value = selected.dataset.code;
+            updateSubmitState();
+        }
+    }
+
+    function openDeviceModal() {
+        document.getElementById('deviceModal').classList.remove('hidden');
+        updateSubmitState();
+    }
+    function closeDeviceModal() {
+        document.getElementById('deviceModal').classList.add('hidden');
+    }
+
+    // ========== 冷媒設備 Modal ==========
+    let refCategories = [];
+    let refGases = [];
+
+    function openRefrigerantModal() {
+        document.getElementById('refrigerantModal').classList.remove('hidden');
+        loadRefrigerantOptions();
+    }
+    function closeRefrigerantModal() {
+        document.getElementById('refrigerantModal').classList.add('hidden');
+        document.getElementById('refrigerantForm').reset();
+        document.getElementById('refPreview').style.display = 'none';
+    }
+
+    async function loadRefrigerantOptions() {
+        try {
+            const [catRes, gasRes] = await Promise.all([
+                fetch('/devices/api/refrigerant_categories'),
+                fetch('/devices/api/refrigerant_gases')
+            ]);
+            const catData = await catRes.json();
+            const gasData = await gasRes.json();
+
+            refCategories = catData.success ? catData.data : [];
+            refGases = gasData.success ? gasData.data : [];
+
+            const catSel = document.getElementById('refCategory');
+            catSel.innerHTML = '<option value="">請選擇設備類型</option>';
+            refCategories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.code;
+                opt.text = c.code + ' ' + c.name + '（' + (c.rate * 100).toFixed(1) + '%）';
+                catSel.appendChild(opt);
+            });
+
+            const gasSel = document.getElementById('refGas');
+            gasSel.innerHTML = '<option value="">請選擇冷媒</option>';
+            refGases.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.code;
+                opt.text = g.name + '（' + g.code + '）';
+                gasSel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('載入冷媒選項失敗:', e);
+        }
+    }
+
+    function updateRefPreview() {
+        const catCode = document.getElementById('refCategory').value;
+        const gasCode = document.getElementById('refGas').value;
+        const amount = parseFloat(document.getElementById('refFillAmount').value);
+        const unit = document.getElementById('refFillUnit').value;
+        const preview = document.getElementById('refPreview');
+
+        if (!catCode && !gasCode) { preview.style.display = 'none'; return; }
+
+        const catInfo = refCategories.find(c => c.code === catCode);
+        const gasInfo = refGases.find(g => g.code === gasCode);
+        let html = '';
+        if (catInfo) html += '設備類型：' + catInfo.name + '（年洩漏率 ' + (catInfo.rate * 100).toFixed(1) + '%）<br>';
+        if (gasInfo) html += '冷媒：' + gasInfo.name + '（GWP = ' + gasInfo.gwp + '）<br>';
+        if (amount > 0 && unit) {
+            let tons = unit === '公克' ? amount / 1000000 : amount / 1000;
+            html += '換算：' + amount + ' ' + unit + ' = ' + tons.toFixed(6) + ' 公噸';
+        }
+        preview.style.display = html ? 'block' : 'none';
+        preview.innerHTML = html;
+    }
+
+    async function submitRefrigerant() {
+        const payload = {
+            name: document.getElementById('refDeviceName').value.trim(),
+            device_number: document.getElementById('refDeviceNumber').value.trim() || null,
+            equipment_category: document.getElementById('refCategory').value,
+            refrigerant_code: document.getElementById('refGas').value,
+            fill_amount: parseFloat(document.getElementById('refFillAmount').value),
+            fill_unit: document.getElementById('refFillUnit').value,
+            location: document.getElementById('refLocation').value.trim() || null,
+        };
+
+        if (!payload.name || !payload.equipment_category || !payload.refrigerant_code || isNaN(payload.fill_amount) || payload.fill_amount <= 0) {
+            alert('請填寫所有必填欄位（設備名稱、設備類型、冷媒、填充量）');
+            return;
+        }
+
+        try {
+            const res = await fetch('/devices/refrigerant', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.success) {
+                closeRefrigerantModal();
+                if (typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', '/devices/', '#main-content');
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert(result.message || '新增失敗');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('系統錯誤');
+        }
+    }
+
+    // ========== 事件綁定 ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            populateEmissionTypes();
+
+            // 排放源 Modal
+            const closeBtn = document.getElementById('deviceModalClose');
+            const cancelBtn = document.getElementById('deviceModalCancel');
+            const modal = document.getElementById('deviceModal');
+            const etSel = document.getElementById('emissionTypeSelect');
+            const fsSel = document.getElementById('factorSelect');
+            const appSel = document.getElementById('appendixDeviceSelect');
+            const dn = document.getElementById('deviceName');
+            if (closeBtn) closeBtn.addEventListener('click', closeDeviceModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', closeDeviceModal);
+            if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeDeviceModal(); });
+            if (etSel) etSel.addEventListener('change', filterFuelOptions);
+            if (fsSel) fsSel.addEventListener('change', updateSubmitState);
+            if (appSel) appSel.addEventListener('change', fillFromAppendix);
+            if (dn) dn.addEventListener('input', updateSubmitState);
+            filterFuelOptions();
+            updateSubmitState();
+
+            // 冷媒設備 Modal
+            const refClose = document.getElementById('refrigerantModalClose');
+            const refCancel = document.getElementById('refrigerantModalCancel');
+            const refMod = document.getElementById('refrigerantModal');
+            if (refClose) refClose.addEventListener('click', closeRefrigerantModal);
+            if (refCancel) refCancel.addEventListener('click', closeRefrigerantModal);
+            if (refMod) refMod.addEventListener('click', e => { if (e.target === refMod) closeRefrigerantModal(); });
+
+            // 預覽
+            ['refCategory', 'refGas', 'refFillAmount', 'refFillUnit'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', updateRefPreview);
+                if (el) el.addEventListener('input', updateRefPreview);
+            });
+        } catch (e) {
+            console.error('Init error:', e);
+        }
+    });
+</script>
+{% endblock %}
