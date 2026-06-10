@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/calculation.css">
+<style>
+.report-edit-wrap { max-width: 1400px; margin: 20px auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.snapshot-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; }
+.editor-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; display:flex; flex-direction:column; }
+textarea.payload-editor { width:100%; height: 620px; font-family: monospace; font-size: 13px; white-space: pre; }
+textarea.snapshot-json-preview { width:100%; height: 260px; font-family: monospace; font-size: 12px; white-space: pre; margin-top: 8px; }
+.template-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; display:flex; flex-direction:column; }
+textarea.template-editor { width:100%; height: 260px; font-family: monospace; font-size: 13px; white-space: pre; }
+.template-preview { border: 1px solid #e6e6e6; border-radius: 4px; padding: 10px; min-height: 280px; white-space: pre-wrap; background: #fafafa; font-family: monospace; font-size: 13px; overflow: auto; }
+.btn-save-report { margin-top: 12px; padding:8px 12px; background:#2b7cff; color:white; border:none; border-radius:4px; }
+.error { color: red; margin-top: 8px; }
+.info { color: #666; font-size: 0.95em; margin-bottom:8px; }
+.boundary-block { margin-bottom: 8px; }
+.warning { color: #8a6d3b; background: #fff7e6; border: 1px solid #f5deb3; padding: 8px; border-radius: 4px; margin-top: 8px; }
+.var-box { border:1px solid #e6e6e6; border-radius:4px; padding:8px; max-height: 180px; overflow:auto; background:#fcfcfc; }
+.var-item { font-family: monospace; font-size: 12px; margin: 2px 0; }
+.source-management-section { margin-top: 18px; background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 16px; }
+.source-management-title { font-size: 20px; margin-bottom: 8px; }
+.source-table-wrap { overflow-x: auto; border: 1px solid #dfe3e8; border-radius: 4px; }
+.source-table { width: 100%; min-width: 1700px; border-collapse: collapse; }
+.source-table th, .source-table td { border: 1px solid #dfe3e8; padding: 6px 8px; text-align: center; font-size: 13px; }
+.source-table th { background: #eef4fb; font-weight: 600; }
+.source-table td.text-left { text-align: left; }
+.gas-flag { font-weight: 700; color: #0f5132; }
+@media (max-width: 1200px) {
+  .report-edit-wrap { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>報告編輯</h1>
+<div class="report-edit-wrap">
+  <div class="snapshot-pane">
+    <h2>快照摘要</h2>
+    <p>盤查年度：{{ snapshot.inventory_year }}</p>
+    <p>生成時間：{{ snapshot.generated_at }}</p>
+    <h3>公司資訊</h3>
+    <ul>
+      <li>事業名稱：{{ snapshot.company_summary.get('company_name') }}</li>
+      <li>統一編號：{{ snapshot.company_summary.get('tax_id') }}</li>
+      <li>地址：{{ snapshot.company_summary.get('address') }}</li>
+      <li>聯絡人：{{ snapshot.company_summary.get('contact_person') }}</li>
+    </ul>
+    <h3>邊界摘要</h3>
+    <ul>
+      <li>邊界數量：{{ snapshot.boundary_summary.get('boundary_count') }}</li>
+      <li>納入排放源數量：{{ snapshot.boundary_summary.get('source_count') }}</li>
+      <li>已填寫活動數據數量：{{ snapshot.boundary_summary.get('completed_activity_source_count') }}</li>
+      <li>活動數據覆蓋率：{{ snapshot.boundary_summary.get('activity_coverage_rate') }}%</li>
+    </ul>
+    <h3>排放類型統計 (Top)</h3>
+    <ul>
+      {% for item in snapshot.emission_type_totals %}
+      <li>{{ item.emission_type }}：{{ item.total_co2e }} kg CO2e</li>
+      {% endfor %}
+    </ul>
+    <h3>快速檢視：各邊界</h3>
+    {% if snapshot.get('boundary_snapshots') %}
+      {% for b in snapshot.boundary_snapshots %}
+        <div class="boundary-block">
+          <strong>{{ b.boundary_name }}</strong>
+          <ul>
+            {% for s in b.sources %}
+              <li>{{ s.source_number }} - {{ s.source_name }}：{{ s.unit_or_process }} → {{ s.gases | join(', ') }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="info">目前快照未包含邊界細節（boundary_snapshots）。生成報告快照時會自動補上，若需要可先執行「生成報告」。</p>
+    {% endif %}
+
+    <h3>快照 JSON 預覽</h3>
+    <p class="info">此區顯示目前由資料庫即時生成的完整快照（包含公司資料、排放源、邊界統計等）。</p>
+    <textarea class="snapshot-json-preview" readonly>{{ snapshot_json }}</textarea>
+  </div>
+  <div class="editor-pane">
+    <h2>報告內容</h2>
+    <p class="info"></p>
+    <form method="post" action="/calculation/report/save">
+      <textarea class="payload-editor" name="payload_json">{{ payload_json }}</textarea>
+      <textarea name="template_text" style="display:none;">{{ template_text }}</textarea>
+      {% if error %}
+        <div class="error">錯誤：{{ error }}</div>
+      {% endif %}
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-save-report" type="submit">儲存報告 JSON</button>
+        <a class="btn-save-report" href="/result" style="padding:8px 12px; display:inline-block; background:#f4f4f4; color:#000; border-radius:4px; text-decoration:none;">回到 計算結果</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="template-pane">
+    <h2>範本變數填入</h2>
+    <p class="info">使用標籤語法：{{ '{{ summary.total_co2e }}' }}、{{ '{{ company_summary.company_name }}' }}、{{ '{{ boundary_snapshots[0].boundary_name }}' }}。</p>
+    <form method="post" action="/calculation/report/render">
+      <textarea class="template-editor" name="template_text">{{ template_text }}</textarea>
+      <textarea name="payload_json" style="display:none;">{{ payload_json }}</textarea>
+      <button class="btn-save-report" type="submit">以快照渲染範本</button>
+    </form>
+
+    {% if missing_template_tags and missing_template_tags|length > 0 %}
+      <div class="warning">
+        找不到以下標籤：{{ missing_template_tags | join(', ') }}
+      </div>
+    {% endif %}
+
+    <h3 style="margin-top:12px;">渲染結果</h3>
+    <div class="template-preview">{{ rendered_template }}</div>
+
+    <h3 style="margin-top:12px;">可用變數路徑（節錄）</h3>
+    <div class="var-box">
+      {% for p in template_paths %}
+        <div class="var-item">{{ '{{ ' }}{{ p }}{{ ' }}' }}</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<section class="source-management-section">
+  <h2 class="source-management-title"># 排放源管理</h2>
+  <p class="info">以下表格依快照資料自動整理，欄位格式比照你提供的範例樣式。</p>
+  {% set source_rows = snapshot.get('emission_source_management_rows', []) %}
+  {% if source_rows and source_rows|length > 0 %}
+    <div class="source-table-wrap">
+      <table class="source-table">
+        <thead>
+          <tr>
+            <th>邊界</th>
+            <th>製程-編號</th>
+            <th>製程-名稱</th>
+            <th>設備-編號</th>
+            <th>設備-名稱</th>
+            <th>原（燃）物料-代碼</th>
+            <th>原（燃）物料或產品-名稱</th>
+            <th>直接/能源間接</th>
+            <th>排放型式</th>
+            <th>CO2</th>
+            <th>CH4</th>
+            <th>N2O</th>
+            <th>HFCs</th>
+            <th>PFCs</th>
+            <th>SF6</th>
+            <th>NF3</th>
+            <th>是否使用生質能源</th>
+            <th>是否屬汽電共生設備</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in source_rows %}
+          <tr>
+            <td class="text-left">{{ row.boundary_name }}</td>
+            <td>{{ row.process_code }}</td>
+            <td class="text-left">{{ row.process_name }}</td>
+            <td>{{ row.equipment_code }}</td>
+            <td class="text-left">{{ row.equipment_name }}</td>
+            <td>{{ row.material_code }}</td>
+            <td class="text-left">{{ row.material_name }}</td>
+            <td>{{ row.directness }}</td>
+            <td>{{ row.emission_style }}</td>
+            <td class="gas-flag">{{ row.gas_flags.co2 }}</td>
+            <td class="gas-flag">{{ row.gas_flags.ch4 }}</td>
+            <td class="gas-flag">{{ row.gas_flags.n2o }}</td>
+            <td class="gas-flag">{{ row.gas_flags.hfcs }}</td>
+            <td class="gas-flag">{{ row.gas_flags.pfcs }}</td>
+            <td class="gas-flag">{{ row.gas_flags.sf6 }}</td>
+            <td class="gas-flag">{{ row.gas_flags.nf3 }}</td>
+            <td>{{ row.is_biomass_energy }}</td>
+            <td>{{ row.is_cogen }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="info">目前沒有可顯示的排放源資料。</p>
+  {% endif %}
+</section>
+{% endblock %}

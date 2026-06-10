@@ -138,13 +138,30 @@ def _resolve_llm_runtime_config() -> dict[str, str]:
     raise RuntimeError("不支援的 LLM_PROVIDER，請使用 openai 或 gemini。")
 
 
-def _build_report_snapshot(session: Session) -> dict[str, Any]:
+def _build_report_snapshot(session: Session, account_id: int | None = None) -> dict[str, Any]:
     records = session.exec(select(EmissionRecord)).all()
     devices = session.exec(select(Device)).all()
-    boundaries = session.exec(select(Boundary)).all()
-    emission_sources = session.exec(select(EmissionSource)).all()
-    activity_data_rows = session.exec(select(ActivityData)).all()
-    companies = session.exec(select(CompanyInfo)).all()
+
+    if account_id is None:
+        boundaries = session.exec(select(Boundary)).all()
+        emission_sources = session.exec(select(EmissionSource)).all()
+        activity_data_rows = session.exec(select(ActivityData)).all()
+        companies = session.exec(select(CompanyInfo)).all()
+    else:
+        boundaries = session.exec(
+            select(Boundary).where(Boundary.account_id == account_id)
+        ).all()
+        emission_sources = session.exec(
+            select(EmissionSource).where(EmissionSource.account_id == account_id)
+        ).all()
+        activity_data_rows = session.exec(
+            select(ActivityData).where(ActivityData.account_id == account_id)
+        ).all()
+        companies = session.exec(
+            select(CompanyInfo).where(CompanyInfo.account_id == account_id)
+        ).all()
+
+    all_factors = session.exec(select(EmissionFactor)).all()
 
     device_map = {device.id: device for device in devices}
     scope_display_map = {
@@ -236,6 +253,142 @@ def _build_report_snapshot(session: Session) -> dict[str, Any]:
     for index, item in enumerate(scope_source_counts):
         numeric_sources[f"scope_source_counts[{index}].source_count"] = float(item["source_count"])
 
+    def _normalize_emission_style(raw_emission_type: str | None) -> str:
+        raw = str(raw_emission_type or "").strip().lower()
+        style_map = {
+            "fixed": "固定燃燒",
+            "固定燃燒": "固定燃燒",
+            "mobile": "移動燃燒",
+            "移動燃燒": "移動燃燒",
+            "fugitive": "逸散排放",
+            "逸散排放": "逸散排放",
+            "process": "製程排放",
+            "製程排放": "製程排放",
+            "electricity": "外購電力",
+            "外購電力": "外購電力",
+            "steam": "外購蒸汽",
+            "外購蒸汽": "外購蒸汽",
+            "能源間接排放": "能源間接排放",
+        }
+        return style_map.get(raw, str(raw_emission_type or "未分類").strip() or "未分類")
+
+    def _infer_material_code(material_name: str, emission_style: str) -> str:
+        material = material_name.strip()
+        if not material:
+            return ""
+
+        candidates = [
+            f
+            for f in all_factors
+            if str(f.name or "").strip() == material
+            and (
+                str(f.emission_type or "").strip() == emission_style
+                or emission_style in ("未分類", "能源間接排放")
+            )
+        ]
+        if not candidates:
+            candidates = [f for f in all_factors if str(f.name or "").strip() == material]
+        if not candidates:
+            return ""
+
+        latest = max(candidates, key=lambda f: int(getattr(f, "year", 0) or 0))
+        return str(latest.original_code or latest.code or "").strip()
+
+    def _infer_source_gases(source: EmissionSource, unit_or_process: str, emission_style: str) -> set[str]:
+        gases_set: set[str] = set()
+
+        if unit_or_process:
+            process_key = unit_or_process.lower()
+            for f in all_factors:
+                try:
+                    if (
+                        str(f.original_code or "").strip().lower() == process_key
+                        or str(f.code or "").strip().lower() == process_key
+                        or str(f.name or "").strip().lower() == process_key
+                    ) and f.gas_type:
+                        gases_set.add(str(f.gas_type))
+                except Exception:
+                    continue
+
+        if not gases_set:
+            etype_keys = {
+                str(source.emission_type or "").strip().lower(),
+                str(emission_style or "").strip().lower(),
+            }
+            for f in all_factors:
+                factor_etype = str(f.emission_type or "").strip().lower()
+                if factor_etype in etype_keys and f.gas_type:
+                    gases_set.add(str(f.gas_type))
+
+        if not gases_set:
+            gases_set.add("CO2e")
+
+        return gases_set
+
+    def _normalize_gas_flags(gases_set: set[str], emission_style: str) -> dict[str, str]:
+        normalized = {str(g).upper().replace("₂", "2") for g in gases_set}
+
+        if normalized == {"CO2E"}:
+            if emission_style in {"固定燃燒", "移動燃燒", "製程排放", "外購電力", "外購蒸汽", "能源間接排放"}:
+                normalized.update({"CO2", "CH4", "N2O"})
+            elif emission_style == "逸散排放":
+                normalized.add("HFCS")
+
+        return {
+            "co2": "O" if "CO2" in normalized else "",
+            "ch4": "O" if "CH4" in normalized else "",
+            "n2o": "O" if "N2O" in normalized else "",
+            "hfcs": "O" if any(g.startswith("HFC") for g in normalized) else "",
+            "pfcs": "O" if any(g.startswith("PFC") for g in normalized) else "",
+            "sf6": "O" if "SF6" in normalized else "",
+            "nf3": "O" if "NF3" in normalized else "",
+        }
+
+    # --- boundary-level snapshots: 列出每個邊界的排放源及推斷之氣體種類 ---
+    boundary_snapshots: list[dict] = []
+    emission_source_management_rows: list[dict] = []
+    for b in boundaries:
+        b_sources = [s for s in emission_sources if s.boundary_id == b.boundary_id]
+        sources_list: list[dict] = []
+        for s in b_sources:
+            unit_or_process = (s.material or s.source_name or "").strip()
+            emission_style = _normalize_emission_style(s.emission_type)
+            gases_set = _infer_source_gases(s, unit_or_process, emission_style)
+
+            sources_list.append({
+                "source_number": s.source_number,
+                "source_name": s.source_name,
+                "unit_or_process": unit_or_process,
+                "gases": sorted(list(gases_set)),
+            })
+
+            scope_key = str(s.scope or "").strip().lower()
+            is_indirect = scope_key == "scope2" or emission_style in {"外購電力", "外購蒸汽", "能源間接排放"}
+            material_name = str(s.material or "").strip()
+            material_code = _infer_material_code(material_name, emission_style)
+            gas_flags = _normalize_gas_flags(gases_set, emission_style)
+
+            emission_source_management_rows.append({
+                "boundary_name": str(b.boundary_name or "").strip(),
+                "process_code": str(s.source_number or "").strip(),
+                "process_name": str(s.source_name or "").strip(),
+                "equipment_code": str(s.source_number or "").strip(),
+                "equipment_name": str(s.source_name or "").strip(),
+                "material_code": material_code,
+                "material_name": material_name,
+                "directness": "間接排放" if is_indirect else "直接排放",
+                "emission_style": emission_style,
+                "gas_flags": gas_flags,
+                "is_biomass_energy": "是" if "生質" in material_name else "否",
+                "is_cogen": "是" if "汽電共生" in (str(s.source_name or "") + material_name) else "否",
+            })
+
+        boundary_snapshots.append({
+            "boundary_id": b.boundary_id,
+            "boundary_name": b.boundary_name,
+            "sources": sources_list,
+        })
+
     return {
         "inventory_year": _get_target_year(session),
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -258,6 +411,8 @@ def _build_report_snapshot(session: Session) -> dict[str, Any]:
         "scope_source_counts": scope_source_counts,
         "emission_type_totals": emission_type_totals,
         "top_devices": top_devices,
+        "boundary_snapshots": boundary_snapshots,
+        "emission_source_management_rows": emission_source_management_rows,
         "numeric_sources": numeric_sources,
     }
 
@@ -873,13 +1028,18 @@ async def result_page(request: Request, session: Session = Depends(get_session))
 
 
 @router.post("/generate-ai-report")
-async def generate_ai_report(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def generate_ai_report(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
     try:
         _resolve_llm_runtime_config()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    snapshot = _build_report_snapshot(session)
+    account_id = request.session.get("user")
+    snapshot = _build_report_snapshot(session, account_id=account_id)
     if snapshot["summary"]["record_count"] == 0:
         raise HTTPException(status_code=400, detail="目前沒有排放紀錄，無法生成報告。")
 
