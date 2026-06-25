@@ -34,6 +34,7 @@
                  {% endif %}
                  <th class="center-header">用量</th>
                  <th class="center-header">單位</th>
+                 <th class="center-header">掛載設備</th>
                  <th class="center-header">備註</th>
                  <th class="center-header">操作</th>
             </tr>
@@ -50,6 +51,10 @@
                 {% endif %}
                 <td class="col-usage-amount">{{ bill.usage_amount }}</td>
                 <td class="col-unit">{{ bill.unit }}</td>
+                <td class="col-device">
+                    {% set dev = device_options | selectattr('id', 'equalto', bill.device_id) | list %}
+                    {{ dev[0].name if dev else '—' }}
+                </td>
                 <td class="col-note">{{ bill.note or '-' }}</td>
                 <td>
                     <button
@@ -63,6 +68,7 @@
                         data-unit="{{ bill.unit | e }}"
                         data-note="{{ (bill.note or '') | e }}"
                         data-fuel-type="{{ (bill.fuel_type or '') | e }}"
+                        data-device-id="{{ bill.device_id or 0 }}"
                         onclick="openEditModal(this)">
                         編輯
                     </button>
@@ -92,6 +98,16 @@
         </div>
         <form action="/documents/create" method="post" class="form-grid">
             <input type="hidden" name="bill_type" value="{{ bill_type }}">
+
+            <div class="form-group">
+                <label>掛載設備（自動加總用電 / 用油）</label>
+                <select name="device_id" class="ui-select">
+                    <option value="0">— 不掛載設備 —</option>
+                    {% for d in device_options %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {% if bill_type == 'fuel' %}
             <div class="form-group">
@@ -169,6 +185,16 @@
         </div>
         <form id="editBillForm" action="/documents/update/0" method="post" class="form-grid">
             <input type="hidden" name="bill_type" value="{{ bill_type }}">
+
+            <div class="form-group">
+                <label>掛載設備（自動加總用電 / 用油）</label>
+                <select name="device_id" id="edit_device_id" class="ui-select">
+                    <option value="0">— 不掛載設備 —</option>
+                    {% for d in device_options %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {% if bill_type == 'fuel' %}
             <div class="form-group">

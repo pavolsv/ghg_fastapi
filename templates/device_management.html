@@ -6,16 +6,17 @@
 {% endblock %}
 
 {% block content %}
-<div style="padding: 30px; max-width: 1400px; margin: auto;">
-    <h1>排放源管理</h1>
+<div class="fm-page-wrap">
+    <h1 class="fm-title">排放源管理</h1>
 
-    <div class="device-card device-toolbar" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <div class="device-card device-toolbar">
         <button type="button" class="btn-add" onclick="openDeviceModal()">＋ 新增排放源</button>
-        <button type="button" class="btn-add" style="background:#10b981;" onclick="openRefrigerantModal()">＋ 新增冷媒設備</button>
+        <button type="button" class="btn-add" style="background: linear-gradient(135deg, #10b981, #059669);" onclick="openRefrigerantModal()">＋ 新增冷媒設備</button>
     </div>
 
+    <div class="device-card" style="padding: 0; overflow: hidden;">
     <table class="device-table">
-        <thead style="background: #f8f9fa;">
+        <thead>
         <tr>
             <th>編號</th>
             <th>名稱</th>
@@ -34,29 +35,29 @@
             <td><strong>{{ d.name }}</strong></td>
             <td>
                 {% if d.equipment_category %}
-                    <span style="color:#2e7d32; font-weight:600;">逸散排放</span>
+                    <span class="badge-emission-fugitive">逸散排放</span>
                 {% elif d.emission_type == '移動燃燒' %}
-                    <span style="color:#6a1b9a; font-weight:600;">移動燃燒</span>
+                    <span class="badge-emission-mobile">移動燃燒</span>
                 {% elif d.emission_type == '能源間接排放' or d.factor_ref_code == 'ELECTRICITY' %}
-                    <span style="color:#0277bd; font-weight:600;">間接排放</span>
+                    <span class="badge-emission-indirect">間接排放</span>
                 {% elif d.emission_type == '逸散排放' %}
-                    <span style="color:#2e7d32; font-weight:600;">逸散排放</span>
+                    <span class="badge-emission-fugitive">逸散排放</span>
                 {% else %}
-                    <span style="color:#e65100; font-weight:600;">固定燃燒</span>
+                    <span class="badge-emission-combustion">固定燃燒</span>
                 {% endif %}
             </td>
             <td>
                 {% if d.equipment_category %}
-                    <span style="color:#059669;">{{ factor_map.get(d.refrigerant_code, d.refrigerant_code) }}</span>
+                    <span class="badge-refrigerant">{{ factor_map.get(d.refrigerant_code, d.refrigerant_code) }}</span>
                 {% else %}
                     {{ factor_map.get(d.factor_ref_code, '—') }}
                 {% endif %}
             </td>
             <td>
                 {% if d.equipment_category and d.fill_amount is not none %}
-                    <div style="line-height:1.5;">
-                        <span style="color:#059669; font-weight:600;">{{ d.fill_amount }} 公噸</span><br>
-                        <span style="font-size:12px; color:#6b7280;">原始：{{ d.fill_amount * 1000 if d.fill_unit == '公斤' else (d.fill_amount * 1000000 if d.fill_unit == '公克' else d.fill_amount) }} {{ d.fill_unit or '—' }}</span>
+                    <div class="fill-amount-display">
+                        <span class="fill-amount-value">{{ d.fill_amount }} 公噸</span><br>
+                        <span class="fill-amount-original">原始：{{ d.fill_amount * 1000 if d.fill_unit == '公斤' else (d.fill_amount * 1000000 if d.fill_unit == '公克' else d.fill_amount) }} {{ d.fill_unit or '—' }}</span>
                     </div>
                 {% elif d.equipment_category %}
                     —
@@ -76,13 +77,14 @@
             <td>{{ d.location or '—' }}</td>
             <td>
                 <form action="/devices/delete/{{ d.id }}" method="post" style="display:inline;">
-                    <button type="submit" style="color:red; border:none; background:none; cursor:pointer; font-size:13px;" onclick="return confirm('確定刪除？')">刪除</button>
+                    <button type="submit" class="btn-delete" onclick="return confirm('確定刪除？')">刪除</button>
                 </form>
             </td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- 新增排放源 Modal -->

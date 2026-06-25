@@ -198,6 +198,71 @@
             <h2>計算結果</h2>
             <div id="data-output"></div>
         </div>
+
+        <div class="save-section" style="margin-top: 30px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h2 style="margin-top:0;">儲存加油紀錄到設備</h2>
+            <p style="color:#6b7280; font-size:14px;">輸入加油資訊並選擇設備，系統會自動把公升數加總到該設備的活動數據。</p>
+            <form id="saveGasForm" onsubmit="return saveGasRecord(event)">
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">加油日期</label>
+                        <input type="date" name="record_date" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">燃料類型</label>
+                        <select name="fuel_type" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                            <option value="">請選擇...</option>
+                            <option value="汽油">汽油</option>
+                            <option value="柴油">柴油</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">公升數</label>
+                        <input type="number" name="liters" step="0.01" min="0.01" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">掛載設備</label>
+                        <select name="device_id" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                            <option value="">請選擇設備...</option>
+                            {% for d in device_options %}
+                            <option value="{{ d.id }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-size:13px; color:#374151;">備註（可選）</label>
+                    <input type="text" name="note" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;" placeholder="可留空">
+                </div>
+                <button type="submit" style="background:#2563eb; color:#fff; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">＋ 儲存並加總到設備</button>
+                <span id="saveGasResult" style="margin-left: 12px; font-size: 14px;"></span>
+            </form>
+
+            {% if recent_records %}
+            <h3 style="margin-top: 20px;">最近的加油紀錄</h3>
+            <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+                <thead style="background:#f8f9fa;">
+                    <tr>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">日期</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">燃料</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">公升</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">備註</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in recent_records %}
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.record_date }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.fuel_type }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.liters }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.note or '—' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+
         <div class="back-link">
             <a href="/index">返回首頁</a>
         </div>
@@ -509,6 +574,36 @@ fileInput.addEventListener('change', async (event) => {
 
         window.onload = function() {
             addRow();
+        }
+
+        async function saveGasRecord(event) {
+            event.preventDefault();
+            const form = document.getElementById('saveGasForm');
+            const formData = new FormData(form);
+            const resultSpan = document.getElementById('saveGasResult');
+            resultSpan.textContent = '儲存中…';
+            resultSpan.style.color = '#6b7280';
+
+            try {
+                const response = await fetch('/gasoline/records/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    resultSpan.textContent = '✓ ' + data.message;
+                    resultSpan.style.color = '#059669';
+                    // 重置表單，1.5 秒後重新整理頁面
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    resultSpan.textContent = '✗ ' + (data.message || '儲存失敗');
+                    resultSpan.style.color = '#dc2626';
+                }
+            } catch (error) {
+                resultSpan.textContent = '✗ 網路錯誤：' + error.message;
+                resultSpan.style.color = '#dc2626';
+            }
+            return false;
         }
     </script>
 </body>

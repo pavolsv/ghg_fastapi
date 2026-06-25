@@ -6,37 +6,113 @@
 <link rel="stylesheet" href="/static/css/factor_management.css">
 <link rel="stylesheet" href="/static/css/device_management.css">
 <style>
-.activity-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-.activity-table th, .activity-table td { padding: 10px 8px; border: 1px solid #dee2e6; font-size: 13px; text-align: center; white-space: nowrap; }
-.activity-table th { background: #f8f9fa; font-weight: 600; }
+.activity-page-wrap {
+    padding: 30px;
+    max-width: 1600px;
+    margin: auto;
+}
+
+.activity-page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 6px;
+}
+
+.activity-page-desc {
+    color: #64748b;
+    margin-bottom: 20px;
+    font-size: 0.92rem;
+}
+
+.activity-filter-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.activity-filter-card label {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #475569;
+}
+
+.activity-filter-card select,
+.activity-filter-card input {
+    padding: 9px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    background: #fff;
+}
+
+.activity-filter-card select:focus,
+.activity-filter-card input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.activity-table-wrap {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.activity-table { width: 100%; border-collapse: collapse; }
+.activity-table th, .activity-table td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; white-space: nowrap; }
+.activity-table th { background: linear-gradient(135deg, #059669, #047857); font-weight: 600; color: white; font-size: 0.85rem; letter-spacing: 0.3px; }
 .activity-table td { vertical-align: middle; }
+.activity-table tbody tr { transition: background 0.15s ease; }
+.activity-table tbody tr:hover { background: #f0fdf4; }
+.activity-table tbody tr:nth-child(even) { background: #fafbfc; }
+.activity-table tbody tr:nth-child(even):hover { background: #f0fdf4; }
+
 .activity-table td input[type="number"],
 .activity-table td input[type="text"] {
-    width: 100%; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px;
+    width: 100%; padding: 6px 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px;
+    transition: all 0.2s;
+    box-sizing: border-box;
 }
-.activity-table td input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,0.1); }
-.activity-table td select { width: 100%; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; background: #fff; }
-.activity-table td select:focus { outline: none; border-color: #4f46e5; }
-.badge-type { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-.type-固定燃燒 { background: #fef3c7; color: #92400e; }
-.type-移動燃燒 { background: #ede9fe; color: #5b21b6; }
-.type-逸散排放 { background: #dcfce7; color: #166534; }
-.type-能源間接排放 { background: #dbeafe; color: #1e40af; }
-.status-ok { background: #dcfce7; color: #16a34a; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
-.status-no { background: #fff3cd; color: #856404; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+.activity-table td input:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+.activity-table td select { width: 100%; padding: 6px 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #fff; transition: all 0.2s; }
+.activity-table td select:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+
+.badge-type { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.type-固定燃燒 { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.type-移動燃燒 { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #5b21b6; }
+.type-逸散排放 { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
+.type-能源間接排放 { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e40af; }
+
+.status-ok { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.status-no { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .na { color: #94a3b8; font-size: 12px; }
-.filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-.filter-bar label { font-weight: 600; font-size: 14px; color: #1e293b; }
-.filter-bar select, .filter-bar input { padding: 6px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; }
+
+.activity-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 40px;
+    font-size: 0.92rem;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="padding: 30px; max-width: 1600px; margin: auto;">
-    <h1>活動數據</h1>
-    <p style="color:#64748b; margin-bottom:16px;">依排放源設備填寫活動數據、數據單位、數據來源、低位熱值</p>
+<div class="activity-page-wrap">
+    <h1 class="activity-page-title">活動數據</h1>
+    <p class="activity-page-desc">依排放源設備填寫活動數據、數據單位、數據來源、低位熱值</p>
 
-    <div class="filter-bar">
+    <div class="activity-filter-card">
         <label>排放類型：</label>
         <select id="filterType" onchange="render()">
             <option value="">全部</option>
@@ -49,6 +125,7 @@
         <input type="text" id="filterSearch" placeholder="設備名稱或編號" oninput="render()">
     </div>
 
+    <div class="activity-table-wrap">
     <table class="activity-table" id="activityTable">
         <thead>
             <tr>
@@ -65,9 +142,10 @@
             </tr>
         </thead>
         <tbody id="deviceList">
-            <tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">載入中...</td></tr>
+            <tr><td colspan="10" class="activity-empty">載入中...</td></tr>
         </tbody>
     </table>
+    </div>
 </div>
 
 <script>
@@ -110,7 +188,7 @@ function render() {
 
     const tbody = document.getElementById('deviceList');
     if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">無設備資料</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="activity-empty">無設備資料</td></tr>';
         return;
     }
     let html = '';
