@@ -13,6 +13,13 @@ from database import engine
 from model import Device, EmissionFactor, EmissionRecord, DataChangeLog, GWPReference
 from constants.lhv_defaults import get_lhv_value
 from constants.refrigerant_factors import get_rate_by_code
+from services.emission_calculator import (
+    calculate_combustion_emission,
+    calculate_electricity_emission,
+    calculate_refrigerant_emission,
+    get_lhv_for_device,
+    tj_per_unit,
+)
 
 router = APIRouter(prefix="/calculation", tags=["calculation"])
 templates = Jinja2Templates(directory="templates")
@@ -245,6 +252,62 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
                 "lhv_unit": lhv_unit,
             }
 
+    # --- 用服務統一計算每筆的 gas breakdown，模板只負責顯示 ---
+    record_calc_map: dict[int, dict] = {}
+    device_by_id = {d.id: d for d in devices}
+    for r in records:
+        d = device_by_id.get(r.device_id)
+        if not d:
+            record_calc_map[r.id] = {"co2": 0.0, "ch4": 0.0, "n2o": 0.0, "co2e": float(r.total_co2e or 0)}
+            continue
+        etype = (d.emission_type or "").strip()
+        if etype == "逸散排放" and d.refrigerant_code:
+            res = calculate_refrigerant_emission(
+                session=session,
+                refrigerant_code=d.refrigerant_code,
+                fill_amount_tonnes=d.fill_amount or 0,
+                equipment_category=d.equipment_category or "",
+            )
+            record_calc_map[r.id] = {
+                "co2": 0.0, "ch4": 0.0, "n2o": 0.0,
+                "co2e": float(res.get("CO2e", r.total_co2e or 0) or 0),
+            }
+        elif etype == "能源間接排放":
+            res = calculate_electricity_emission(
+                session=session,
+                activity_value=float(r.activity_data or 0),
+                year=None,
+            )
+            record_calc_map[r.id] = {
+                "co2": 0.0, "ch4": 0.0, "n2o": 0.0,
+                "co2e": float(res.get("CO2e", r.total_co2e or 0) or 0),
+            }
+        else:
+            lhv_value, lhv_unit = get_lhv_for_device(
+                session=session,
+                device=d,
+                custom_heat_value=r.heat_value,
+                custom_lhv_unit=r.lhv_unit,
+            )
+            res = calculate_combustion_emission(
+                session=session,
+                original_code=d.factor_ref_code or "",
+                emission_type=etype or "固定燃燒",
+                activity_value=float(r.activity_data or 0),
+                lhv_value=lhv_value,
+                lhv_unit=lhv_unit,
+                year=None,
+            )
+            record_calc_map[r.id] = {
+                "lhv_value": lhv_value or 0,
+                "lhv_unit": lhv_unit or "",
+                "tj_total": tj_per_unit(lhv_value or 0, lhv_unit or ""),
+                "co2": float(res.get("CO2", 0) or 0),
+                "ch4": float(res.get("CH4", 0) or 0),
+                "n2o": float(res.get("N2O", 0) or 0),
+                "co2e": float(res.get("CO2e", r.total_co2e or 0) or 0),
+            }
+
     return templates.TemplateResponse(
         "calculation.html",
         {
@@ -257,6 +320,7 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
             "device_emission_type_map": device_emission_type_map,
             "factor_detail_map": factor_detail_map,
             "device_calc_info": device_calc_info,
+            "record_calc_map": record_calc_map,
         },
     )
 

@@ -127,10 +127,23 @@ def get_lhv_by_name(material_name: str) -> tuple[float | None, str | None]:
 
 
 def get_lhv_unit_options() -> list[str]:
-    """取得所有可選的 LHV 單位"""
+    """取得所有可選的 LHV 單位。
+
+    提醒：活動數據的單位必須與 LHV 分母一致。
+    """
     return [
         "公斤/兆焦耳(kg/TJ)",
         "千卡/公升(Kcal/l)",
+        "千卡/公斤(Kcal/kg)",
+        "千卡/立方公尺(Kcal/m³)",
+        "千卡/公噸(Kcal/t)",
+        "千卡/公秉(Kcal/kL)",
+        "兆焦耳/公升(MJ/l)",
+        "兆焦耳/公斤(MJ/kg)",
+        "兆焦耳/立方公尺(MJ/m³)",
+        "吉焦耳/公升(GJ/l)",
+        "吉焦耳/公斤(GJ/kg)",
+        "吉焦耳/立方公尺(GJ/m³)",
     ]
 
 

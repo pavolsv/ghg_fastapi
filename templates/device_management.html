@@ -54,7 +54,10 @@
             </td>
             <td>
                 {% if d.equipment_category and d.fill_amount is not none %}
-                    {{ d.fill_amount }} 公噸
+                    <div style="line-height:1.5;">
+                        <span style="color:#059669; font-weight:600;">{{ d.fill_amount }} 公噸</span><br>
+                        <span style="font-size:12px; color:#6b7280;">原始：{{ d.fill_amount * 1000 if d.fill_unit == '公斤' else (d.fill_amount * 1000000 if d.fill_unit == '公克' else d.fill_amount) }} {{ d.fill_unit or '—' }}</span>
+                    </div>
                 {% elif d.equipment_category %}
                     —
                 {% else %}
@@ -188,8 +191,9 @@
                 <div class="factor-form-group">
                     <label>單位 <span class="required">*</span></label>
                     <select id="refFillUnit" class="factor-input" required>
+                        <option value="公斤" selected>公斤 (kg)</option>
                         <option value="公克">公克 (g)</option>
-                        <option value="公斤">公斤 (kg)</option>
+                        <option value="公噸">公噸 (t)</option>
                     </select>
                 </div>
                 <div class="factor-form-group">
@@ -348,7 +352,16 @@
         if (catInfo) html += '設備類型：' + catInfo.name + '（年洩漏率 ' + (catInfo.rate * 100).toFixed(1) + '%）<br>';
         if (gasInfo) html += '冷媒：' + gasInfo.name + '（GWP = ' + gasInfo.gwp + '）<br>';
         if (amount > 0 && unit) {
-            let tons = unit === '公克' ? amount / 1000000 : amount / 1000;
+            let tons;
+            if (unit === '公克') {
+                tons = amount / 1000000;
+            } else if (unit === '公斤') {
+                tons = amount / 1000;
+            } else if (unit === '公噸') {
+                tons = amount;
+            } else {
+                tons = amount / 1000;
+            }
             html += '換算：' + amount + ' ' + unit + ' = ' + tons.toFixed(6) + ' 公噸';
         }
         preview.style.display = html ? 'block' : 'none';

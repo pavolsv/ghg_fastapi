@@ -16,6 +16,13 @@ from constants.refrigerant_factors import (
     get_rate_by_code,
     REFRIGERANT_EQUIPMENT,
 )
+from services.emission_calculator import (
+    calculate_combustion_emission,
+    calculate_electricity_emission,
+    calculate_refrigerant_emission,
+    compute_total_co2e_for_device,
+    get_lhv_for_device,
+)
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 templates = Jinja2Templates(directory="templates")
@@ -26,6 +33,23 @@ EMISSION_TYPE_ORDER = {
     "逸散排放": 2,
     "能源間接排放": 3,
 }
+
+
+def _compute_total_co2e(
+    session: Session,
+    device: Device,
+    activity_data: float,
+    custom_heat_value: Optional[float] = None,
+    custom_lhv_unit: Optional[str] = None,
+) -> float:
+    """根據設備排放類型計算 CO2e（devices 路由的薄包裝）。"""
+    return compute_total_co2e_for_device(
+        session=session,
+        device=device,
+        activity_data=activity_data,
+        custom_heat_value=custom_heat_value,
+        custom_lhv_unit=custom_lhv_unit,
+    )
 
 
 def _norm_text(value: object) -> str:
@@ -48,21 +72,57 @@ def _extract_refrigerant_aliases(gwp_ref) -> list[str]:
 
 
 def _map_lhv_unit(unit: str) -> str:
-    """將舊版 LHV 單位對應到新版下拉選項的格式"""
+    """將舊版 LHV 單位對應到新版下拉選項的格式。
+
+    只對「量綱相同」且「語意一致」的單位做對應（例如 Kcal/公升 ↔ 千卡/公升）。
+    對於 Kcal/公斤、MJ/公斤 等「每單位質量／體積的能量」單位，**不再硬轉成
+    公斤/兆焦耳(kg/TJ)**——那是「每單位能量的排放量」，量綱完全不同，會把
+    數字放大或縮小數個量級，導致排放結果錯得離譜。
+    """
     if not unit:
         return ""
     mapping = {
+        # 能量 / 體積
         "Kcal/公升": "千卡/公升(Kcal/l)",
-        "Kcal/公斤": "公斤/兆焦耳(kg/TJ)",
-        "Kcal/立方公尺": "公斤/兆焦耳(kg/TJ)",
-        "Kcal/公噸": "公斤/兆焦耳(kg/TJ)",
-        "Kcal/公秉": "公斤/兆焦耳(kg/TJ)",
-        "MJ/公升": "公斤/兆焦耳(kg/TJ)",
-        "MJ/公斤": "公斤/兆焦耳(kg/TJ)",
-        "MJ/立方公尺": "公斤/兆焦耳(kg/TJ)",
-        "GJ/公升": "公斤/兆焦耳(kg/TJ)",
-        "GJ/公斤": "公斤/兆焦耳(kg/TJ)",
-        "GJ/立方公尺": "公斤/兆焦耳(kg/TJ)",
+        "千卡/公升": "千卡/公升(Kcal/l)",
+        "Kcal/l": "千卡/公升(Kcal/l)",
+        "MJ/公升": "兆焦耳/公升(MJ/l)",
+        "兆焦耳/公升": "兆焦耳/公升(MJ/l)",
+        "MJ/l": "兆焦耳/公升(MJ/l)",
+        "GJ/公升": "吉焦耳/公升(GJ/l)",
+        "吉焦耳/公升": "吉焦耳/公升(GJ/l)",
+        "GJ/l": "吉焦耳/公升(GJ/l)",
+        # 能量 / 質量
+        "Kcal/公斤": "千卡/公斤(Kcal/kg)",
+        "千卡/公斤": "千卡/公斤(Kcal/kg)",
+        "Kcal/kg": "千卡/公斤(Kcal/kg)",
+        "MJ/公斤": "兆焦耳/公斤(MJ/kg)",
+        "兆焦耳/公斤": "兆焦耳/公斤(MJ/kg)",
+        "MJ/kg": "兆焦耳/公斤(MJ/kg)",
+        "GJ/公斤": "吉焦耳/公斤(GJ/kg)",
+        "吉焦耳/公斤": "吉焦耳/公斤(GJ/kg)",
+        "GJ/kg": "吉焦耳/公斤(GJ/kg)",
+        # 能量 / 氣體體積
+        "Kcal/立方公尺": "千卡/立方公尺(Kcal/m³)",
+        "千卡/立方公尺": "千卡/立方公尺(Kcal/m³)",
+        "Kcal/m³": "千卡/立方公尺(Kcal/m³)",
+        "MJ/立方公尺": "兆焦耳/立方公尺(MJ/m³)",
+        "兆焦耳/立方公尺": "兆焦耳/立方公尺(MJ/m³)",
+        "MJ/m³": "兆焦耳/立方公尺(MJ/m³)",
+        "GJ/立方公尺": "吉焦耳/立方公尺(GJ/m³)",
+        "吉焦耳/立方公尺": "吉焦耳/立方公尺(GJ/m³)",
+        "GJ/m³": "吉焦耳/立方公尺(GJ/m³)",
+        # 能量 / 大量體積
+        "Kcal/公秉": "千卡/公秉(Kcal/kL)",
+        "千卡/公秉": "千卡/公秉(Kcal/kL)",
+        "Kcal/kL": "千卡/公秉(Kcal/kL)",
+        # 能量 / 質量（公噸）
+        "Kcal/公噸": "千卡/公噸(Kcal/t)",
+        "千卡/公噸": "千卡/公噸(Kcal/t)",
+        "Kcal/t": "千卡/公噸(Kcal/t)",
+        # 排放係數直接路線
+        "公斤/兆焦耳": "公斤/兆焦耳(kg/TJ)",
+        "kg/TJ": "公斤/兆焦耳(kg/TJ)",
     }
     return mapping.get(unit, unit)
 
@@ -320,11 +380,21 @@ async def create_refrigerant_device(
     session: Session = Depends(get_session),
 ):
     try:
-        # 統一換算成公噸
-        amount_ton = data.fill_amount
+        if data.fill_amount <= 0:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "填充量必須大於 0"}
+            )
+
+        # 統一換算成公噸（資料庫固定以公噸儲存，計算時再轉 kg）
         if data.fill_unit == "公克":
             amount_ton = data.fill_amount / 1_000_000
         elif data.fill_unit == "公斤":
+            amount_ton = data.fill_amount / 1_000
+        elif data.fill_unit == "公噸":
+            amount_ton = data.fill_amount
+        else:
+            # 未知單位預設按公斤處理，避免錯算
             amount_ton = data.fill_amount / 1_000
 
         new_device = Device(
@@ -462,6 +532,14 @@ async def save_device_activity(
                 content={"success": False, "message": "設備不存在"}
             )
 
+        total_co2e = _compute_total_co2e(
+            session=session,
+            device=device,
+            activity_data=data.activity_data,
+            custom_heat_value=data.heat_value,
+            custom_lhv_unit=data.lhv_unit,
+        )
+
         existing = session.exec(
             select(EmissionRecord).where(EmissionRecord.device_id == data.device_id)
         ).first()
@@ -473,13 +551,14 @@ async def save_device_activity(
             existing.heat_value = data.heat_value
             existing.lhv_unit = data.lhv_unit
             existing.record_date = data.record_date or existing.record_date
+            existing.total_co2e = total_co2e
             session.add(existing)
             message = "活動數據更新成功"
         else:
             new_record = EmissionRecord(
                 device_id=data.device_id,
                 activity_data=data.activity_data,
-                total_co2e=0.0,
+                total_co2e=total_co2e,
                 unit=data.unit,
                 data_source=data.data_source or "manual",
                 heat_value=data.heat_value,

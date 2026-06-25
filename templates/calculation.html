@@ -68,19 +68,31 @@
                                 {{ f_info.get("gas", "CO2e") }}：{{ r.activity_data }} × {{ f_info.get("val", 0) }} = {{ (r.activity_data * f_info.get("val", 0)) | round(4) }}<br>
                                 {% endfor %}
                             {% else %}
-                                燃燒計算 (TJ公式)：<br>
-                                {% set lhv_val = r.heat_value if r.heat_value else calc_info.get("lhv_value", 0) %}
-                                {% set total_kcal = r.activity_data * lhv_val %}
-                                {% set tj_total = total_kcal * 0.0000000041868 %}
-                                1. 計算總熱值：<br>
-                                &nbsp;&nbsp;{{ r.activity_data }} (活動數據) × {{ lhv_val }} (熱值) = {{ "{:,.2f}".format(total_kcal) }} Kcal<br>
-                                2. 換算兆焦耳(TJ)：<br>
-                                &nbsp;&nbsp;{{ "{:,.2f}".format(total_kcal) }} Kcal × 4.1868×10⁻⁹ = {{ "{:,.6f}".format(tj_total) }} TJ<br>
-                                3. 各氣體排放量 (TJ × 排放係數)：<br>
-                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
-                                {% set gas_emission = tj_total * f_info.get("val", 0) %}
-                                &nbsp;&nbsp;{{ f_info.get("gas", "?") }}：{{ "{:,.6f}".format(tj_total) }} × {{ f_info.get("val", 0) }} = {{ "{:,.4f}".format(gas_emission) }}<br>
-                                {% endfor %}
+                                {% set rc = record_calc_map.get(r.id, {}) %}
+                                {% set lhv_unit_str = rc.get("lhv_unit", "") %}
+                                {% if "kg/TJ" in lhv_unit_str or "公斤/兆焦耳" in lhv_unit_str %}
+                                    燃燒計算 (kg/TJ 排放係數路線，由服務統一計算)：<br>
+                                    1. 活動數據：{{ r.activity_data }}<br>
+                                    2. 排放係數：{{ rc.get("lhv_value", 0) }} (單位 {{ lhv_unit_str or "-" }})<br>
+                                    3. 各氣體排放量 (活動數據 × 排放係數，由服務計算)：<br>
+                                    &nbsp;&nbsp;CO2：{{ "{:,.4f}".format(rc.get("co2", 0)) }} kg<br>
+                                    &nbsp;&nbsp;CH4：{{ "{:,.6f}".format(rc.get("ch4", 0)) }} kg<br>
+                                    &nbsp;&nbsp;N2O：{{ "{:,.6f}".format(rc.get("n2o", 0)) }} kg<br>
+                                    4. 合計 CO₂e (= CO₂×1 + CH₄×28 + N₂O×265)：<br>
+                                    &nbsp;&nbsp;{{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg CO₂e<br>
+                                {% else %}
+                                    燃燒計算 (LHV → TJ 路線，由服務統一計算)：<br>
+                                    1. 計算總熱值：<br>
+                                    &nbsp;&nbsp;{{ r.activity_data }} (活動數據) × {{ rc.get("lhv_value", 0) }} (熱值，{{ lhv_unit_str or "-" }}) = {{ "{:,.2f}".format((r.activity_data or 0) * (rc.get("lhv_value", 0) or 0)) }}<br>
+                                    2. 換算兆焦耳(TJ)：<br>
+                                    &nbsp;&nbsp;{{ "{:,.6f}".format(rc.get("tj_total", 0)) }} TJ<br>
+                                    3. 各氣體排放量 (TJ × 排放係數，由服務計算)：<br>
+                                    &nbsp;&nbsp;CO2：{{ "{:,.4f}".format(rc.get("co2", 0)) }} kg<br>
+                                    &nbsp;&nbsp;CH4：{{ "{:,.6f}".format(rc.get("ch4", 0)) }} kg<br>
+                                    &nbsp;&nbsp;N2O：{{ "{:,.6f}".format(rc.get("n2o", 0)) }} kg<br>
+                                    4. 合計 CO₂e (= CO₂×1 + CH₄×28 + N₂O×265)：<br>
+                                    &nbsp;&nbsp;{{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg CO₂e<br>
+                                {% endif %}
                             {% endif %}
                             <div class="detail-total">
                                 總計：{{ r.total_co2e }}

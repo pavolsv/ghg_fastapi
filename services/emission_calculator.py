@@ -24,6 +24,7 @@ LHV 單位轉換：
 結果四捨五入到小數第 4 位
 """
 
+import re
 from typing import Optional
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -45,24 +46,115 @@ LHV_CONVERSION = {
     "GJ": 1e-3,
 }
 
+# 明確白名單：只有這些字串會被換算；其他視為不支援。
+# 注意：活動數據的單位必須與 LHV 的分母一致（公升/公斤/立方公尺/公噸/公秉）。
+SUPPORTED_LHV_UNITS = (
+    # 能量 / 體積
+    "千卡/公升(Kcal/l)",
+    "千卡/公升",
+    "Kcal/l",
+    "Kcal/公升",
+    "兆焦耳/公升(MJ/l)",
+    "MJ/l",
+    "MJ/公升",
+    "吉焦耳/公升(GJ/l)",
+    "GJ/l",
+    "GJ/公升",
+    # 能量 / 質量
+    "千卡/公斤(Kcal/kg)",
+    "千卡/公斤",
+    "Kcal/kg",
+    "Kcal/公斤",
+    "兆焦耳/公斤(MJ/kg)",
+    "MJ/kg",
+    "MJ/公斤",
+    "吉焦耳/公斤(GJ/kg)",
+    "GJ/kg",
+    "GJ/公斤",
+    # 能量 / 氣體體積
+    "千卡/立方公尺(Kcal/m³)",
+    "千卡/立方公尺",
+    "Kcal/m³",
+    "Kcal/立方公尺",
+    "兆焦耳/立方公尺(MJ/m³)",
+    "MJ/m³",
+    "MJ/立方公尺",
+    "吉焦耳/立方公尺(GJ/m³)",
+    "GJ/m³",
+    "GJ/立方公尺",
+    # 能量 / 大量體積
+    "千卡/公秉(Kcal/kL)",
+    "千卡/公秉",
+    "Kcal/kL",
+    "Kcal/公秉",
+    # 能量 / 質量（公噸）
+    "千卡/公噸(Kcal/t)",
+    "千卡/公噸",
+    "Kcal/t",
+    "Kcal/公噸",
+    # 排放係數直接路線：活動數據視為能量（TJ）
+    "公斤/兆焦耳(kg/TJ)",
+    "公斤/兆焦耳",
+    "kg/TJ",
+)
+
+
+def is_supported_lhv_unit(lhv_unit: str) -> bool:
+    """與 _parse_lhv_unit 的支援範圍一致：只有真的能換算的單位才視為支援。"""
+    return _parse_lhv_unit(lhv_unit) > 0
+
 
 def _round4(value: float) -> float:
     decimal_val = Decimal(str(value))
     return float(decimal_val.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
 
+# 支援的 LHV 格式：能量 / 分母；活動數據單位必須與分母一致。
+# 例子：千卡/公升(Kcal/l)、Kcal/kg、MJ/m³、GJ/公噸
+_LHV_UNIT_RE = re.compile(
+    r"^\s*(Kcal|千卡|MJ|兆焦耳|GJ|吉焦耳)\s*/\s*"
+    r"(公升|l|公斤|kg|立方公尺|m³|m3|公噸|t|公秉|kL|kl)"
+    r"(\s*\(.*\))?\s*$",
+    re.IGNORECASE,
+)
+
+
 def _parse_lhv_unit(lhv_unit: str) -> float:
-    lhv_unit = lhv_unit.strip()
+    """把 lhv_unit 解析成「每單位活動數據對應的 TJ」。
+
+    支援的單位：
+        - Kcal/...（千卡/公升、千卡/公斤、千卡/立方公尺、千卡/公噸、千卡/公秉）→ 4.1868e-9
+        - MJ/...（兆焦耳/公升、兆焦耳/公斤、兆焦耳/立方公尺）                → 1e-6
+        - GJ/...（吉焦耳/公升、吉焦耳/公斤、吉焦耳/立方公尺）                → 1e-3
+        - 公斤/兆焦耳(kg/TJ) / kg/TJ                                          → 1.0
+
+    前提：活動數據的單位必須與 LHV 分母一致。
+    例如 LHV 為 Kcal/公斤 時，activity_value 應以「公斤」輸入；
+    LHV 為 Kcal/立方公尺 時，activity_value 應以「立方公尺」輸入。
+
+    不支援的單位 → 0.0，避免錯算。
+    """
+    lhv_unit = (lhv_unit or "").strip()
     if not lhv_unit:
-        return LHV_CONVERSION["Kcal"]
-    if "千卡/公升" in lhv_unit or "Kcal/l" in lhv_unit or "Kcal/公升" in lhv_unit:
-        return LHV_CONVERSION["Kcal"]
-    if "公斤/兆焦耳" in lhv_unit or "kg/TJ" in lhv_unit:
+        return 0.0
+
+    # 排放係數已為 kg/TJ 的路線：活動數據視為 TJ
+    if "kg/TJ" in lhv_unit or "公斤/兆焦耳" in lhv_unit:
         return 1.0
-    for prefix, factor in LHV_CONVERSION.items():
-        if lhv_unit.startswith(prefix):
-            return factor
-    return LHV_CONVERSION["Kcal"]
+
+    # 必須符合「能量 / 支援分母」格式
+    if not _LHV_UNIT_RE.match(lhv_unit):
+        return 0.0
+
+    # 依能量單位判定換算係數；分母由使用者自行與活動數據對齊
+    if "千卡" in lhv_unit or "Kcal" in lhv_unit:
+        return LHV_CONVERSION["Kcal"]
+    if "兆焦耳" in lhv_unit or "MJ" in lhv_unit:
+        return LHV_CONVERSION["MJ"]
+    if "吉焦耳" in lhv_unit or "GJ" in lhv_unit:
+        return LHV_CONVERSION["GJ"]
+
+    return 0.0
 
 
 def _is_lhv_in_tj(lhv_unit: str) -> bool:
@@ -76,6 +168,8 @@ def tj_per_unit(lhv_value: float, lhv_unit: str) -> float:
     if not lhv_value or not lhv_unit:
         return 0.0
     conversion = _parse_lhv_unit(lhv_unit)
+    if not conversion:
+        return 0.0
     return lhv_value * conversion
 
 
@@ -86,6 +180,8 @@ def calculate_single_gas(
     lhv_unit: str,
 ) -> float:
     if not activity_value or not factor_value:
+        return 0.0
+    if activity_value < 0 or factor_value < 0:
         return 0.0
     tj = tj_per_unit(lhv_value, lhv_unit)
     if not tj:
@@ -143,7 +239,7 @@ def calculate_combustion_emission(
     year: Optional[int] = None,
 ) -> dict[str, float]:
     result = {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0, "CO2e": 0.0}
-    if not activity_value:
+    if not activity_value or activity_value < 0:
         return result
     if lhv_value is None or lhv_unit is None:
         lhv_value, lhv_unit = get_lhv_for_fuel(session, original_code)
@@ -187,7 +283,7 @@ def calculate_electricity_emission(
     year: Optional[int] = None,
 ) -> dict[str, float]:
     result = {"CO2e": 0.0}
-    if not activity_value:
+    if not activity_value or activity_value < 0:
         return result
     factors = session.exec(
         select(EmissionFactor).where(
@@ -218,7 +314,7 @@ def calculate_refrigerant_emission(
     equipment_category: str,
 ) -> dict[str, float]:
     result = {"CO2e": 0.0}
-    if not fill_amount_tonnes or not refrigerant_code:
+    if not fill_amount_tonnes or fill_amount_tonnes < 0 or not refrigerant_code:
         return result
     fill_kg = fill_amount_tonnes * 1000.0
     gwp_value = _lookup_gwp(session, refrigerant_code)
@@ -254,7 +350,7 @@ def calculate_emission_by_source(
     emission_type: str,
 ) -> dict[str, float]:
     result = {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0, "CO2e": 0.0}
-    if not activity_value:
+    if not activity_value or activity_value < 0:
         return result
     lhv_value, lhv_unit = get_lhv_for_fuel(session, original_code)
     if not lhv_value or not lhv_unit:
@@ -293,3 +389,53 @@ def calculate_emission_simple(
         lhv_value=lhv_value,
         lhv_unit=lhv_unit,
     )
+
+
+def compute_total_co2e_for_device(
+    session: Session,
+    device: Device,
+    activity_data: float,
+    custom_heat_value: Optional[float] = None,
+    custom_lhv_unit: Optional[str] = None,
+) -> float:
+    """根據設備排放類型計算 CO2e，作為單一計算入口。
+
+    此函式被 routers/devices.py（儲存紀錄時寫入 total_co2e）與
+    routers/result.py（彙總時重新計算舊紀錄）共用，避免兩處結果不一致。
+    """
+    etype = (device.emission_type or "").strip()
+
+    if etype == "逸散排放" and device.refrigerant_code:
+        result = calculate_refrigerant_emission(
+            session=session,
+            refrigerant_code=device.refrigerant_code,
+            fill_amount_tonnes=device.fill_amount or 0,
+            equipment_category=device.equipment_category or "",
+        )
+        return float(result.get("CO2e", 0.0) or 0.0)
+
+    if etype == "能源間接排放":
+        result = calculate_electricity_emission(
+            session=session,
+            activity_value=activity_data,
+            year=None,
+        )
+        return float(result.get("CO2e", 0.0) or 0.0)
+
+    # 固定燃燒 / 移動燃燒
+    lhv_value, lhv_unit = get_lhv_for_device(
+        session=session,
+        device=device,
+        custom_heat_value=custom_heat_value,
+        custom_lhv_unit=custom_lhv_unit,
+    )
+    result = calculate_combustion_emission(
+        session=session,
+        original_code=device.factor_ref_code or "",
+        emission_type=etype or "固定燃燒",
+        activity_value=activity_data,
+        lhv_value=lhv_value,
+        lhv_unit=lhv_unit,
+        year=None,
+    )
+    return float(result.get("CO2e", 0.0) or 0.0)

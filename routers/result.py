@@ -15,6 +15,14 @@ from database import engine
 from model import ActivityData, Boundary, CompanyInfo, Device, EmissionFactor, EmissionRecord, EmissionSource, GWPReference
 from constants.lhv_defaults import get_lhv_value
 from constants.refrigerant_factors import get_rate_by_code
+from services.emission_calculator import (
+    calculate_combustion_emission,
+    calculate_electricity_emission,
+    calculate_refrigerant_emission,
+    compute_total_co2e_for_device,
+    get_lhv_for_device,
+    get_lhv_value,
+)
 from datetime import datetime
 
 # ...
@@ -180,7 +188,17 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         emission_type = emission_type.strip() or "未分類"
         device_name = device_name.strip() or "未命名設備"
 
-        co2e_value = float(record.total_co2e or 0.0)
+        # 重新計算 CO2e：舊紀錄可能 total_co2e=0，必須與詳細表格一致
+        if device:
+            co2e_value = compute_total_co2e_for_device(
+                session=session,
+                device=device,
+                activity_data=float(record.activity_data or 0),
+                custom_heat_value=record.heat_value,
+                custom_lhv_unit=record.lhv_unit,
+            )
+        else:
+            co2e_value = float(record.total_co2e or 0.0)
         total_co2e += co2e_value
         emission_type_totals_raw[emission_type] = emission_type_totals_raw.get(emission_type, 0.0) + co2e_value
         device_totals_raw[device_name] = device_totals_raw.get(device_name, 0.0) + co2e_value
@@ -870,41 +888,54 @@ async def result_page(request: Request, session: Session = Depends(get_session))
                 "lhv_unit": lhv_unit,
             }
 
-    # --- helper: compute gas breakdown for one record ---
-    GWP = {"CO2": 1, "CH4": 28, "N2O": 265}
-
+    # --- helper: compute gas breakdown for one record (透過 services 統一入口) ---
     def _gas_breakdown(record: EmissionRecord) -> dict[str, float]:
         device = device_map.get(record.device_id)
         if not device:
             return {"CO2e": round(float(record.total_co2e or 0), 4)}
 
-        did = device.id
-        calc_info = device_calc_info.get(did, {})
-        factors = factor_detail_map.get(did, [])
-        ctype = calc_info.get("type", "combustion")
+        etype = (device.emission_type or "").strip()
+        activity = float(record.activity_data or 0.0)
 
-        if ctype == "combustion":
-            lhv = record.heat_value or calc_info.get("lhv_value") or 0
-            if lhv and float(record.activity_data or 0) > 0:
-                tj = float(record.activity_data) * float(lhv) * 4.1868e-9
-                result: dict[str, float] = {}
-                for f in factors:
-                    gas = f["gas"]
-                    if gas in ("CO2", "CH4", "N2O"):
-                        result[gas] = round(tj * f["val"], 4)
-                # CO₂e = CO₂×1 + CH₄×28 + N₂O×265
-                co2e_calc = (
-                    result.get("CO2", 0) * GWP["CO2"]
-                    + result.get("CH4", 0) * GWP["CH4"]
-                    + result.get("N2O", 0) * GWP["N2O"]
-                )
-                result["CO2e"] = round(co2e_calc, 4)
-                return result
-            return {"CO2e": round(float(record.total_co2e or 0), 4)}
+        if etype == "逸散排放" and device.refrigerant_code:
+            result = calculate_refrigerant_emission(
+                session=session,
+                refrigerant_code=device.refrigerant_code,
+                fill_amount_tonnes=device.fill_amount or 0,
+                equipment_category=device.equipment_category or "",
+            )
+            return {"CO2e": round(float(result.get("CO2e", record.total_co2e or 0)), 4)}
 
-        # electricity / refrigerant – use stored total
-        co2e = round(float(record.total_co2e or 0), 4)
-        return {"CO2e": co2e}
+        if etype == "能源間接排放":
+            result = calculate_electricity_emission(
+                session=session,
+                activity_value=activity,
+                year=None,
+            )
+            return {"CO2e": round(float(result.get("CO2e", record.total_co2e or 0)), 4)}
+
+        # 固定燃燒 / 移動燃燒 — 走服務
+        lhv_value, lhv_unit = get_lhv_for_device(
+            session=session,
+            device=device,
+            custom_heat_value=record.heat_value,
+            custom_lhv_unit=record.lhv_unit,
+        )
+        result = calculate_combustion_emission(
+            session=session,
+            original_code=device.factor_ref_code or "",
+            emission_type=etype or "固定燃燒",
+            activity_value=activity,
+            lhv_value=lhv_value,
+            lhv_unit=lhv_unit,
+            year=None,
+        )
+        return {
+            "CO2": round(float(result.get("CO2", 0) or 0), 4),
+            "CH4": round(float(result.get("CH4", 0) or 0), 4),
+            "N2O": round(float(result.get("N2O", 0) or 0), 4),
+            "CO2e": round(float(result.get("CO2e", record.total_co2e or 0) or 0), 4),
+        }
 
     # --- aggregate with gas breakdown ---
     scope_order = ["scope1", "scope2"]

@@ -284,16 +284,12 @@
 
         function sumValues(event) {
             event.preventDefault();
-            
-            let gasolineSum = 0;
-            let dieselSum = 0;
+
             const table = document.getElementById('gas-table');
             const allData = [];
 
             for (let i = 0; i < table.rows.length; i++) {
                 const row = table.rows[i];
-                const rowData = {};
-
                 const dateInput = row.cells[2].querySelector('input[type="date"]');
                 const valueInput = row.cells[3].querySelector('input[type="number"]');
                 const fuelRadio = row.cells[4].querySelector('input[type="radio"]:checked');
@@ -301,38 +297,44 @@
                 const value = parseFloat(valueInput.value) || 0;
                 const fuelType = fuelRadio ? fuelRadio.value : '';
 
-                if (fuelType === '汽油') {
-                    gasolineSum += value;
-                } else if (fuelType === '柴油') {
-                    dieselSum += value;
-                }
-                
-                rowData.日期 = dateInput ? dateInput.value : '';
-                rowData.數值 = value;
-                rowData.類型 = fuelType;
-                allData.push(rowData);
+                allData.push({
+                    date: dateInput ? dateInput.value : '',
+                    liters: value,
+                    fuel_type: fuelType,
+                });
             }
-            
-            showAllData(allData, gasolineSum, dieselSum);
+
+            showAllData(allData);
         }
 
-        function calculateGasEmissions(totalLiters) {
-            const CH4 = 0.0008164260 * totalLiters;
-            const CO2 = 2.2631328720 * totalLiters;
-            const N2O = 0.0002612563 * totalLiters;
-            const total = (CH4 + CO2 + N2O) / 1000;
-            return {
-                CH4: parseFloat(CH4.toFixed(3)),
-                CO2: parseFloat(CO2.toFixed(3)),
-                N2O: parseFloat(N2O.toFixed(3)),
-                total: parseFloat(total.toFixed(3))
-            };
+        function _fmtKg(value) {
+            if (value === null || value === undefined || isNaN(value)) return '-';
+            if (value === 0) return '0';
+            if (value < 0.0001) return value.toExponential(3);
+            if (value < 1) return value.toFixed(6);
+            return value.toFixed(4);
         }
 
-        function showAllData(data, gasolineSum, dieselSum) {
+        function _buildFuelBlock(label, block) {
+            if (!block) return '';
+            const sup = block.supported
+                ? '已乘 GWP（CO₂×1 + CH₄×28 + N₂O×265）'
+                : '<span style="color:#b91c1c;">不支援的燃油類型或缺少熱值/排放係數</span>';
+            return `
+                <div style="margin: 12px 0; padding: 10px; background:#fff; border-radius:8px;">
+                    <p><b>${label}</b>（${block.liters.toFixed(4)} 公升；LHV ${block.lhv_value || 0} ${block.lhv_unit || '-'}）</p>
+                    <p>CO₂：${_fmtKg(block.CO2)} kg</p>
+                    <p>CH₄：${_fmtKg(block.CH4)} kg</p>
+                    <p>N₂O：${_fmtKg(block.N2O)} kg</p>
+                    <p><b>${label} CO₂e：${_fmtKg(block.CO2e)} kg</b></p>
+                    <p style="font-size:0.9em; color:#555;">${sup}</p>
+                </div>
+            `;
+        }
+
+        async function showAllData(data) {
             const outputDiv = document.getElementById('data-output');
             outputDiv.innerHTML = '';
-            
             document.getElementById('output-section').style.display = 'block';
 
             if (data.length === 0) {
@@ -340,9 +342,10 @@
                 return;
             }
 
+            // 先在畫面上列出輸入資料
             const outputTable = document.createElement('table');
             outputTable.className = 'output-table';
-            const tableHeader = `
+            outputTable.innerHTML = `
                 <thead>
                     <tr>
                         <th>日期</th>
@@ -351,53 +354,61 @@
                     </tr>
                 </thead>
             `;
-            outputTable.innerHTML = tableHeader;
-
             const tableBody = document.createElement('tbody');
             data.forEach(item => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${item.日期}</td>
-                    <td>${item.類型}</td>
-                    <td>${item.數值.toFixed(3)}</td>
+                    <td>${item.date || ''}</td>
+                    <td>${item.fuel_type || ''}</td>
+                    <td>${item.liters.toFixed(3)}</td>
                 `;
                 tableBody.appendChild(row);
             });
             outputTable.appendChild(tableBody);
 
             const tableFooter = document.createElement('tfoot');
+            const gasolineSum = data.filter(d => d.fuel_type === '汽油').reduce((a, b) => a + b.liters, 0);
+            const dieselSum = data.filter(d => d.fuel_type === '柴油').reduce((a, b) => a + b.liters, 0);
             if (gasolineSum > 0) {
-                const gasolineFooterRow = document.createElement('tr');
-                gasolineFooterRow.innerHTML = `
-                    <td colspan="2" style="text-align: right;">汽油總計</td>
-                    <td>${gasolineSum.toFixed(3)}</td>
-                `;
-                tableFooter.appendChild(gasolineFooterRow);
+                const r = document.createElement('tr');
+                r.innerHTML = `<td colspan="2" style="text-align: right;">汽油總計</td><td>${gasolineSum.toFixed(3)}</td>`;
+                tableFooter.appendChild(r);
             }
             if (dieselSum > 0) {
-                const dieselFooterRow = document.createElement('tr');
-                dieselFooterRow.innerHTML = `
-                    <td colspan="2" style="text-align: right;">柴油總計</td>
-                    <td>${dieselSum.toFixed(3)}</td>
-                `;
-                tableFooter.appendChild(dieselFooterRow);
+                const r = document.createElement('tr');
+                r.innerHTML = `<td colspan="2" style="text-align: right;">柴油總計</td><td>${dieselSum.toFixed(3)}</td>`;
+                tableFooter.appendChild(r);
             }
             outputTable.appendChild(tableFooter);
             outputDiv.appendChild(outputTable);
 
-            const totalLiters = gasolineSum + dieselSum;
-            const emissions = calculateGasEmissions(totalLiters);
-
+            // 呼叫後端統一計算服務
             const emissionDiv = document.createElement('div');
             emissionDiv.style.marginTop = '20px';
-            emissionDiv.innerHTML = `
-                <p><b>溫室氣體排放計算 (總計: ${totalLiters.toFixed(3)} 公升)</b></p>
-                <p>甲烷 (CH₄): ${emissions.CH4.toFixed(3)} 公斤</p>
-                <p>二氧化碳 (CO₂): ${emissions.CO2.toFixed(3)} 公斤</p>
-                <p>氧化亞氮 (N₂O): ${emissions.N2O.toFixed(3)} 公斤</p>
-                <p class="summary-total">總排放: ${emissions.total.toFixed(3)} 公噸CO₂e</p>
-            `;
+            emissionDiv.innerHTML = '<p>計算中...</p>';
             outputDiv.appendChild(emissionDiv);
+
+            try {
+                const resp = await fetch('/gasoline/api/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rows: data }),
+                });
+                const json = await resp.json();
+                if (!resp.ok || !json.success) {
+                    emissionDiv.innerHTML = `<p style="color:#b91c1c;">計算失敗：${(json && (json.detail || json.message)) || resp.statusText}</p>`;
+                    return;
+                }
+                const d = json.data;
+                emissionDiv.innerHTML = `
+                    <p><b>溫室氣體排放計算 (總計: ${d.total_liters.toFixed(3)} 公升)</b></p>
+                    ${_buildFuelBlock('汽油', d.gasoline)}
+                    ${_buildFuelBlock('柴油', d.diesel)}
+                    <p class="summary-total">總 CO₂e：${_fmtKg(d.total_co2e)} kg（由服務以各氣體 × GWP 加總）</p>
+                `;
+            } catch (err) {
+                emissionDiv.innerHTML = `<p style="color:#b91c1c;">計算失敗：${err.message}</p>`;
+            }
         }
 
         function toggleRemoveMode() {
