@@ -49,6 +49,11 @@ function openEditModal(buttonElement) {
         editFuelType.value = buttonElement.dataset.fuelType || '';
     }
 
+    const editDeviceId = document.getElementById('edit_device_id');
+    if (editDeviceId) {
+        editDeviceId.value = buttonElement.dataset.deviceId || '0';
+    }
+
     editBillModal.style.display = 'flex';
 }
 

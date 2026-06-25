@@ -1,28 +1,27 @@
-/* static/css/ocr_style.css */
-
 :root {
-    --primary-color: #0056b3; /* 專業藍 */
-    --primary-hover: #004494;
-    --bg-color: #f4f7f6; /* 淺灰背景，舒服 */
+    --primary-color: #059669;
+    --primary-hover: #047857;
+    --primary-light: #10b981;
+    --bg-color: #f0fdf4;
     --card-bg: #ffffff;
-    --text-main: #333333;
-    --text-muted: #6c757d;
-    --border-color: #e0e6ed;
-    --radius-md: 8px;
-    --radius-sm: 4px;
-    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
     --transition: all 0.2s ease;
 }
 
 .ocr-container {
     padding: 1.5rem;
-    font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
     color: var(--text-main);
-    background-color: var(--bg-color);
+    background-color: transparent;
     min-height: 100%;
 }
 
-/* 頁面標題 */
 .page-header {
     margin-bottom: 2rem;
 }
@@ -34,87 +33,86 @@
 }
 
 .header-icon {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     color: var(--primary-color);
-    background: rgba(0, 86, 179, 0.1);
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
     padding: 10px;
-    border-radius: 50%;
+    border-radius: 12px;
+    border: 1px solid #a7f3d0;
 }
 
 .page-header h1 {
     margin: 0;
     font-size: 1.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    color: #1e293b;
 }
 
 .subtitle {
     margin: 0.25rem 0 0 0;
     color: var(--text-muted);
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
-/* 工作區佈局 (左上傳，右結果) */
 .ocr-workspace {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* 1:1 分割 */
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     align-items: start;
 }
 
 @media (max-width: 1024px) {
     .ocr-workspace {
-        grid-template-columns: 1fr; /* 窄螢幕時堆疊 */
+        grid-template-columns: 1fr;
     }
 }
 
-/* 卡片通用樣式 */
 .card {
     background: var(--card-bg);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
     border: 1px solid var(--border-color);
     overflow: hidden;
 }
 
 .card-header {
-    padding: 1rem 1.5rem;
+    padding: 14px 20px;
     border-bottom: 1px solid var(--border-color);
-    background-color: #fafbfc;
+    background: linear-gradient(135deg, #f0fdf4, #f8fafc);
 }
 
 .card-title {
     margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-main);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e293b;
 }
 
-/* 上傳區域 (Dropzone) */
 .dropzone {
     margin: 1.5rem;
     border: 2px dashed var(--border-color);
-    border-radius: var(--radius-md);
+    border-radius: 14px;
     min-height: 250px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     transition: var(--transition);
-    background-color: #fafbfc;
+    background: linear-gradient(135deg, #f0fdf4, #fafbfc);
 }
 
 .dropzone:hover, .dropzone.dragover {
     border-color: var(--primary-color);
-    background-color: rgba(0, 86, 179, 0.02);
+    background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
 }
 
 .dropzone.has-thumbnail {
-    border-style: solid; /* 有圖片時變成實線 */
+    border-style: solid;
     padding: 10px;
 }
 
-/* 隱藏真正的 file input */
 #fileInput {
     position: absolute;
     width: 100%;
@@ -130,28 +128,28 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    pointer-events: none; /* 讓點擊穿透到 input */
+    pointer-events: none;
 }
 
 .upload-icon {
     width: 48px;
     height: 48px;
     margin-bottom: 1rem;
-    color: silver;
+    color: #94a3b8;
 }
 
 .browse-text {
     color: var(--primary-color);
-    font-weight: 500;
+    font-weight: 600;
     margin-left: 4px;
 }
 
 .file-limits {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     margin-top: 0.5rem;
+    color: #94a3b8;
 }
 
-/* 圖片預覽 */
 .preview-container {
     width: 100%;
     height: 100%;
@@ -163,35 +161,36 @@
 
 #imagePreview {
     max-width: 100%;
-    max-height: 230px; /* 限制預覽高度 */
-    border-radius: var(--radius-sm);
-    object-fit: contain; /* 保持比例 */
+    max-height: 230px;
+    border-radius: 10px;
+    object-fit: contain;
 }
 
 .remove-btn {
     position: absolute;
     top: -10px;
     right: -10px;
-    background: rgba(255, 0, 0, 0.7);
+    background: rgba(239, 68, 68, 0.85);
     color: white;
     border: none;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     font-size: 16px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 20; /* 在 input 之上 */
+    z-index: 20;
     transition: var(--transition);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .remove-btn:hover {
-    background: rgba(255, 0, 0, 1);
+    background: rgba(220, 38, 38, 1);
+    transform: scale(1.1);
 }
 
-/* 操作按鈕區 */
 .action-bar {
     padding: 0 1.5rem 1.5rem 1.5rem;
     display: flex;
@@ -199,31 +198,34 @@
     gap: 1rem;
 }
 
-/* 按鈕樣式 (專業且顯眼) */
 .btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-sm);
-    font-weight: 500;
+    padding: 0.55rem 1.1rem;
+    border-radius: 10px;
+    font-weight: 600;
     cursor: pointer;
     transition: var(--transition);
     border: 1px solid transparent;
+    font-size: 0.92rem;
 }
 
 .btn-lg {
     padding: 0.75rem 1.5rem;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
 }
 
 .btn-primary {
-    background-color: var(--primary-color);
+    background: linear-gradient(135deg, #059669, #047857);
     color: white;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-hover);
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+    transform: translateY(-1px);
 }
 
 .btn-primary lucide {
@@ -231,7 +233,6 @@
     height: 18px;
 }
 
-/* 結果區域的空白狀態 */
 .empty-state {
     padding: 4rem 2rem;
     text-align: center;
@@ -244,15 +245,14 @@
 .empty-icon {
     width: 64px;
     height: 64px;
-    color: #e0e6ed;
+    color: #cbd5e1;
     margin-bottom: 1.5rem;
 }
 
-/* 小型的 HTMX Indicator */
 .spinner-sm {
     width: 20px;
     height: 20px;
-    border: 2px solid rgba(0, 86, 179, 0.1);
+    border: 2px solid rgba(16, 185, 129, 0.15);
     border-left-color: var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;

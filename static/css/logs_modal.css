@@ -1,11 +1,8 @@
-/* =============================
-   Shared Audit Log Modal Styles
-   ============================= */
-
 .log-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -22,67 +19,95 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    border-radius: 10px;
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .log-modal-header {
-    padding: 14px 20px;
-    border-bottom: 1px solid #e9ecef;
+    padding: 16px 22px;
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #f0fdf4, #f8fafc);
 }
 
 .log-modal-header h3 {
     margin: 0;
-    font-size: 1.1em;
+    font-size: 1.1rem;
+    color: #1e293b;
+    font-weight: 700;
 }
 
 .log-modal-close {
     border: none;
     background: none;
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1;
     cursor: pointer;
-    color: #666;
+    color: #94a3b8;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.log-modal-close:hover {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 .log-modal-toolbar {
-    padding: 12px 18px;
-    border-bottom: 1px solid #e9ecef;
-    background: #fdfdfd;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafbfc;
 }
 
 .log-filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
 }
 
 .log-filter-select,
 .log-filter-input {
-    padding: 7px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 0.9em;
+    padding: 8px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.88rem;
     min-width: 130px;
-    height: 36px;
+    height: 38px;
     box-sizing: border-box;
+    transition: all 0.2s;
+}
+
+.log-filter-select:focus,
+.log-filter-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .btn-log-secondary {
-    background: #6c757d;
+    background: linear-gradient(135deg, #64748b, #475569);
     color: #fff;
     border: none;
-    padding: 7px 14px;
-    border-radius: 4px;
+    padding: 8px 16px;
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 0.9em;
-    height: 36px;
+    font-size: 0.88rem;
+    height: 38px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-log-secondary:hover {
+    background: linear-gradient(135deg, #475569, #334155);
 }
 
 .btn-log-secondary:disabled {
@@ -91,27 +116,36 @@
 }
 
 .btn-log-export {
-    background: #28a745;
+    background: linear-gradient(135deg, #059669, #047857);
     color: #fff;
     border: none;
-    padding: 7px 14px;
-    border-radius: 4px;
+    padding: 8px 16px;
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 0.9em;
-    height: 36px;
+    font-size: 0.88rem;
+    height: 38px;
     margin-left: auto;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    transition: all 0.2s;
+}
+
+.btn-log-export:hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+    transform: translateY(-1px);
 }
 
 .log-pagination-info {
-    font-size: 0.85em;
-    color: #999;
-    margin-top: 6px;
+    font-size: 0.82rem;
+    color: #94a3b8;
+    margin-top: 8px;
 }
 
 .log-table-wrap {
     overflow: auto;
     flex: 1;
-    padding: 0 18px;
+    padding: 0 20px;
 }
 
 .log-table {
@@ -122,83 +156,92 @@
 
 .log-table th,
 .log-table td {
-    border-bottom: 1px solid #f0f0f0;
-    padding: 9px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 11px 12px;
     vertical-align: top;
     text-align: left;
 }
 
 .log-table th {
-    background: #f8f9fa;
+    background: #f8fafc;
     position: sticky;
     top: 0;
     z-index: 1;
     font-size: 12px;
-    color: #495057;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.log-table tbody tr:hover {
+    background: #f0fdf4;
 }
 
 .log-td-time {
     white-space: nowrap;
-    color: #888;
+    color: #94a3b8;
     font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .log-td-detail {
     max-width: 320px;
     word-break: break-all;
-    color: #555;
+    color: #475569;
 }
 
 .log-key {
-    color: #aaa;
+    color: #94a3b8;
 }
 
 .log-loading,
 .log-empty {
     text-align: center;
     padding: 30px;
-    color: #999;
+    color: #94a3b8;
 }
 
 .log-badge {
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
     font-weight: 600;
 }
 
 .log-badge-create {
-    background: #d4edda;
-    color: #155724;
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
 }
 
 .log-badge-update {
-    background: #fff3cd;
-    color: #856404;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
 }
 
 .log-badge-delete {
-    background: #f8d7da;
-    color: #721c24;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b;
 }
 
 .log-badge-upsert {
-    background: #e2e3e5;
-    color: #383d41;
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    color: #334155;
 }
 
 .log-modal-footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    padding: 10px 18px;
-    border-top: 1px solid #e9ecef;
-    background: #f8f9fa;
+    gap: 16px;
+    padding: 12px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #fafbfc;
 }
 
 .log-page-label {
-    font-size: 0.9em;
-    color: #555;
+    font-size: 0.88rem;
+    color: #64748b;
+    font-weight: 500;
 }
