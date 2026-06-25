@@ -1,6 +1,6 @@
 .calc-page-wrap {
     padding: 30px;
-    max-width: 1200px;
+    max-width: 1300px;
     margin: auto;
 }
 
@@ -14,51 +14,70 @@
 
 .calc-title {
     margin-bottom: 5px;
+    color: #1e293b;
+    font-size: 1.8rem;
 }
 
 .calc-year-note {
-    color: #666;
+    color: #64748b;
     margin-bottom: 0;
 }
 
 .calc-year-tag {
-    background: #fff3cd;
-    padding: 2px 8px;
-    border-radius: 4px;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    padding: 4px 12px;
+    border-radius: 20px;
+    color: #065f46;
+    font-weight: 500;
+    border: 1px solid #a7f3d0;
 }
 
 .calc-card {
     background: white;
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
     margin-bottom: 30px;
 }
 
 .calc-card-title {
     margin-top: 0;
     margin-bottom: 20px;
+    color: #1e293b;
 }
 
 .btn-log {
-    background-color: #343a40;
+    background: linear-gradient(135deg, #059669, #047857);
     color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    transition: all 0.2s ease;
+}
+
+.btn-log:hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+    transform: translateY(-1px);
 }
 
 .btn-log-secondary {
-    background-color: #6c757d;
+    background: linear-gradient(135deg, #64748b, #475569);
     color: white;
     border: none;
     padding: 9px 16px;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-log-secondary:hover {
+    background: linear-gradient(135deg, #475569, #334155);
 }
 
 .calc-table-card {
@@ -75,45 +94,75 @@
 
 .record-table th,
 .record-table td {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .record-table th {
-    background-color: #f8f9fa;
-    color: #495057;
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+.record-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.record-table tbody tr:hover {
+    background: #f0fdf4;
+}
+
+.record-table tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+.record-table tbody tr:nth-child(even):hover {
+    background: #f0fdf4;
 }
 
 .text-result {
-    color: #d32f2f;
-    font-weight: bold;
+    color: #dc2626;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 details summary {
-    color: #007bff;
-    text-decoration: underline;
+    color: #059669;
+    text-decoration: none;
     cursor: pointer;
     font-size: 0.85em;
     list-style: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #ecfdf5;
+    display: inline-block;
+    transition: background 0.2s;
+}
+
+details summary:hover {
+    background: #d1fae5;
 }
 
 .detail-box {
-    background: #f8f9fa;
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #eee;
-    margin-top: 8px;
-    font-family: monospace;
+    background: #f8fafc;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
     text-align: left;
-    line-height: 1.6;
+    line-height: 1.7;
+    font-size: 0.85em;
 }
 
 .detail-total {
-    border-top: 1px solid #ddd;
-    margin-top: 5px;
-    padding-top: 5px;
+    border-top: 2px solid #10b981;
+    margin-top: 8px;
+    padding-top: 8px;
     font-weight: bold;
-    color: #007bff;
+    color: #059669;
 }
 
 .delete-record-form {
@@ -121,16 +170,23 @@ details summary {
 }
 
 .btn-delete-record {
-    color: #bbb;
+    color: #cbd5e1;
     border: none;
     background: none;
     cursor: pointer;
+    transition: color 0.2s;
+    font-size: 0.9em;
+}
+
+.btn-delete-record:hover {
+    color: #ef4444;
 }
 
 .log-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -146,52 +202,77 @@ details summary {
     max-height: 85vh;
     overflow: hidden;
     background: #fff;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .log-modal-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid #eee;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: linear-gradient(135deg, #f0fdf4, #f8fafc);
 }
 
 .log-modal-header h3 {
     margin: 0;
+    color: #1e293b;
 }
 
 .log-modal-close {
     border: none;
     background: none;
-    font-size: 24px;
+    font-size: 22px;
     line-height: 1;
     cursor: pointer;
+    color: #64748b;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.log-modal-close:hover {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 .log-modal-toolbar {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    padding: 12px 18px;
+    padding: 14px 20px;
+    background: #fafbfc;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .log-module-filter {
     min-width: 160px;
     padding: 10px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     background-color: #ffffff;
-    font-size: 0.95em;
-    height: 42px;
+    font-size: 0.9em;
+    height: 40px;
     box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.log-module-filter:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .log-table-wrap {
     overflow: auto;
-    max-height: calc(85vh - 110px);
-    padding: 0 18px 18px;
+    max-height: calc(85vh - 120px);
+    padding: 0 20px 20px;
 }
 
 .log-table {
@@ -202,30 +283,71 @@ details summary {
 
 .log-table th,
 .log-table td {
-    border-bottom: 1px solid #eee;
-    padding: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 12px;
     font-size: 13px;
     vertical-align: top;
 }
 
 .log-table th {
-    background: #f8f9fa;
+    background: #f8fafc;
     position: sticky;
     top: 0;
+    font-weight: 600;
+    color: #475569;
+}
+
+.log-table tbody tr:hover {
+    background: #f0fdf4;
 }
 
 .calc-footer-action {
     display: flex;
     justify-content: flex-end;
-    margin-top: -12px;
+    margin-top: 20px;
 }
 
 .btn-finish-calc {
     display: inline-block;
-    background-color: #198754;
+    background: linear-gradient(135deg, #059669, #047857);
     color: #fff;
-    padding: 10px 22px;
-    border-radius: 4px;
+    padding: 12px 28px;
+    border-radius: 10px;
     text-decoration: none;
     font-weight: 600;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-finish-calc:hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+    transform: translateY(-2px);
+}
+
+.badge-fugitive { 
+    background: linear-gradient(135deg, #fef3c7, #fde68a); 
+    color: #92400e; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.8em; 
+    font-weight: 500;
+}
+
+.badge-indirect { 
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe); 
+    color: #1e40af; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.8em; 
+    font-weight: 500;
+}
+
+.badge-combustion { 
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0); 
+    color: #065f46; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.8em; 
+    font-weight: 500;
 }
