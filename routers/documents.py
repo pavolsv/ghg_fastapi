@@ -7,11 +7,15 @@ from sqlmodel import Session, select
 
 from audit_log import add_change_log
 from database import engine
-from model import UtilityBill
+from model import UtilityBill, Device
 from EOCR import ocr_recognize
+from file_utils import safe_upload_path
+from services.device_aggregator import recompute_device_emission
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 templates = Jinja2Templates(directory="templates")
+
+UPLOAD_DIR = "uploads"
 
 BILL_TYPE_CONFIG = {
     "electricity": {"title": "電費單", "default_unit": "度"},
@@ -26,6 +30,18 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+
+def _list_devices_for_bill(session: Session, bill_type: str) -> list[Device]:
+    """回傳可掛載該類型帳單的設備清單（依 emission_type 篩選）。"""
+    if bill_type == "electricity":
+        stmt = select(Device).where(Device.emission_type == "能源間接排放")
+    elif bill_type == "fuel":
+        stmt = select(Device).where(Device.emission_type == "移動燃燒")
+    else:
+        stmt = select(Device)
+    return list(session.exec(stmt.order_by(Device.id)).all())
+
+
 @router.post("/ocr_upload")
 async def ocr_upload(
     bill_type: str = Form(...),
@@ -39,9 +55,8 @@ async def ocr_upload(
         )
 
 
-    file_location = f"uploads/{file.filename}"
-    
     try:
+        file_location = str(safe_upload_path(UPLOAD_DIR, file.filename))
         # 1. 儲存上傳的檔案
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -82,6 +97,12 @@ async def document_manage_page(
         float(b.usage_amount) for b in bills if b.fuel_type == "柴油"
     ) if bill_type == "fuel" else None
 
+    # 設備選單：給前端掛載用
+    device_options = [
+        {"id": d.id, "name": d.name}
+        for d in _list_devices_for_bill(session, bill_type)
+    ]
+
     return templates.TemplateResponse(
         "document_management.html",
         {
@@ -94,6 +115,7 @@ async def document_manage_page(
             "gasoline_total": gasoline_total,
             "diesel_total": diesel_total,
             "fuel_type_options": FUEL_TYPE_OPTIONS,
+            "device_options": device_options,
         },
     )
 
@@ -110,6 +132,7 @@ async def create_bill(
     unit: str = Form(...),
     fuel_type: str = Form(default=""),
     note: str = Form(default=""),
+    device_id: int = Form(default=0),
     session: Session = Depends(get_session),
 ):
     if bill_type not in BILL_TYPE_CONFIG:
@@ -130,9 +153,16 @@ async def create_bill(
         unit=unit,
         note=note or None,
         fuel_type=fuel_type or None,
+        device_id=device_id if device_id and device_id > 0 else None,
     )
     session.add(new_bill)
     session.flush()
+
+    # 自動加總到設備
+    if new_bill.device_id:
+        device = session.get(Device, new_bill.device_id)
+        if device:
+            recompute_device_emission(session, device)
 
     add_change_log(
         session=session,
@@ -143,7 +173,7 @@ async def create_bill(
         changed_by=str(request.session.get("user", "system")),
         change_details=(
             f"bill_type={bill_type}, bill_month={bill_month}, period={period_start}~{period_end}, "
-            f"usage_amount={usage_amount}, unit={unit}"
+            f"usage_amount={usage_amount}, unit={unit}, device_id={new_bill.device_id}"
         ),
     )
     session.commit()
@@ -158,12 +188,14 @@ async def delete_bill(
     session: Session = Depends(get_session),
 ):
     bill = session.get(UtilityBill, bill_id)
+    affected_device_id: int | None = None
     if bill:
+        affected_device_id = bill.device_id
         add_change_log(
             session=session,
             module="documents",
             entity_name="UtilityBill",
-            record_key=str(bill.id),
+            record_key=str(bill_id),
             action_type="DELETE",
             changed_by=str(request.session.get("user", "system")),
             change_details=(
@@ -172,6 +204,13 @@ async def delete_bill(
             ),
         )
         session.delete(bill)
+        session.flush()
+
+        # 重新計算掛載設備的累積值
+        if affected_device_id:
+            device = session.get(Device, affected_device_id)
+            if device:
+                recompute_device_emission(session, device)
         session.commit()
 
     redirect_type = bill_type if bill_type in BILL_TYPE_CONFIG else "electricity"
@@ -191,12 +230,12 @@ async def update_bill(
     unit: str = Form(...),
     fuel_type: str = Form(default=""),
     note: str = Form(default=""),
+    device_id: int = Form(default=0),
     session: Session = Depends(get_session),
 ):
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
     redirect_type = bill_type if bill_type in BILL_TYPE_CONFIG else "electricity"
 
-    # 加油單據：從單一日期欄導出 bill_month 與 period
     if bill_type == "fuel" and fuel_date:
         bill_month = fuel_date[:7]
         period_start = fuel_date
@@ -211,12 +250,8 @@ async def update_bill(
             )
         return RedirectResponse(url=f"/documents/{redirect_type}", status_code=303)
 
-    old_bill_month = bill.bill_month
-    old_period_start = bill.period_start
-    old_period_end = bill.period_end
-    old_usage_amount = bill.usage_amount
-    old_unit = bill.unit
-    old_note = bill.note
+    old_device_id = bill.device_id
+    new_device_id = device_id if device_id and device_id > 0 else None
 
     bill.bill_month = bill_month
     bill.period_start = period_start
@@ -225,6 +260,7 @@ async def update_bill(
     bill.unit = unit
     bill.note = note or None
     bill.fuel_type = fuel_type or None
+    bill.device_id = new_device_id
 
     add_change_log(
         session=session,
@@ -234,14 +270,19 @@ async def update_bill(
         action_type="UPDATE",
         changed_by=str(request.session.get("user", "system")),
         change_details=(
-            f"bill_month: {old_bill_month} -> {bill.bill_month}, "
-            f"period: {old_period_start}~{old_period_end} -> {bill.period_start}~{bill.period_end}, "
-            f"usage_amount: {old_usage_amount} -> {bill.usage_amount}, "
-            f"unit: {old_unit} -> {bill.unit}, "
-            f"note: {old_note or '-'} -> {bill.note or '-'}"
+            f"usage_amount={bill.usage_amount}, unit={bill.unit}, "
+            f"device_id: {old_device_id} -> {new_device_id}"
         ),
     )
     session.add(bill)
+    session.flush()
+
+    # 重新計算被影響的設備
+    affected_ids = {old_device_id, new_device_id} - {None}
+    for did in affected_ids:
+        device = session.get(Device, did)
+        if device:
+            recompute_device_emission(session, device)
     session.commit()
 
     if is_ajax:
@@ -257,6 +298,7 @@ async def update_bill(
                     "unit": bill.unit,
                     "note": bill.note or "",
                     "fuel_type": bill.fuel_type or "",
+                    "device_id": bill.device_id,
                 },
             }
         )

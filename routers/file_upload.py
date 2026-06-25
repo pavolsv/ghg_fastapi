@@ -3,18 +3,21 @@ from fastapi.responses import JSONResponse
 import shutil
 import os
 from OCR import ocr_recognize
+from file_utils import safe_upload_path
 
 router = APIRouter()
 
+UPLOAD_DIR = "uploads"
+
 # 確保 'uploads' 資料夾存在
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 @router.post("/upload")
 async def upload_and_process_image(imageFile: UploadFile = File(...)):
     # 確保 'imageFile' 參數名稱和前端 FormData 的名稱一致
-    file_location = f"uploads/{imageFile.filename}"
-    
+    file_location = str(safe_upload_path(UPLOAD_DIR, imageFile.filename))
+
     try:
         # 1. 儲存上傳的檔案
         with open(file_location, "wb") as buffer:

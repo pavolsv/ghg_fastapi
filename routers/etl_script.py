@@ -14,8 +14,10 @@ from audit_log import add_change_log
 from database import engine
 from model import EmissionFactor, ETLStatus, GWPReference
 
-# 禁用 SSL 警告
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# Allow disabling SSL verification only in dev/test via environment variable.
+VERIFY_SSL = os.environ.get("VERIFY_SSL", "true").lower() != "false"
+if not VERIFY_SSL:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 router = APIRouter(prefix="/etl", tags=["etl"])
 templates = Jinja2Templates(directory="templates")
@@ -153,7 +155,7 @@ async def run_etl(data_type: str = Form("fuel"), year: int = Form(2023)):
 
     try:
         # --- 1. 下載 ---
-        resp = requests.get(target_url, verify=False, timeout=30)
+        resp = requests.get(target_url, verify=VERIFY_SSL, timeout=30)
         with open(file_path, "wb") as f:
             f.write(resp.content)
 
@@ -630,7 +632,7 @@ async def preview_etl(data_type: str = Form("fuel"), year: int = Form(2023)):
     file_path = f"temp_preview_{data_type}{ext}"
 
     try:
-        resp = requests.get(target_url, verify=False, timeout=30)
+        resp = requests.get(target_url, verify=VERIFY_SSL, timeout=30)
         with open(file_path, "wb") as f:
             f.write(resp.content)
 
