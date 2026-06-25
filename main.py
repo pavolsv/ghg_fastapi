@@ -2,8 +2,18 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
 from database import create_db_and_tables
 from model import Device, EmissionFactor
@@ -35,7 +45,18 @@ os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-app.add_middleware(SessionMiddleware, secret_key="1shh3345sknn1h1b244xf")
+# Security: session secret must come from environment; do not commit hard-coded secrets.
+SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    import secrets as _secrets
+
+    SESSION_SECRET_KEY = _secrets.token_urlsafe(32)
+    print(
+        "WARNING: SESSION_SECRET_KEY not set; a temporary key has been generated. "
+        "Set SESSION_SECRET_KEY in production to keep sessions stable."
+    )
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 

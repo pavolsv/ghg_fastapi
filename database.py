@@ -140,6 +140,59 @@ def ensure_schema_updates():
             except Exception:
                 pass
 
+            # --- UtilityBill 表遷移：增加 device_id ---
+            try:
+                ub_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('utilitybill')"
+                    ).fetchall()
+                }
+                if len(ub_columns) > 0 and "device_id" not in ub_columns:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE utilitybill ADD COLUMN device_id INTEGER"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_utilitybill_device_id ON utilitybill(device_id)"
+                    )
+            except Exception:
+                pass
+
+            # --- GasRecord 表遷移：建立新表（如果不存在）---
+            try:
+                gr_columns = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info('gas_record')"
+                    ).fetchall()
+                }
+                if len(gr_columns) == 0:
+                    conn.exec_driver_sql(
+                        """
+                        CREATE TABLE gas_record (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            device_id INTEGER NOT NULL,
+                            fuel_type VARCHAR NOT NULL,
+                            liters FLOAT NOT NULL,
+                            unit VARCHAR DEFAULT '公升',
+                            record_date VARCHAR NOT NULL,
+                            note TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_gas_record_device_id ON gas_record(device_id)"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_gas_record_fuel_type ON gas_record(fuel_type)"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_gas_record_record_date ON gas_record(record_date)"
+                    )
+            except Exception:
+                pass
+
         except Exception:
             # 新環境或尚未建立資料表時，create_all 會處理
             pass

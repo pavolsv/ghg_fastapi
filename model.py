@@ -142,6 +142,21 @@ class UtilityBill(SQLModel, table=True):
     unit: str
     note: Optional[str] = None
     fuel_type: Optional[str] = None
+    device_id: Optional[int] = Field(default=None, foreign_key="device.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class GasRecord(SQLModel, table=True):
+    """加油紀錄：每一筆對應到一台設備（Device）的某次加油"""
+    __tablename__ = "gas_record"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    device_id: int = Field(foreign_key="device.id", index=True)
+    fuel_type: str = Field(index=True)  # "汽油" | "柴油"
+    liters: float
+    unit: str = "公升"
+    record_date: str = Field(index=True)
+    note: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
