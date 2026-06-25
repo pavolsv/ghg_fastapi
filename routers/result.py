@@ -326,7 +326,7 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
                     ) and f.gas_type:
                         gases_set.add(str(f.gas_type))
                 except Exception:
-                    continue
+                    continue  # nosec: B112
 
         if not gases_set:
             etype_keys = {

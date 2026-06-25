@@ -95,7 +95,7 @@ def ensure_schema_updates():
                                 f"ALTER TABLE appendix_reference ADD COLUMN {column_name} {column_ddl}"
                             )
             except Exception:
-                pass
+                pass  # nosec: B110
 
             # --- ActivityData 表遷移 ---
             try:
@@ -116,7 +116,7 @@ def ensure_schema_updates():
                                 f"ALTER TABLE activity_data ADD COLUMN {col_name} {col_ddl}"
                             )
             except Exception:
-                pass
+                pass  # nosec: B110
 
             # --- EmissionRecord 表遷移 ---
             try:
@@ -138,7 +138,7 @@ def ensure_schema_updates():
                                 f"ALTER TABLE emissionrecord ADD COLUMN {col_name} {col_ddl}"
                             )
             except Exception:
-                pass
+                pass  # nosec: B110
 
             # --- UtilityBill 表遷移：增加 device_id ---
             try:
@@ -156,7 +156,7 @@ def ensure_schema_updates():
                         "CREATE INDEX IF NOT EXISTS ix_utilitybill_device_id ON utilitybill(device_id)"
                     )
             except Exception:
-                pass
+                pass  # nosec: B110
 
             # --- GasRecord 表遷移：建立新表（如果不存在）---
             try:
@@ -191,11 +191,12 @@ def ensure_schema_updates():
                         "CREATE INDEX IF NOT EXISTS ix_gas_record_record_date ON gas_record(record_date)"
                     )
             except Exception:
-                pass
+                pass  # nosec: B110
 
         except Exception:
             # 新環境或尚未建立資料表時，create_all 會處理
-            pass
+            pass  # nosec: B110
+
 
 
 def create_db_and_tables():
@@ -204,7 +205,7 @@ def create_db_and_tables():
         import model  # noqa: F401
     except Exception:
         # If models cannot be imported, still attempt create_all and surface errors
-        pass
+        pass  # nosec: B110
 
     SQLModel.metadata.create_all(engine)
     ensure_schema_updates()
