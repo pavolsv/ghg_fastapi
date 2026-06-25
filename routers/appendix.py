@@ -311,10 +311,11 @@ async def import_appendix_ods(
     if suffix.lower() not in (".ods", ".xlsx", ".xls"):
         raise HTTPException(status_code=422, detail="僅接受 .ods / .xlsx / .xls 檔案")
 
-    tmp_path = tempfile.mktemp(suffix=suffix)
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp_path = tmp_file.name
     try:
-        with open(tmp_path, "wb") as f:
-            f.write(await file.read())
+        with tmp_file:
+            tmp_file.write(await file.read())
 
         engine_kwargs = {"engine": "odf"} if suffix.lower() == ".ods" else {}
 

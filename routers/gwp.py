@@ -20,7 +20,9 @@ from sqlmodel import Session, select
 from database import engine
 from model import GWPReference
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+VERIFY_SSL = os.environ.get("VERIFY_SSL", "true").lower() != "false"
+if not VERIFY_SSL:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 router = APIRouter(prefix="/gwp", tags=["gwp"])
 
@@ -247,7 +249,7 @@ async def fetch_gwp(version: str = Form("AR5")):
     tmp_path = "temp_gwp_fetch.ods"
     try:
         # 1. 下載
-        resp = requests.get(GWP_FETCH_URL, verify=False, timeout=60)
+        resp = requests.get(GWP_FETCH_URL, verify=VERIFY_SSL, timeout=60)
         resp.raise_for_status()
         with open(tmp_path, "wb") as f:
             f.write(resp.content)

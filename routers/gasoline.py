@@ -1,12 +1,15 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from audit_log import add_change_log
 from database import engine
+from model import Device, GasRecord
+from services.device_aggregator import recompute_device_emission
 from services.emission_calculator import (
     calculate_combustion_emission,
     get_lhv_for_fuel,
@@ -40,6 +43,16 @@ class FuelCalcRequest(BaseModel):
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def _list_fuel_devices(session: Session) -> list[Device]:
+    return list(
+        session.exec(
+            select(Device)
+            .where(Device.emission_type == "移動燃燒")
+            .order_by(Device.id)
+        ).all()
+    )
 
 
 def _calc_fuel_type(session: Session, fuel_type: str, total_liters: float) -> dict[str, Any]:
@@ -90,8 +103,24 @@ def _calc_fuel_type(session: Session, fuel_type: str, total_liters: float) -> di
 
 
 @router.get("/", response_class=HTMLResponse)
-async def gasoline_sum_page(request: Request):
-    return templates.TemplateResponse("gas_value_cal.html", {"request": request})
+async def gasoline_sum_page(request: Request, session: Session = Depends(get_session)):
+    device_options = [
+        {"id": d.id, "name": d.name} for d in _list_fuel_devices(session)
+    ]
+    # 取出最近的加油紀錄，給前端顯示
+    recent_records = list(
+        session.exec(
+            select(GasRecord).order_by(GasRecord.record_date.desc(), GasRecord.id.desc())
+        ).all()
+    )[:50]
+    return templates.TemplateResponse(
+        "gas_value_cal.html",
+        {
+            "request": request,
+            "device_options": device_options,
+            "recent_records": recent_records,
+        },
+    )
 
 
 @router.post("/api/calculate")
@@ -119,3 +148,105 @@ async def gasoline_calculate(
             "total_co2e": round(total_co2e, 4),
         },
     })
+
+
+@router.post("/records/create")
+async def create_gas_record(
+    request: Request,
+    device_id: int = Form(...),
+    fuel_type: str = Form(...),
+    liters: float = Form(...),
+    record_date: str = Form(...),
+    note: str = Form(default=""),
+    session: Session = Depends(get_session),
+):
+    """新增加油紀錄並自動加總到對應設備的活動數據。"""
+    if fuel_type not in FUEL_CODE_MAP:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "燃料類型必須為「汽油」或「柴油」"},
+        )
+    if liters <= 0:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "公升數必須大於 0"},
+        )
+
+    device = session.get(Device, device_id)
+    if not device:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "找不到對應設備，請先建立設備"},
+        )
+
+    new_record = GasRecord(
+        device_id=device_id,
+        fuel_type=fuel_type,
+        liters=liters,
+        unit="公升",
+        record_date=record_date,
+        note=note or None,
+    )
+    session.add(new_record)
+    session.flush()
+
+    # 自動加總到該設備
+    recompute_device_emission(session, device)
+
+    add_change_log(
+        session=session,
+        module="gasoline",
+        entity_name="GasRecord",
+        record_key=str(new_record.id),
+        action_type="CREATE",
+        changed_by=str(request.session.get("user", "system")),
+        change_details=(
+            f"device_id={device_id}, fuel_type={fuel_type}, liters={liters}, "
+            f"record_date={record_date}"
+        ),
+    )
+    session.commit()
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": f"已將 {liters} 公升 {fuel_type} 加總到「{device.name}」",
+            "record_id": new_record.id,
+        }
+    )
+
+
+@router.post("/records/delete/{record_id}")
+async def delete_gas_record(
+    request: Request,
+    record_id: int,
+    session: Session = Depends(get_session),
+):
+    record = session.get(GasRecord, record_id)
+    if not record:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": "找不到加油紀錄"},
+        )
+
+    affected_device_id = record.device_id
+    add_change_log(
+        session=session,
+        module="gasoline",
+        entity_name="GasRecord",
+        record_key=str(record_id),
+        action_type="DELETE",
+        changed_by=str(request.session.get("user", "system")),
+        change_details=(
+            f"device_id={record.device_id}, fuel_type={record.fuel_type}, "
+            f"liters={record.liters}"
+        ),
+    )
+    session.delete(record)
+    session.flush()
+
+    if affected_device_id:
+        device = session.get(Device, affected_device_id)
+        if device:
+            recompute_device_emission(session, device)
+    session.commit()
+    return JSONResponse(content={"success": True, "message": "加油紀錄已刪除"})
