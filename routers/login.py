@@ -15,6 +15,7 @@ from fastapi import Depends
 
 from model import Account
 from dependencies import get_session
+from auth_utils import verify_password
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/login", tags=["login"])
@@ -49,17 +50,15 @@ async def login_user(
 
     session_captcha_code = request.session.pop("captcha_code", "")
 
-    statement = select(Account).where(Account.account == username, Account.password == password)  # type: ignore
-    existing_utilities = session.exec(statement).all()
+    statement = select(Account).where(Account.account == username)  # type: ignore
+    account = session.exec(statement).first()
 
     context = {"request": request, "username_value": username}
 
-    if existing_utilities:
+    if account and verify_password(password, account.password):
         if VerificationCode == session_captcha_code:
-            request.session["user"] = existing_utilities[
-                0
-            ].id  # 如果登入成功，則將使用者帳號的id儲存到session中，用來做後續的資料權限的驗證
-            request.session["username"] = existing_utilities[0].account
+            request.session["user"] = account.id  # 如果登入成功，則將使用者帳號的id儲存到session中，用來做後續的資料權限的驗證
+            request.session["username"] = account.account
             return RedirectResponse(url="/index/", status_code=303)
         else:
             context["message"] = "驗證碼錯誤！"

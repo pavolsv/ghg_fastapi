@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, select
 from model import Account
 from dependencies import get_session
 from fastapi import Depends
+from auth_utils import hash_password
 
 
 templates = Jinja2Templates(directory="templates") 
@@ -42,7 +43,7 @@ async def register_account(
    
 
     if is_legal:
-        new_account = Account(account=username, email=email, password=password)
+        new_account = Account(account=username, email=email, password=hash_password(password))
         session.add(new_account)  # 將資料加入 session
         session.commit()           # 提交到資料庫
         return templates.TemplateResponse("login.html", {"request": request, "message": "註冊成功！請登入。"})
