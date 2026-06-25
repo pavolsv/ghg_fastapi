@@ -6,6 +6,11 @@ templates/1.txt
 
 # Generated report output
 uploads/ai_reports/
+bandit-report.json
+pip-audit-report.json
+
+# Local SQLite database (generated at runtime)
+database.db
 
 # Markdown files
 *.md
