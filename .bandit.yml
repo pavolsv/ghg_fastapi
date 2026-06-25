@@ -1,0 +1,11 @@
+# Bandit static security analyser configuration
+exclude_dirs:
+  - tests
+  - venv
+  - __pycache__
+  - uploads
+  - alembic
+skips:
+  # B608: hardcoded_sql_expressions is covered by SQLAlchemy parameterised queries;
+  #       kept disabled because legacy query_db scripts use raw SQL intentionally.
+  - B608
