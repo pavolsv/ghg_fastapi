@@ -1,10 +1,40 @@
+import os
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, col, select
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
+
+from database import create_db_and_tables, engine
+from model import Device, EmissionFactor
+from routers import (
+    activity,
+    boundary,
+    calculation,
+    devices,
+    documents,
+    emission,
+    etl_script,
+    factor_management,
+    gwp,
+    index,
+    inventory_list,
+    login,
+    logout,
+    org_chart,
+    register,
+    result,
+    set,
+)
+
+# from routers import ocr_recognition
+from routers import appendix as appendix_router
+from routers import electricity as electricity_router
+from routers import logs as logs_router
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -15,32 +45,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
-from database import create_db_and_tables
-from model import Device, EmissionFactor
-from sqlmodel import Session, select, col
-from database import engine
-from routers import calculation
-from routers import devices
-from routers import electricity as electricity_router
-from routers import etl_script
-from routers import factor_management
-from routers import gwp
-from routers import index
-from routers import login
-from routers import logout
-from routers import logs as logs_router
-from routers import register
-from routers import result
-from routers import set
-from routers import documents
-from routers import inventory_list
-from routers import emission
-from routers import activity
-from routers import boundary
-#from routers import ocr_recognition
-from routers import appendix as appendix_router
-from routers import org_chart
-import os
+
+
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
 app = FastAPI()
@@ -57,7 +63,6 @@ if not SESSION_SECRET_KEY:
     )
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 app.add_middleware(SecurityHeadersMiddleware)
-
 
 
 app.include_router(electricity_router.router)
@@ -79,7 +84,7 @@ app.include_router(inventory_list.router)
 app.include_router(emission.router)
 app.include_router(activity.router)
 app.include_router(boundary.router)
-#app.include_router(ocr_recognition.router)
+# app.include_router(ocr_recognition.router)
 app.include_router(appendix_router.router)
 app.mount("/static", StaticFiles(directory="static"))
 
