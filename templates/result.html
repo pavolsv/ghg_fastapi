@@ -45,13 +45,12 @@
                 <span class="type-total">{{ "{:,.4f}".format(et.type_total_co2e) }} kg CO₂e</span>
             </div>
             <table class="emission-table">
-                {% set is_combustion = et.devices[0].gas_totals.CO2 > 0 or et.devices[0].gas_totals.CH4 > 0 or et.devices[0].gas_totals.N2O > 0 if et.devices else False %}
+                {% set is_combustion = et.emission_type in ('固定燃燒', '移動燃燒') %}
                 <thead>
                     <tr>
                         <th>設備名稱</th>
                         <th>活動數據</th>
                         <th>排放係數代碼</th>
-                        <th>熱值</th>
                         {% if is_combustion %}<th>CO₂ (kg)</th><th>CH₄ (kg)</th><th>N₂O (kg)</th>{% endif %}
                         <th>CO₂e (kg)</th>
                     </tr>
@@ -69,10 +68,6 @@
                             <small class="unit-text">{{ dev.records[0].unit if dev.records else '' }}</small>
                         </td>
                         <td class="cell-code">{{ dev.factor_code }}</td>
-                        <td class="cell-data">
-                            {% set heat_vals = dev.records | map(attribute='heat_value') | reject('none') | list %}
-                            {{ "{:,.2f}".format(heat_vals[0]) if heat_vals else '-' }}
-                        </td>
                         {% if is_combustion %}
                         <td class="cell-gas">{{ "{:,.4f}".format(dev.gas_totals.CO2) if dev.gas_totals.CO2 else '-' }}</td>
                         <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.CH4) if dev.gas_totals.CH4 else '-' }}</td>
@@ -124,6 +119,12 @@
                 {% endfor %}
             </div>
         </section>
+        {% if device_labels %}
+        <section class="result-card result-card-wide">
+            <h3>各設備排放量 TOP10</h3>
+            <div class="chart-wrap"><canvas id="deviceBar"></canvas></div>
+        </section>
+        {% endif %}
     </div>
 </div>
 
@@ -132,6 +133,8 @@
         totalCo2e: {{ total_co2e | tojson | safe }},
         emissionTypeLabels: {{ emission_type_labels | tojson | safe }},
         emissionTypeValues: {{ emission_type_values | tojson | safe }},
+        deviceLabels: {{ device_labels | tojson | safe }},
+        deviceValues: {{ device_values | tojson | safe }},
     };
 </script>
 <script src="/static/js/result.js"></script>

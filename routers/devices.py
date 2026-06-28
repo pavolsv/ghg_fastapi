@@ -8,8 +8,7 @@ from datetime import datetime
 
 from audit_log import add_change_log
 from database import engine
-from model import AppendixReference, Device, EmissionFactor, EmissionRecord, GWPReference
-from constants.lhv_defaults import get_lhv_by_name, get_lhv_unit_options
+from model import AppendixReference, Device, EmissionFactor604, EmissionRecord, GWPReference
 from constants.refrigerant_factors import (
     get_refrigerant_categories,
     get_name_by_code,
@@ -17,11 +16,9 @@ from constants.refrigerant_factors import (
     REFRIGERANT_EQUIPMENT,
 )
 from services.emission_calculator import (
-    calculate_combustion_emission,
-    calculate_electricity_emission,
-    calculate_refrigerant_emission,
-    compute_total_co2e_for_device,
-    get_lhv_for_device,
+    EmissionResult,
+    compute_total_co2e_for_device_v2,
+    parse_activity_unit,
 )
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -35,20 +32,18 @@ EMISSION_TYPE_ORDER = {
 }
 
 
-def _compute_total_co2e(
+def _compute_emission(
     session: Session,
     device: Device,
     activity_data: float,
-    custom_heat_value: Optional[float] = None,
-    custom_lhv_unit: Optional[str] = None,
-) -> float:
-    """根據設備排放類型計算 CO2e（devices 路由的薄包裝）。"""
-    return compute_total_co2e_for_device(
+    activity_unit: Optional[str] = None,
+) -> "EmissionResult":
+    """根據設備排放類型計算排放量（devices 路由的薄包裝）。"""
+    return compute_total_co2e_for_device_v2(
         session=session,
         device=device,
         activity_data=activity_data,
-        custom_heat_value=custom_heat_value,
-        custom_lhv_unit=custom_lhv_unit,
+        activity_unit=activity_unit,
     )
 
 
@@ -71,62 +66,6 @@ def _extract_refrigerant_aliases(gwp_ref) -> list[str]:
     return aliases
 
 
-def _map_lhv_unit(unit: str) -> str:
-    """將舊版 LHV 單位對應到新版下拉選項的格式。
-
-    只對「量綱相同」且「語意一致」的單位做對應（例如 Kcal/公升 ↔ 千卡/公升）。
-    對於 Kcal/公斤、MJ/公斤 等「每單位質量／體積的能量」單位，**不再硬轉成
-    公斤/兆焦耳(kg/TJ)**——那是「每單位能量的排放量」，量綱完全不同，會把
-    數字放大或縮小數個量級，導致排放結果錯得離譜。
-    """
-    if not unit:
-        return ""
-    mapping = {
-        # 能量 / 體積
-        "Kcal/公升": "千卡/公升(Kcal/l)",
-        "千卡/公升": "千卡/公升(Kcal/l)",
-        "Kcal/l": "千卡/公升(Kcal/l)",
-        "MJ/公升": "兆焦耳/公升(MJ/l)",
-        "兆焦耳/公升": "兆焦耳/公升(MJ/l)",
-        "MJ/l": "兆焦耳/公升(MJ/l)",
-        "GJ/公升": "吉焦耳/公升(GJ/l)",
-        "吉焦耳/公升": "吉焦耳/公升(GJ/l)",
-        "GJ/l": "吉焦耳/公升(GJ/l)",
-        # 能量 / 質量
-        "Kcal/公斤": "千卡/公斤(Kcal/kg)",
-        "千卡/公斤": "千卡/公斤(Kcal/kg)",
-        "Kcal/kg": "千卡/公斤(Kcal/kg)",
-        "MJ/公斤": "兆焦耳/公斤(MJ/kg)",
-        "兆焦耳/公斤": "兆焦耳/公斤(MJ/kg)",
-        "MJ/kg": "兆焦耳/公斤(MJ/kg)",
-        "GJ/公斤": "吉焦耳/公斤(GJ/kg)",
-        "吉焦耳/公斤": "吉焦耳/公斤(GJ/kg)",
-        "GJ/kg": "吉焦耳/公斤(GJ/kg)",
-        # 能量 / 氣體體積
-        "Kcal/立方公尺": "千卡/立方公尺(Kcal/m³)",
-        "千卡/立方公尺": "千卡/立方公尺(Kcal/m³)",
-        "Kcal/m³": "千卡/立方公尺(Kcal/m³)",
-        "MJ/立方公尺": "兆焦耳/立方公尺(MJ/m³)",
-        "兆焦耳/立方公尺": "兆焦耳/立方公尺(MJ/m³)",
-        "MJ/m³": "兆焦耳/立方公尺(MJ/m³)",
-        "GJ/立方公尺": "吉焦耳/立方公尺(GJ/m³)",
-        "吉焦耳/立方公尺": "吉焦耳/立方公尺(GJ/m³)",
-        "GJ/m³": "吉焦耳/立方公尺(GJ/m³)",
-        # 能量 / 大量體積
-        "Kcal/公秉": "千卡/公秉(Kcal/kL)",
-        "千卡/公秉": "千卡/公秉(Kcal/kL)",
-        "Kcal/kL": "千卡/公秉(Kcal/kL)",
-        # 能量 / 質量（公噸）
-        "Kcal/公噸": "千卡/公噸(Kcal/t)",
-        "千卡/公噸": "千卡/公噸(Kcal/t)",
-        "Kcal/t": "千卡/公噸(Kcal/t)",
-        # 排放係數直接路線
-        "公斤/兆焦耳": "公斤/兆焦耳(kg/TJ)",
-        "kg/TJ": "公斤/兆焦耳(kg/TJ)",
-    }
-    return mapping.get(unit, unit)
-
-
 # 取得資料庫 Session 的輔助函式
 def get_session():
     with Session(engine) as session:
@@ -142,16 +81,17 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
     # 這樣我們可以在 HTML 中透過設備的 factor_ref_code 顯示對應的名稱
     all_factors = session.exec(
         select(
-            EmissionFactor.name,
-            EmissionFactor.original_code,
-            EmissionFactor.emission_type,
-        )
+            EmissionFactor604.name,
+            EmissionFactor604.original_code,
+            EmissionFactor604.emission_type,
+            EmissionFactor604.unit,
+        ).distinct()
     ).all()
     factor_map: dict[str, str] = {}
     factor_options_json: list[dict[str, str]] = []
     seen_keys: set[tuple[str, str]] = set()
 
-    for name, original_code, emission_type in all_factors:
+    for name, original_code, emission_type, factor_unit in all_factors:
         normalized_name = _norm_text(name)
         normalized_code = _norm_text(original_code)
         normalized_type = _norm_text(emission_type) or "未分類"
@@ -163,11 +103,13 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
             continue
         seen_keys.add(dedupe_key)
 
+        activity_unit = parse_activity_unit(factor_unit or "") or "單位"
         factor_options_json.append(
             {
                 "name": normalized_name,
                 "original_code": normalized_code,
                 "emission_type": normalized_type,
+                "unit": activity_unit,
             }
         )
         factor_map.setdefault(normalized_code, normalized_name)
@@ -224,9 +166,50 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
 
 @router.get("/activity", response_class=HTMLResponse)
 async def activity_page(request: Request):
+    with Session(engine) as session:
+        devices = session.exec(
+            select(Device).where(
+                Device.device_code.isnot(None)
+            ).order_by(col(Device.emission_type), col(Device.device_code))
+        ).all()
+
+        # 取得 EmissionRecord
+        device_ids = [d.id for d in devices]
+        records = {}
+        if device_ids:
+            recs = session.exec(
+                select(EmissionRecord).where(EmissionRecord.device_id.in_(device_ids))
+            ).all()
+            records = {r.device_id: r for r in recs}
+
+        # 分組
+        groups: dict[str, list] = {}
+        for d in devices:
+            groups.setdefault(d.emission_type, []).append({
+                "id": d.id,
+                "device_code": d.device_code,
+                "name": d.name,
+                "factor_ref_code": d.factor_ref_code,
+                "unit": d.unit,
+                "activity_data": records[d.id].activity_data if d.id in records else None,
+                "has_data": d.id in records,
+            })
+
+        # 燃料對照
+        factor_map = {}
+        all_factors = session.exec(
+            select(EmissionFactor604.name, EmissionFactor604.original_code)
+        ).all()
+        for name, code in all_factors:
+            factor_map[code] = name
+
     return templates.TemplateResponse(
         "activity.html",
-        {"request": request}
+        {
+            "request": request,
+            "groups": groups,
+            "factor_map": factor_map,
+        }
     )
 
 
@@ -271,15 +254,17 @@ async def create_device(
         device_unit = "公斤"
     else:
         base_factor = session.exec(
-            select(EmissionFactor).where(
-                EmissionFactor.original_code == normalized_factor_ref,
-                EmissionFactor.emission_type == normalized_emission_type,
+            select(EmissionFactor604).where(
+                EmissionFactor604.original_code == normalized_factor_ref,
+                EmissionFactor604.emission_type == normalized_emission_type,
             )
         ).first()
         if not base_factor:
             return RedirectResponse(url="/devices/", status_code=303)
         device_category = normalized_emission_type
-        device_unit = base_factor.unit or "單位"
+        device_unit = parse_activity_unit(base_factor.unit) or "單位"
+
+    dev_scope = "scope2" if normalized_emission_type == "能源間接排放" else "scope1"
 
     new_device = Device(
         name=name,
@@ -292,6 +277,7 @@ async def create_device(
         device_number=device_number or None,
         device_code=device_code or None,
         quantity=quantity,
+        scope=dev_scope,
     )
     session.add(new_device)
     session.flush()
@@ -337,8 +323,6 @@ class DeviceActivityData(BaseModel):
     activity_data: float
     unit: str
     data_source: Optional[str] = "manual"
-    heat_value: Optional[float] = None
-    lhv_unit: Optional[str] = None
     record_date: Optional[str] = None
 
 
@@ -410,6 +394,7 @@ async def create_refrigerant_device(
             fill_unit=data.fill_unit,
             equipment_category=data.equipment_category,
             refrigerant_code=data.refrigerant_code,
+            scope="scope1",
         )
         session.add(new_device)
         session.commit()
@@ -449,7 +434,7 @@ async def list_device_activities(
 
         factor_map = {}
         all_factors = session.exec(
-            select(EmissionFactor.name, EmissionFactor.original_code)
+            select(EmissionFactor604.name, EmissionFactor604.original_code)
         ).all()
         for name, code in all_factors:
             factor_map[code] = name
@@ -468,14 +453,6 @@ async def list_device_activities(
         result = []
         for d in devices:
             rec = records.get(d.id)
-            lhv_value = None
-            lhv_unit_val = None
-            if d.factor_ref_code:
-                default_lhv, default_unit = get_lhv_by_name(
-                    factor_map.get(d.factor_ref_code, d.factor_ref_code)
-                )
-                lhv_value = default_lhv if default_lhv else None
-                lhv_unit_val = _map_lhv_unit(default_unit) if default_unit else None
 
             # 冷媒設備：factor_ref_name 從 GWP 或 factor_map 查詢
             if d.emission_type == "逸散排放" and d.refrigerant_code:
@@ -500,8 +477,6 @@ async def list_device_activities(
                 "activity_data": rec.activity_data if rec else None,
                 "activity_unit": rec.unit if rec else (d.unit or ""),
                 "data_source": rec.data_source if rec else "manual",
-                "heat_value": rec.heat_value if rec else lhv_value,
-                "lhv_unit": _map_lhv_unit(rec.lhv_unit if rec else (lhv_unit_val or "")),
                 "record_date": rec.record_date if rec else None,
                 "fill_amount": d.fill_amount,
                 "fill_unit": d.fill_unit,
@@ -532,38 +507,54 @@ async def save_device_activity(
                 content={"success": False, "message": "設備不存在"}
             )
 
-        total_co2e = _compute_total_co2e(
+        activity_unit = (data.unit or device.unit or "").strip()
+        result = _compute_emission(
             session=session,
             device=device,
             activity_data=data.activity_data,
-            custom_heat_value=data.heat_value,
-            custom_lhv_unit=data.lhv_unit,
+            activity_unit=activity_unit,
         )
 
         existing = session.exec(
-            select(EmissionRecord).where(EmissionRecord.device_id == data.device_id)
+            select(EmissionRecord).where(
+                EmissionRecord.device_id == data.device_id,
+                EmissionRecord.target_year.is_(None),
+            )
         ).first()
 
         if existing:
             existing.activity_data = data.activity_data
             existing.unit = data.unit
             existing.data_source = data.data_source or "manual"
-            existing.heat_value = data.heat_value
-            existing.lhv_unit = data.lhv_unit
             existing.record_date = data.record_date or existing.record_date
-            existing.total_co2e = total_co2e
+            existing.total_co2e = result.co2e
+            existing.co2 = result.co2
+            existing.ch4 = result.ch4
+            existing.n2o = result.n2o
+            existing.factor_year = result.factor_year
+            existing.gwp_version = result.gwp_version
+            existing.activity_unit = result.activity_unit
+            existing.factor_source = result.factor_source
+            existing.calculation_version = "v2"
             session.add(existing)
             message = "活動數據更新成功"
         else:
             new_record = EmissionRecord(
                 device_id=data.device_id,
                 activity_data=data.activity_data,
-                total_co2e=total_co2e,
+                total_co2e=result.co2e,
                 unit=data.unit,
                 data_source=data.data_source or "manual",
-                heat_value=data.heat_value,
-                lhv_unit=data.lhv_unit,
                 record_date=data.record_date or datetime.utcnow().strftime("%Y-%m-%d"),
+                co2=result.co2,
+                ch4=result.ch4,
+                n2o=result.n2o,
+                factor_year=result.factor_year,
+                gwp_version=result.gwp_version,
+                activity_unit=result.activity_unit,
+                factor_source=result.factor_source,
+                calculation_version="v2",
+                target_year=None,
             )
             session.add(new_record)
             message = "活動數據新增成功"
@@ -577,10 +568,3 @@ async def save_device_activity(
             content={"success": False, "message": str(e)}
         )
 
-
-@router.get("/api/lhv_units")
-async def get_lhv_units():
-    return JSONResponse(content={
-        "success": True,
-        "data": get_lhv_unit_options()
-    })

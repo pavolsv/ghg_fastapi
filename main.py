@@ -10,19 +10,16 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
 from database import create_db_and_tables, engine
-from model import Device, EmissionFactor
+from model import Device, EmissionFactor604
 from routers import (
-    activity,
-    boundary,
     calculation,
     devices,
     documents,
-    emission,
+    emission_source,
     etl_script,
     factor_management,
     gwp,
     index,
-    inventory_list,
     login,
     logout,
     org_chart,
@@ -75,15 +72,13 @@ app.include_router(factor_management.router)
 app.include_router(etl_script.router)
 app.include_router(gwp.router)
 app.include_router(devices.router)
+app.include_router(emission_source.router)
 app.include_router(calculation.router)
 app.include_router(result.router)
 app.include_router(set.router)
 app.include_router(org_chart.router)
 app.include_router(logs_router.router)
-app.include_router(inventory_list.router)
-app.include_router(emission.router)
-app.include_router(activity.router)
-app.include_router(boundary.router)
+
 # app.include_router(ocr_recognition.router)
 app.include_router(appendix_router.router)
 app.mount("/static", StaticFiles(directory="static"))
@@ -109,6 +104,7 @@ async def on_startup():
                 factor_ref_code="ELECTRICITY",
                 gas_type="CO2e",
                 unit="度",
+                scope="scope2",
             )
             session.add(elec_device)
             session.commit()
@@ -120,11 +116,11 @@ async def on_startup():
             {"keyword": "柴油", "device_name": "柴油"},
         ]
         for cfg in fuel_seed_configs:
-            # 從 EmissionFactor 找移動燃燒中名稱含關鍵字的因子
+            # 從 EmissionFactor604 找移動燃燒中名稱含關鍵字的因子
             factor = session.exec(
-                select(EmissionFactor).where(
-                    EmissionFactor.emission_type == "移動燃燒",
-                    col(EmissionFactor.name).contains(cfg["keyword"]),
+                select(EmissionFactor604).where(
+                    EmissionFactor604.emission_type == "移動燃燒",
+                    col(EmissionFactor604.name).contains(cfg["keyword"]),
                 )
             ).first()
             if not factor:
@@ -145,6 +141,7 @@ async def on_startup():
                     factor_ref_code=factor.original_code,
                     gas_type="CO2e",
                     unit="公升",
+                    scope="scope1",
                 )
                 session.add(fuel_device)
         session.commit()

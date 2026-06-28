@@ -1,246 +1,120 @@
 {% extends "base.html" %}
+{% block title %}係數更新工具{% endblock %}
 
 {% block head %}
 <style>
-    :root {
-        --primary-bg: #f8fafc;
-        --card-bg: #ffffff;
-        --text-main: #1e293b;
-        --text-muted: #64748b;
-        --accent-green: #10b981;
-        --accent-orange: #f59e0b;
-        --accent-blue: #3b82f6;
-        --border-color: #e2e8f0;
-        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-
-    .etl-content-wrapper {
-        font-family: "Inter", "Microsoft JhengHei", sans-serif;
-        color: var(--text-main);
-        padding: 40px 20px;
-        background-color: var(--primary-bg);
-        min-height: 100vh;
-    }
-
-    .etl-panel {
-        max-width: 1000px; /* 稍微放寬，視覺更開闊 */
-        margin: 0 auto;
-    }
-
-    .etl-panel h1 {
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 32px;
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .etl-panel h1::before {
-        content: "";
-        width: 6px;
-        height: 28px;
-        background: var(--accent-blue);
-        border-radius: 3px;
-    }
-
-    /* 網格佈局優化 */
-    .etl-grid-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 24px;
-    }
-
-    /* 卡片樣式優化 */
-    .etl-section {
-        background: var(--card-bg);
-        padding: 28px;
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        box-shadow: var(--shadow);
-        display: flex;
-        flex-direction: column;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .etl-section:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        border-color: var(--accent-blue);
-    }
-
-    .etl-section h3 {
-        font-size: 18px;
-        margin: 0 0 16px 0;
-        color: var(--text-main);
-        font-weight: 700;
-    }
-
-    /* 狀態區塊 */
-    .etl-status-box {
-        min-height: 85px; /* 固定高度防止抖動 */
-        margin-bottom: 20px;
-    }
-
-    .etl-last-fetch {
-        background: #f0fdf4;
-        color: #166534;
-        padding: 12px 16px;
-        border-radius: 10px;
-        font-size: 13px;
-        line-height: 1.6;
-        border: 1px solid #dcfce7;
-    }
-
-    .etl-status-empty {
-        color: var(--text-muted);
-        font-size: 13px;
-        font-style: italic;
-        padding: 12px 0;
-    }
-
-    /* 表單優化 */
-    .form-group {
-        margin-bottom: 18px;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: 600;
-        font-size: 13px;
-        color: var(--text-muted);
-    }
-
-    .etl-panel input {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1.5px solid var(--border-color);
-        border-radius: 8px;
-        font-size: 14px;
-        transition: all 0.2s;
-        background: #fdfdfd;
-    }
-
-    .etl-panel input:focus {
-        outline: none;
-        border-color: var(--accent-blue);
-        background-color: #fff;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    /* 按鈕樣式 */
-    .etl-panel button {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        margin-top: auto; /* 核心：將按鈕推至底部 */
-        transition: opacity 0.2s;
-    }
-
-    .etl-panel button:hover {
-        opacity: 0.9;
-    }
-
-    .btn-fuel { background-color: var(--accent-green); color: white; }
-    .btn-elec { background-color: var(--accent-orange); color: white; }
-    .btn-gwp { background-color: var(--accent-blue); color: white; }
-
+.etl-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.etl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.etl-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;
+    transition: box-shadow 0.15s;
+}
+.etl-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.etl-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.etl-card-header .icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.etl-card-header .card-title { font-weight: 700; font-size: 1.05rem; color: #1e293b; }
+.etl-stat { font-size: 0.85rem; color: #64748b; margin-bottom: 16px; }
+.etl-stat span { font-weight: 600; color: #334155; }
+.etl-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border: none; border-radius: 8px;
+    font-size: 0.88rem; font-weight: 500; cursor: pointer;
+    background: #6366f1; color: #fff; transition: background 0.12s;
+}
+.etl-btn:hover { background: #4f46e5; }
+.etl-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+.etl-msg {
+    margin-top: 12px; padding: 8px 14px; border-radius: 8px;
+    font-size: 0.85rem; display: none;
+}
+.etl-msg.success { display: block; background: #dcfce7; color: #166534; }
+.etl-msg.error { display: block; background: #fee2e2; color: #dc2626; }
+.etl-msg.loading { display: block; background: #eef2ff; color: #4338ca; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="etl-content-wrapper">
-    <div class="etl-panel">
-        <h1>數據管理中心</h1>
+<div class="fm-page-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">係數更新工具</h1>
+    </div>
 
-        <div class="etl-grid-container">
-            
-            <section class="etl-section">
-                <h3>🔥 燃料係數</h3>
-                <div class="etl-status-box">
-                    {% if status_map and status_map.get('fuel') %}
-                    <div class="etl-last-fetch">
-                        <strong>上次同步：</strong>{{ status_map['fuel'].last_fetch_time.strftime('%Y-%m-%d %H:%M') if status_map['fuel'].last_fetch_time else '無紀錄' }}<br>
-                        <strong>狀態：</strong>{{ status_map['fuel'].last_fetch_result }}
-                    </div>
-                    {% else %}
-                    <div class="etl-status-empty">暫無同步紀錄</div>
-                    {% endif %}
+    <div class="etl-wrap">
+        <div class="etl-grid">
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#fee2e2;color:#dc2626;"><i data-lucide="flame" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">燃料係數</span>
                 </div>
-                
-                <form action="/etl/run" method="post">
-                    <input type="hidden" name="data_type" value="fuel">
-                    <div class="form-group">
-                        <label>係數來源 (環境部網址)</label>
-                        <input name="excel_url" type="url" value="{{ default_url.fuel }}" placeholder="https://...">
-                    </div>
-                    <div class="form-group">
-                        <label>適用年度</label>
-                        <input name="year" type="number" value="2025">
-                    </div>
-                    <button type="submit" class="btn-fuel">同步燃料數據</button>
-                </form>
-            </section>
+                <div class="etl-stat">目前 <span>{{ stats.fuel.count }}</span> 筆</div>
+                <div class="etl-stat">來源：6.0.4 ODS + 代碼檔 V2</div>
+                <button class="etl-btn" onclick="refresh('fuel')">🔄 重新匯入</button>
+                <div id="msg_fuel" class="etl-msg"></div>
+            </div>
 
-            <section class="etl-section">
-                <h3>⚡ 電力係數</h3>
-                <div class="etl-status-box">
-                    {% if status_map and status_map.get('electricity') %}
-                    <div class="etl-last-fetch">
-                        <strong>上次同步：</strong>{{ status_map['electricity'].last_fetch_time.strftime('%Y-%m-%d %H:%M') if status_map['electricity'].last_fetch_time else '無紀錄' }}<br>
-                        <strong>狀態：</strong>{{ status_map['electricity'].last_fetch_result }}
-                    </div>
-                    {% else %}
-                    <div class="etl-status-empty">暫無同步紀錄</div>
-                    {% endif %}
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i data-lucide="zap" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">電力係數</span>
                 </div>
+                <div class="etl-stat">目前 <span>{{ stats.electricity.count }}</span> 筆</div>
+                <div class="etl-stat">來源：台電 CSV</div>
+                <button class="etl-btn" onclick="refresh('electricity')">🔄 重新匯入</button>
+                <div id="msg_electricity" class="etl-msg"></div>
+            </div>
 
-                <form action="/etl/run" method="post">
-                    <input type="hidden" name="data_type" value="electricity">
-                    <div class="form-group">
-                        <label>電力數據來源網址</label>
-                        <input name="excel_url" type="url" value="{{ default_url.electricity }}">
-                    </div>
-                    <button type="submit" class="btn-elec">同步電力數據</button>
-                </form>
-            </section>
-
-            <section class="etl-section">
-                <h3>🌍 GWP 溫暖化潛勢</h3>
-                <div class="etl-status-box">
-                    <div class="etl-status-empty" style="color: #64748b; background: #f1f5f9; padding: 12px; border-radius: 10px;">
-                        提示：系統預設採計 IPCC AR5 數值，若無特殊需求不需更動。
-                    </div>
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#e0f2fe;color:#0891b2;"><i data-lucide="snowflake" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">GWP 溫暖化潛勢</span>
                 </div>
+                <div class="etl-stat">目前 <span>{{ stats.gwp.count }}</span> 筆</div>
+                <div class="etl-stat">來源：6.0.4 ODS + 代碼檔 V2</div>
+                <button class="etl-btn" onclick="refresh('gwp')">🔄 重新匯入</button>
+                <div id="msg_gwp" class="etl-msg"></div>
+            </div>
 
-                <form action="/gwp/fetch" method="post">
-                    <div class="form-group">
-                        <label>IPCC 評估報告版本</label>
-                        <input name="version" type="text" value="AR5" placeholder="例如: AR5, AR6">
-                    </div>
-                    <button type="submit" class="btn-gwp">更新 GWP 參考表</button>
-                </form>
-            </section>
-
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#f1f5f9;color:#475569;"><i data-lucide="book-open" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">代碼檔</span>
+                </div>
+                <div class="etl-stat">目前 <span>{{ stats.codes.count }}</span> 筆</div>
+                <div class="etl-stat">來源：代碼檔 V2 ODS</div>
+                <button class="etl-btn" onclick="refresh('codes')">🔄 重新匯入</button>
+                <div id="msg_codes" class="etl-msg"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 簡單的防止重複點擊腳本
-    document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', function() {
-            const btn = this.querySelector('button');
-            btn.disabled = true;
-            btn.innerText = '處理中...';
-            btn.style.opacity = '0.7';
-        });
-    });
+async function refresh(type) {
+    const btn = event.target;
+    const msg = document.getElementById('msg_' + type);
+    btn.disabled = true;
+    msg.className = 'etl-msg loading';
+    msg.textContent = '處理中...';
+
+    try {
+        const resp = await fetch('/etl/refresh/' + type, { method: 'POST' });
+        const result = await resp.json();
+        if (result.status === 'success') {
+            msg.className = 'etl-msg success';
+            msg.textContent = result.message;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            msg.className = 'etl-msg error';
+            msg.textContent = '失敗：' + result.message;
+        }
+    } catch (e) {
+        msg.className = 'etl-msg error';
+        msg.textContent = '系統錯誤';
+    }
+    btn.disabled = false;
+}
 </script>
 {% endblock %}

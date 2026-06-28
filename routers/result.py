@@ -12,25 +12,16 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import engine
-from model import ActivityData, Boundary, CompanyInfo, Device, EmissionFactor, EmissionRecord, EmissionSource, GWPReference
-from constants.lhv_defaults import get_lhv_value
-from constants.refrigerant_factors import get_rate_by_code
-from services.emission_calculator import (
-    calculate_combustion_emission,
-    calculate_electricity_emission,
-    calculate_refrigerant_emission,
-    compute_total_co2e_for_device,
-    get_lhv_for_device,
-    get_lhv_value,
-)
+from model import CompanyInfo, Device, EmissionRecord, GWPReference
 from datetime import datetime
 
 # ...
 def _get_target_year(session: Session) -> int:
-    from model import EmissionFactor
+    from model import EmissionFactor604
     from sqlmodel import select
-    all_factors = session.exec(select(EmissionFactor)).all()
-    return max((f.year for f in all_factors), default=datetime.now().year)
+    all_factors = session.exec(select(EmissionFactor604)).all()
+    years = [f.year for f in all_factors if f.year is not None]
+    return max(years, default=datetime.now().year)
 
 router = APIRouter(prefix="/result", tags=["result"])
 templates = Jinja2Templates(directory="templates")
@@ -151,34 +142,17 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
     devices = session.exec(select(Device)).all()
 
     if account_id is None:
-        boundaries = session.exec(select(Boundary)).all()
-        emission_sources = session.exec(select(EmissionSource)).all()
-        activity_data_rows = session.exec(select(ActivityData)).all()
         companies = session.exec(select(CompanyInfo)).all()
     else:
-        boundaries = session.exec(
-            select(Boundary).where(Boundary.account_id == account_id)
-        ).all()
-        emission_sources = session.exec(
-            select(EmissionSource).where(EmissionSource.account_id == account_id)
-        ).all()
-        activity_data_rows = session.exec(
-            select(ActivityData).where(ActivityData.account_id == account_id)
-        ).all()
         companies = session.exec(
             select(CompanyInfo).where(CompanyInfo.account_id == account_id)
         ).all()
 
-    all_factors = session.exec(select(EmissionFactor)).all()
-
     device_map = {device.id: device for device in devices}
-    scope_display_map = {
-        "scope1": "範疇一",
-        "scope2": "範疇二",
-    }
 
     emission_type_totals_raw: dict[str, float] = {}
     device_totals_raw: dict[str, float] = {}
+    scope_source_counts_raw: dict[str, int] = {}
     total_co2e = 0.0
 
     for record in records:
@@ -188,20 +162,15 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         emission_type = emission_type.strip() or "未分類"
         device_name = device_name.strip() or "未命名設備"
 
-        # 重新計算 CO2e：舊紀錄可能 total_co2e=0，必須與詳細表格一致
-        if device:
-            co2e_value = compute_total_co2e_for_device(
-                session=session,
-                device=device,
-                activity_data=float(record.activity_data or 0),
-                custom_heat_value=record.heat_value,
-                custom_lhv_unit=record.lhv_unit,
-            )
-        else:
-            co2e_value = float(record.total_co2e or 0.0)
+        co2e_value = float(record.total_co2e or 0.0)
         total_co2e += co2e_value
         emission_type_totals_raw[emission_type] = emission_type_totals_raw.get(emission_type, 0.0) + co2e_value
         device_totals_raw[device_name] = device_totals_raw.get(device_name, 0.0) + co2e_value
+
+        # scope 統計（來自 Device）
+        dev_scope = (device.scope if device else "scope1") or "scope1"
+        display_scope = "範疇一" if dev_scope == "scope1" else "範疇二"
+        scope_source_counts_raw[display_scope] = scope_source_counts_raw.get(display_scope, 0) + 1
 
     emission_type_totals = [
         {"emission_type": key, "total_co2e": round(value, 4)}
@@ -220,26 +189,10 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         )[:5]
     ]
 
-    scope_source_counts_raw: dict[str, int] = {}
-    for source in emission_sources:
-        raw_scope = (source.scope or "").strip().lower()
-        display_scope = scope_display_map.get(raw_scope, (source.scope or "未分類").strip() or "未分類")
-        scope_source_counts_raw[display_scope] = scope_source_counts_raw.get(display_scope, 0) + 1
-
     scope_source_counts = [
         {"scope": key, "source_count": value}
         for key, value in sorted(scope_source_counts_raw.items(), key=lambda item: item[0])
     ]
-
-    activity_source_ids = {row.source_id for row in activity_data_rows}
-    completed_activity_source_count = sum(1 for source in emission_sources if source.source_id in activity_source_ids)
-    total_source_count = len(emission_sources)
-    activity_coverage_rate = (
-        round((completed_activity_source_count / total_source_count) * 100, 2) if total_source_count else 0.0
-    )
-
-    records_with_heat_value = sum(1 for record in records if record.heat_value is not None)
-    heat_value_coverage_rate = round((records_with_heat_value / len(records)) * 100, 2) if records else 0.0
 
     company = companies[0] if companies else None
     company_summary = {
@@ -256,12 +209,6 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         "summary.total_co2e": round(total_co2e, 4),
         "summary.record_count": float(len(records)),
         "summary.device_count": float(len(devices)),
-        "boundary_summary.boundary_count": float(len(boundaries)),
-        "boundary_summary.source_count": float(total_source_count),
-        "boundary_summary.completed_activity_source_count": float(completed_activity_source_count),
-        "boundary_summary.activity_coverage_rate": float(activity_coverage_rate),
-        "calculation_summary.records_with_heat_value": float(records_with_heat_value),
-        "calculation_summary.heat_value_coverage_rate": float(heat_value_coverage_rate),
     }
 
     for index, item in enumerate(emission_type_totals):
@@ -270,142 +217,6 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         numeric_sources[f"top_devices[{index}].total_co2e"] = float(item["total_co2e"])
     for index, item in enumerate(scope_source_counts):
         numeric_sources[f"scope_source_counts[{index}].source_count"] = float(item["source_count"])
-
-    def _normalize_emission_style(raw_emission_type: str | None) -> str:
-        raw = str(raw_emission_type or "").strip().lower()
-        style_map = {
-            "fixed": "固定燃燒",
-            "固定燃燒": "固定燃燒",
-            "mobile": "移動燃燒",
-            "移動燃燒": "移動燃燒",
-            "fugitive": "逸散排放",
-            "逸散排放": "逸散排放",
-            "process": "製程排放",
-            "製程排放": "製程排放",
-            "electricity": "外購電力",
-            "外購電力": "外購電力",
-            "steam": "外購蒸汽",
-            "外購蒸汽": "外購蒸汽",
-            "能源間接排放": "能源間接排放",
-        }
-        return style_map.get(raw, str(raw_emission_type or "未分類").strip() or "未分類")
-
-    def _infer_material_code(material_name: str, emission_style: str) -> str:
-        material = material_name.strip()
-        if not material:
-            return ""
-
-        candidates = [
-            f
-            for f in all_factors
-            if str(f.name or "").strip() == material
-            and (
-                str(f.emission_type or "").strip() == emission_style
-                or emission_style in ("未分類", "能源間接排放")
-            )
-        ]
-        if not candidates:
-            candidates = [f for f in all_factors if str(f.name or "").strip() == material]
-        if not candidates:
-            return ""
-
-        latest = max(candidates, key=lambda f: int(getattr(f, "year", 0) or 0))
-        return str(latest.original_code or latest.code or "").strip()
-
-    def _infer_source_gases(source: EmissionSource, unit_or_process: str, emission_style: str) -> set[str]:
-        gases_set: set[str] = set()
-
-        if unit_or_process:
-            process_key = unit_or_process.lower()
-            for f in all_factors:
-                try:
-                    if (
-                        str(f.original_code or "").strip().lower() == process_key
-                        or str(f.code or "").strip().lower() == process_key
-                        or str(f.name or "").strip().lower() == process_key
-                    ) and f.gas_type:
-                        gases_set.add(str(f.gas_type))
-                except Exception:
-                    continue  # nosec: B112
-
-        if not gases_set:
-            etype_keys = {
-                str(source.emission_type or "").strip().lower(),
-                str(emission_style or "").strip().lower(),
-            }
-            for f in all_factors:
-                factor_etype = str(f.emission_type or "").strip().lower()
-                if factor_etype in etype_keys and f.gas_type:
-                    gases_set.add(str(f.gas_type))
-
-        if not gases_set:
-            gases_set.add("CO2e")
-
-        return gases_set
-
-    def _normalize_gas_flags(gases_set: set[str], emission_style: str) -> dict[str, str]:
-        normalized = {str(g).upper().replace("₂", "2") for g in gases_set}
-
-        if normalized == {"CO2E"}:
-            if emission_style in {"固定燃燒", "移動燃燒", "製程排放", "外購電力", "外購蒸汽", "能源間接排放"}:
-                normalized.update({"CO2", "CH4", "N2O"})
-            elif emission_style == "逸散排放":
-                normalized.add("HFCS")
-
-        return {
-            "co2": "O" if "CO2" in normalized else "",
-            "ch4": "O" if "CH4" in normalized else "",
-            "n2o": "O" if "N2O" in normalized else "",
-            "hfcs": "O" if any(g.startswith("HFC") for g in normalized) else "",
-            "pfcs": "O" if any(g.startswith("PFC") for g in normalized) else "",
-            "sf6": "O" if "SF6" in normalized else "",
-            "nf3": "O" if "NF3" in normalized else "",
-        }
-
-    # --- boundary-level snapshots: 列出每個邊界的排放源及推斷之氣體種類 ---
-    boundary_snapshots: list[dict] = []
-    emission_source_management_rows: list[dict] = []
-    for b in boundaries:
-        b_sources = [s for s in emission_sources if s.boundary_id == b.boundary_id]
-        sources_list: list[dict] = []
-        for s in b_sources:
-            unit_or_process = (s.material or s.source_name or "").strip()
-            emission_style = _normalize_emission_style(s.emission_type)
-            gases_set = _infer_source_gases(s, unit_or_process, emission_style)
-
-            sources_list.append({
-                "source_number": s.source_number,
-                "source_name": s.source_name,
-                "unit_or_process": unit_or_process,
-                "gases": sorted(list(gases_set)),
-            })
-
-            scope_key = str(s.scope or "").strip().lower()
-            is_indirect = scope_key == "scope2" or emission_style in {"外購電力", "外購蒸汽", "能源間接排放"}
-            material_name = str(s.material or "").strip()
-            material_code = _infer_material_code(material_name, emission_style)
-            gas_flags = _normalize_gas_flags(gases_set, emission_style)
-
-            emission_source_management_rows.append({
-                "boundary_name": str(b.boundary_name or "").strip(),
-                "process_code": str(s.source_number or "").strip(),
-                "process_name": str(s.source_name or "").strip(),
-                "equipment_code": str(s.source_number or "").strip(),
-                "equipment_name": str(s.source_name or "").strip(),
-                "material_code": material_code,
-                "material_name": material_name,
-                "directness": "間接排放" if is_indirect else "直接排放",
-                "emission_style": emission_style,
-                "gas_flags": gas_flags,
-                "is_biomass_energy": "是" if "生質" in material_name else "否",
-                "is_cogen": "是" if "汽電共生" in (str(s.source_name or "") + material_name) else "否",
-            })
-
-        boundary_snapshots.append({
-            "boundary_id": b.boundary_id,
-            "boundary_name": b.boundary_name,
-            "sources": sources_list,
-        })
 
     return {
         "inventory_year": _get_target_year(session),
@@ -416,21 +227,13 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
             "device_count": len(devices),
         },
         "company_summary": company_summary,
-        "boundary_summary": {
-            "boundary_count": len(boundaries),
-            "source_count": total_source_count,
-            "completed_activity_source_count": completed_activity_source_count,
-            "activity_coverage_rate": activity_coverage_rate,
-        },
         "calculation_summary": {
-            "records_with_heat_value": records_with_heat_value,
-            "heat_value_coverage_rate": heat_value_coverage_rate,
+            "factor_source": "EmissionFactor604",
+            "gwp_version": "AR5",
         },
         "scope_source_counts": scope_source_counts,
         "emission_type_totals": emission_type_totals,
         "top_devices": top_devices,
-        "boundary_snapshots": boundary_snapshots,
-        "emission_source_management_rows": emission_source_management_rows,
         "numeric_sources": numeric_sources,
     }
 
@@ -533,15 +336,9 @@ def _normalize_report_payload(payload: dict[str, Any], snapshot: dict[str, Any])
         if record_count > 0:
             lines.append(f"年排放量總計：{total_co2e} kg CO2e（依既有紀錄彙總）")
             lines.append(f"排放量計算紀錄筆數：{record_count}")
+            lines.append("計算依據：採用環保署公告溫室氣體排放係數表（EmissionFactor604）與 AR5 GWP 值。")
         else:
             lines.append("資料缺口：尚無排放量計算紀錄，無法產出年排放量。")
-
-        heat_record_count = int(calculation_summary.get("records_with_heat_value", 0) or 0)
-        heat_coverage_rate = calculation_summary.get("heat_value_coverage_rate", 0)
-        if heat_record_count > 0:
-            lines.append(f"含低位熱值資料筆數：{heat_record_count}（覆蓋率 {heat_coverage_rate}%）")
-        else:
-            lines.append("資料缺口：缺少低位熱值或燃料性質資料。")
         return lines
 
     def _fallback_other_regulatory_items() -> list[str]:
@@ -813,131 +610,9 @@ def _run_ai_report_task(task_id: str, snapshot: dict[str, Any]) -> None:
 async def result_page(request: Request, session: Session = Depends(get_session)):
     records = session.exec(select(EmissionRecord)).all()
     devices = session.exec(select(Device)).all()
-    all_factors = session.exec(select(EmissionFactor)).all()
     device_map = {device.id: device for device in devices}
 
-    # --- build factor lookup maps (same logic as calculation page) ---
-    def _factor_matches_device(factor: EmissionFactor, device: Device) -> bool:
-        ref_code = str(device.factor_ref_code).strip()
-        return (
-            factor.emission_type == device.emission_type
-            and (
-                str(factor.original_code).strip() == ref_code
-                or str(factor.code).strip() == ref_code
-            )
-        )
-
-    target_year = max((f.year for f in all_factors), default=datetime.now().year)
-
-    gwp_refs = session.exec(select(GWPReference).order_by(GWPReference.gas_name_zh)).all()
-    gwp_lookup: dict[str, dict] = {}
-    for g in gwp_refs:
-        gwp_lookup[g.formula] = {"name": g.gas_name_zh, "gwp": float(g.gwp_value or 0)}
-
-    factor_detail_map: dict[int, list[dict]] = {}
-    device_calc_info: dict[int, dict] = {}
-
-    for d in devices:
-        etype = str(d.emission_type or "").strip()
-        if etype == "逸散排放" and d.refrigerant_code:
-            from services.emission_calculator import _lookup_gwp
-            gwp_info = gwp_lookup.get(d.refrigerant_code)
-            if not gwp_info:
-                gwp_val = _lookup_gwp(session, d.refrigerant_code)
-                gwp_info = {"name": d.refrigerant_code, "gwp": gwp_val}
-            rate = get_rate_by_code(d.equipment_category or "")
-            fill_kg = (d.fill_amount or 0) * 1000.0
-            device_calc_info[d.id] = {
-                "type": "refrigerant",
-                "gwp_value": gwp_info.get("gwp", 0),
-                "emission_rate": rate,
-                "fill_kg": fill_kg,
-            }
-            factor_detail_map[d.id] = [
-                {"gas": "CO2e", "val": gwp_info.get("gwp", 0)}
-            ]
-        elif etype == "能源間接排放":
-            elec_factors = [f for f in all_factors if f.original_code == "ELECTRICITY" and f.gas_type == "CO2e"]
-            latest_elec = max((f.year for f in elec_factors), default=target_year)
-            elec_factor = next((f for f in elec_factors if f.year == latest_elec), None)
-            factor_value = elec_factor.factor_value if elec_factor else 0.0
-            device_calc_info[d.id] = {
-                "type": "electricity",
-                "factor_value": factor_value,
-            }
-            factor_detail_map[d.id] = [
-                {"gas": "CO2e", "val": factor_value}
-            ]
-        else:
-            matched = [f for f in all_factors if _factor_matches_device(f, d)]
-            if not matched:
-                factor_detail_map[d.id] = []
-                device_calc_info[d.id] = {"type": "combustion", "has_lhv": False}
-                continue
-            latest_year = max(f.year for f in matched)
-            latest_factors = [f for f in matched if f.year == latest_year]
-            factor_detail_map[d.id] = [
-                {"gas": f.gas_type, "val": f.factor_value}
-                for f in latest_factors
-            ]
-            lhv_val, lhv_unit = get_lhv_value(d.factor_ref_code)
-            device_calc_info[d.id] = {
-                "type": "combustion",
-                "has_lhv": lhv_val is not None,
-                "lhv_value": lhv_val,
-                "lhv_unit": lhv_unit,
-            }
-
-    # --- helper: compute gas breakdown for one record (透過 services 統一入口) ---
-    def _gas_breakdown(record: EmissionRecord) -> dict[str, float]:
-        device = device_map.get(record.device_id)
-        if not device:
-            return {"CO2e": round(float(record.total_co2e or 0), 4)}
-
-        etype = (device.emission_type or "").strip()
-        activity = float(record.activity_data or 0.0)
-
-        if etype == "逸散排放" and device.refrigerant_code:
-            result = calculate_refrigerant_emission(
-                session=session,
-                refrigerant_code=device.refrigerant_code,
-                fill_amount_tonnes=device.fill_amount or 0,
-                equipment_category=device.equipment_category or "",
-            )
-            return {"CO2e": round(float(result.get("CO2e", record.total_co2e or 0)), 4)}
-
-        if etype == "能源間接排放":
-            result = calculate_electricity_emission(
-                session=session,
-                activity_value=activity,
-                year=None,
-            )
-            return {"CO2e": round(float(result.get("CO2e", record.total_co2e or 0)), 4)}
-
-        # 固定燃燒 / 移動燃燒 — 走服務
-        lhv_value, lhv_unit = get_lhv_for_device(
-            session=session,
-            device=device,
-            custom_heat_value=record.heat_value,
-            custom_lhv_unit=record.lhv_unit,
-        )
-        result = calculate_combustion_emission(
-            session=session,
-            original_code=device.factor_ref_code or "",
-            emission_type=etype or "固定燃燒",
-            activity_value=activity,
-            lhv_value=lhv_value,
-            lhv_unit=lhv_unit,
-            year=None,
-        )
-        return {
-            "CO2": round(float(result.get("CO2", 0) or 0), 4),
-            "CH4": round(float(result.get("CH4", 0) or 0), 4),
-            "N2O": round(float(result.get("N2O", 0) or 0), 4),
-            "CO2e": round(float(result.get("CO2e", record.total_co2e or 0) or 0), 4),
-        }
-
-    # --- aggregate with gas breakdown ---
+    # --- 直接從 EmissionRecord 彙總（不再即時重算） ---
     scope_order = ["scope1", "scope2"]
     scope_display = {
         "scope1": "範疇一：直接排放",
@@ -966,9 +641,13 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             if emission_type_to_scope.get(etype, "scope1") != scope_key:
                 continue
 
-            co2e_stored = float(record.total_co2e or 0.0)
-            gases = _gas_breakdown(record)
-            co2e_val = gases.get("CO2e", co2e_stored)
+            co2e_val = float(record.total_co2e or 0.0)
+            gases = {
+                "CO2": float(record.co2 or 0),
+                "CH4": float(record.ch4 or 0),
+                "N2O": float(record.n2o or 0),
+                "CO2e": co2e_val,
+            }
 
             emission_type_totals_raw[etype] = emission_type_totals_raw.get(etype, 0.0) + co2e_val
 
@@ -999,7 +678,7 @@ async def result_page(request: Request, session: Session = Depends(get_session))
                 "record_date": record.record_date,
                 "activity_data": record.activity_data,
                 "unit": record.unit or "",
-                "heat_value": record.heat_value,
+                "target_year": record.target_year,
                 "co2e": co2e_val,
                 "gases": gases,
             })
@@ -1042,6 +721,17 @@ async def result_page(request: Request, session: Session = Depends(get_session))
     record_count = len(records)
     device_count = len(devices)
 
+    # 各設備排放量（供圖表用）
+    device_totals_raw: dict[str, float] = {}
+    for scope_entry in scope_data:
+        for et in scope_entry.get("emission_types", []):
+            for dev in et.get("devices", []):
+                name = dev.get("device_name", "未知")
+                device_totals_raw[name] = dev.get("total_co2e", 0)
+    sorted_devices = sorted(device_totals_raw.items(), key=lambda x: x[1], reverse=True)
+    device_labels = [d[0] for d in sorted_devices[:10]]
+    device_values = [round(d[1], 4) for d in sorted_devices[:10]]
+
     return templates.TemplateResponse(
         "result.html",
         {
@@ -1054,6 +744,8 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             "scope_data": scope_data,
             "emission_type_labels": emission_type_labels,
             "emission_type_values": emission_type_values,
+            "device_labels": device_labels,
+            "device_values": device_values,
         },
     )
 

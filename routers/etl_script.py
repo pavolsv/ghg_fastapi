@@ -8,11 +8,11 @@ import urllib3
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, col
+from sqlmodel import Session, col, select
 
 from audit_log import add_change_log
 from database import engine
-from model import EmissionFactor, ETLStatus, GWPReference
+from model import AppendixReference, EmissionFactor604, ETLStatus, GWPReference, FactorCodeMap
 
 # Allow disabling SSL verification only in dev/test via environment variable.
 VERIFY_SSL = os.environ.get("VERIFY_SSL", "true").lower() != "false"
@@ -128,311 +128,36 @@ def process_utility_electricity(file_path: str):
 @router.get("/", response_class=HTMLResponse)
 async def etl_page(request: Request):
     with Session(engine) as session:
-        statuses = session.query(ETLStatus).all()
-        status_map = {s.etl_type: s for s in statuses}
+        fuel_count = session.exec(
+            select(EmissionFactor604).where(
+                EmissionFactor604.original_code != "ELECTRICITY"
+            )
+        ).all()
+        elec_count = session.exec(
+            select(EmissionFactor604).where(
+                EmissionFactor604.original_code == "ELECTRICITY"
+            )
+        ).all()
+        gwp_count = session.exec(select(GWPReference)).all()
+        code_count = session.exec(select(AppendixReference)).all()
+
+    stats = {
+        "fuel": {"count": len(fuel_count), "label": "燃料係數", "icon": "flame"},
+        "electricity": {"count": len(elec_count), "label": "電力係數", "icon": "zap"},
+        "gwp": {"count": len(gwp_count), "label": "GWP 溫暖化潛勢", "icon": "snowflake"},
+        "codes": {"count": len(code_count), "label": "代碼檔", "icon": "book-open"},
+    }
+
     return templates.TemplateResponse(
         "etl.html", {
             "request": request,
-            "default_url": URL_REGISTRY,
-            "status_map": status_map,
+            "stats": stats,
         }
     )
 
 
 def process_refrigerant_appendix(file_path, year):
     pass
-
-
-@router.post("/run")
-async def run_etl(data_type: str = Form("fuel"), year: int = Form(2023)):
-    target_url = URL_REGISTRY.get(data_type)
-    if not target_url:
-        return {"status": "error", "message": "無效的數據類型"}
-
-    # 根據副檔名決定暫存檔名
-    ext = ".csv" if "csv" in target_url.lower() else ".ods"
-    file_path = f"temp_{data_type}{ext}"
-
-    try:
-        # --- 1. 下載 ---
-        resp = requests.get(target_url, verify=VERIFY_SSL, timeout=30)
-        with open(file_path, "wb") as f:
-            f.write(resp.content)
-
-        # --- 2. 分流解析 ---
-        if data_type == "fuel":
-            # 專攻附表一，解決褐煤三氣體補全問題
-            data_df = process_appendix_one(file_path, year)
-            msg = "燃料係數 (CO2, CH4, N2O)"
-        elif data_type == "electricity":
-            # 專攻電力排放係數 (0.494, 0.474)
-            data_df = process_utility_electricity(file_path)
-            msg = "電力排碳係數"
-        else:
-            return {"status": "error", "message": "目前僅支援燃料與電力"}
-
-        # --- 3. 統一入庫 ---
-        created_count = 0
-        updated_count = 0
-        unchanged_count = 0
-        changes_detail = []
-
-        with Session(engine) as session:
-            for _, row in data_df.iterrows():
-                row_dict = row.to_dict()
-                row_dict.setdefault("factor_source", target_url)
-                row_dict.setdefault(
-                    "calculation_method",
-                    "total_co2e = activity_data × emission_factor",
-                )
-                row_dict["updated_at"] = datetime.utcnow()
-
-                existing_factor = session.get(
-                    EmissionFactor, (row_dict["code"], row_dict["gas_type"])
-                )
-
-                action_type = "CREATE"
-                detail = "factor created"
-
-                if existing_factor:
-                    changed_fields = []
-                    tracked_fields = [
-                        "name",
-                        "factor_value",
-                        "unit",
-                        "year",
-                        "emission_type",
-                        "factor_source",
-                        "calculation_method",
-                    ]
-                    for field_name in tracked_fields:
-                        old_val = getattr(existing_factor, field_name)
-                        new_val = row_dict.get(field_name)
-                        if str(old_val) != str(new_val):
-                            changed_fields.append(
-                                {
-                                    "field": field_name,
-                                    "old": str(old_val),
-                                    "new": str(new_val),
-                                }
-                            )
-
-                    if changed_fields:
-                        action_type = "UPDATE"
-                        detail = "; ".join(
-                            f"{c['field']}: {c['old']} -> {c['new']}" for c in changed_fields
-                        )
-                        updated_count += 1
-                        changes_detail.append({
-                            "code": row_dict["code"],
-                            "gas_type": row_dict["gas_type"],
-                            "name": row_dict["name"],
-                            "action": "UPDATE",
-                            "changes": changed_fields,
-                        })
-                    else:
-                        action_type = "UPSERT"
-                        detail = "no business field changed"
-                        unchanged_count += 1
-                else:
-                    created_count += 1
-                    changes_detail.append({
-                        "code": row_dict["code"],
-                        "gas_type": row_dict["gas_type"],
-                        "name": row_dict["name"],
-                        "action": "CREATE",
-                        "changes": [],
-                    })
-
-                factor = EmissionFactor(**row_dict)
-                session.merge(factor)
-
-                add_change_log(
-                    session=session,
-                    module="factor_management",
-                    entity_name="EmissionFactor",
-                    record_key=f"{row_dict['code']}|{row_dict['gas_type']}",
-                    action_type=action_type,
-                    changed_by="etl_system",
-                    change_details=detail,
-                )
-
-            # 更新 ETLStatus
-            etl_status = session.query(ETLStatus).filter(
-                col(ETLStatus.etl_type) == data_type
-            ).first()
-            if etl_status:
-                etl_status.last_fetch_time = datetime.utcnow()
-                etl_status.last_fetch_result = f"成功匯入 {len(data_df)} 筆 {msg}"
-                etl_status.fetched_count = len(data_df)
-                etl_status.source_url = target_url
-            else:
-                etl_status = ETLStatus(
-                    etl_type=data_type,
-                    last_fetch_time=datetime.utcnow(),
-                    last_fetch_result=f"成功匯入 {len(data_df)} 筆 {msg}",
-                    fetched_count=len(data_df),
-                    source_url=target_url,
-                )
-                session.add(etl_status)
-
-            session.commit()
-
-        return {
-            "status": "success",
-            "message": f"成功匯入 {len(data_df)} 筆 {msg}",
-            "summary": {
-                "total": len(data_df),
-                "created": created_count,
-                "updated": updated_count,
-                "unchanged": unchanged_count,
-            },
-            "changes": changes_detail[:50],  # 最多返回前50筆變動明細
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"解析失敗，請檢查頁籤名稱或格式：{str(e)}",
-        }
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-
-@router.post("/factor/create")
-async def create_factor(
-    request: Request,
-    code: str = Form(...),
-    gas_type: str = Form(...),
-    original_code: str = Form(...),
-    name: str = Form(...),
-    factor_value: float = Form(...),
-    unit: str = Form(...),
-    year: int = Form(...),
-    emission_type: str = Form(...),
-    factor_source: str = Form(default=""),
-    calculation_method: str = Form(default="total_co2e = activity_data × emission_factor"),
-):
-    from datetime import datetime
-
-    if factor_value <= 0:
-        return {"status": "error", "message": "係數數值必須大於 0"}
-
-    with Session(engine) as session:
-        existing = session.get(EmissionFactor, (code, gas_type))
-        action_type = "UPDATE" if existing else "CREATE"
-
-        changed_fields = []
-        if existing:
-            tracked = ["name", "factor_value", "unit", "year", "emission_type",
-                       "factor_source", "calculation_method"]
-            new_vals = dict(name=name, factor_value=factor_value, unit=unit, year=year,
-                            emission_type=emission_type,
-                            factor_source=factor_source, calculation_method=calculation_method)
-            for field in tracked:
-                old = getattr(existing, field)
-                new = new_vals[field]
-                if str(old) != str(new):
-                    changed_fields.append(f"{field}: {old} → {new}")
-            detail = "; ".join(changed_fields) if changed_fields else "no change"
-        else:
-            detail = f"code={code}, gas_type={gas_type}, factor_value={factor_value}"
-
-        factor = EmissionFactor(
-            code=code,
-            gas_type=gas_type,
-            original_code=original_code,
-            name=name,
-            factor_value=factor_value,
-            unit=unit,
-            year=year,
-            emission_type=emission_type,
-            factor_source=factor_source or None,
-            calculation_method=calculation_method or None,
-            updated_at=datetime.utcnow(),
-        )
-        session.merge(factor)
-
-        add_change_log(
-            session=session,
-            module="factor_management",
-            entity_name="EmissionFactor",
-            record_key=f"{code}|{gas_type}",
-            action_type=action_type,
-            changed_by=str(request.session.get("user", "manual")),
-            change_details=detail,
-        )
-        session.commit()
-
-    return RedirectResponse(url="/etl/manage", status_code=303)
-
-
-@router.post("/factor/lhv/update")
-async def update_lhv(
-    request: Request,
-    original_code: str = Form(...),
-    year: int = Form(...),
-    emission_type: str = Form(...),
-    lower_heating_value: float = Form(...),
-    lhv_unit: str = Form(...),
-):
-    """更新燃料的低位熱值（同一 original_code 的所有 gas_type 一起更新）"""
-    with Session(engine) as session:
-        factors = session.exec(
-            select(EmissionFactor).where(
-                EmissionFactor.original_code == original_code,
-                EmissionFactor.year == year,
-                EmissionFactor.emission_type == emission_type,
-            )
-        ).all()
-
-        for factor in factors:
-            factor.lower_heating_value = lower_heating_value
-            factor.lhv_unit = lhv_unit
-            factor.updated_at = datetime.utcnow()
-            session.add(factor)
-
-        add_change_log(
-            session=session,
-            module="factor_management",
-            entity_name="EmissionFactor",
-            record_key=f"{original_code}|LHV",
-            action_type="UPDATE",
-            changed_by=str(request.session.get("user", "manual")),
-            change_details=f"LHV={lower_heating_value} {lhv_unit}",
-        )
-        session.commit()
-
-    return RedirectResponse(url="/etl/manage", status_code=303)
-
-
-@router.post("/factor/delete")
-async def delete_factor(
-    request: Request,
-    code: str = Form(...),
-    gas_type: str = Form(...),
-):
-    with Session(engine) as session:
-        factor = session.get(EmissionFactor, (code, gas_type))
-        if factor:
-            detail = (
-                f"name={factor.name}, factor_value={factor.factor_value}, "
-                f"year={factor.year}"
-            )
-            add_change_log(
-                session=session,
-                module="factor_management",
-                entity_name="EmissionFactor",
-                record_key=f"{code}|{gas_type}",
-                action_type="DELETE",
-                changed_by=str(request.session.get("user", "manual")),
-                change_details=detail,
-            )
-            session.delete(factor)
-            session.commit()
-
-    return RedirectResponse(url="/etl/manage", status_code=303)
 
 
 @router.get("/manage", response_class=HTMLResponse)
@@ -472,76 +197,57 @@ async def factor_management(
             },
         )
 
-    # ── EmissionFactor（其他排放類型）────────────────────────────────
+    # ── EmissionFactor604（其他排放類型）────────────────────────────────
     with Session(engine) as session:
-        query = session.query(EmissionFactor)
+        query = session.query(EmissionFactor604)
 
-        # --- 篩選邏輯（配合分組顯示調整）---
         if name:
-            query = query.filter(col(EmissionFactor.name).contains(name))
+            query = query.filter(col(EmissionFactor604.name).contains(name))
         if category:
-            query = query.filter(col(EmissionFactor.emission_type).contains(category))
-        if year and year.strip():
-            try:
-                query = query.filter(col(EmissionFactor.year) == int(year))
-            except ValueError:
-                pass
+            query = query.filter(col(EmissionFactor604.emission_type).contains(category))
         if gas_type:
-            # 找出含有該 gas_type 的所有 code，再撈出這些 code 的全部氣體列
-            # 這樣分組後 CO2/CH4/N2O 欄位仍完整顯示
             matching_codes = [
                 row[0]
-                for row in session.query(col(EmissionFactor.code))
-                .filter(col(EmissionFactor.gas_type) == gas_type)
+                for row in session.query(col(EmissionFactor604.code))
+                .filter(col(EmissionFactor604.gas_type) == gas_type)
                 .distinct()
                 .all()
             ]
-            query = query.filter(col(EmissionFactor.code).in_(matching_codes))
+            query = query.filter(col(EmissionFactor604.code).in_(matching_codes))
 
-        # --- 核心修改：預設按 Code (編號) 升冪排序 (A-Z) ---
-        factors = query.order_by(
-            col(EmissionFactor.code).asc(), col(EmissionFactor.year).desc()
-        ).all()
+        factors = query.order_by(col(EmissionFactor604.code).asc()).all()
 
-        # --- 依 (code, year) 分組，將 CO2/CH4/N2O 各 gas_type 樞紐為欄位 ---
+        # 依 (original_code, emission_type) 分組，將 CO2/CH4/N2O 各 gas_type 樞紐為欄位
+        # 但若同組內有多個不同 code（如電力每年不同），則各 code 獨立一列
         grouped_dict: dict = {}
         for f in factors:
-            key = (f.code, f.year)
+            if f.original_code == "ELECTRICITY":
+                key = f.code
+            else:
+                key = (f.original_code, f.emission_type)
             if key not in grouped_dict:
                 grouped_dict[key] = {
-                    "code": f.code,
-                    "original_code": f.original_code,
+                    "code": f.original_code if f.original_code != "ELECTRICITY" else f.code,
                     "name": f.name,
                     "unit": f.unit,
-                    "year": f.year,
-                    "emission_type": f.emission_type,
-                    "factor_source": f.factor_source,
-                    "calculation_method": f.calculation_method,
+                    "original_code": f.original_code,
                     "gas_values": {},
                     "gas_factors": {},
                 }
             grouped_dict[key]["gas_values"][f.gas_type] = f.factor_value
             grouped_dict[key]["gas_factors"][f.gas_type] = {
-                "code": f.code,
                 "gas_type": f.gas_type,
-                "original_code": f.original_code,
-                "name": f.name,
                 "factor_value": f.factor_value,
                 "unit": f.unit,
-                "year": f.year,
-                "emission_type": f.emission_type,
-                "factor_source": f.factor_source or "",
-                "calculation_method": f.calculation_method or "",
             }
         grouped_factors = list(grouped_dict.values())
 
-        # 獲取選單資料
         name_list = [
-            n[0] for n in session.query(col(EmissionFactor.name)).distinct().all() if n[0]
+            n[0] for n in session.query(col(EmissionFactor604.name)).distinct().all() if n[0]
         ]
         gas_list = [
             g[0]
-            for g in session.query(col(EmissionFactor.gas_type)).distinct().all()
+            for g in session.query(col(EmissionFactor604.gas_type)).distinct().all()
             if g[0]
         ]
 
@@ -621,85 +327,264 @@ async def gwp_delete(record_id: int = Form(...)):
     return RedirectResponse(url="/etl/manage?category=逸散排放", status_code=303)
 
 
-@router.post("/preview")
-async def preview_etl(data_type: str = Form("fuel"), year: int = Form(2023)):
-    """預覽導入數據：下載並解析，與現有數據對比，但不入庫"""
-    target_url = URL_REGISTRY.get(data_type)
-    if not target_url:
-        return {"status": "error", "message": "無效的數據類型"}
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    ext = ".csv" if "csv" in target_url.lower() else ".ods"
-    file_path = f"temp_preview_{data_type}{ext}"
+F604_PATH = os.path.join(BASE_DIR, "溫室氣體排放係數管理表6.0.4(修) (4).ods")
+V2_PATH = os.path.join(BASE_DIR, "溫室氣體盤查作業相關代碼檔V2 (4).ods")
+CSV_PATH = os.path.join(BASE_DIR, "台電系統發購電量及電力排碳係數(105-113) (1).csv")
 
-    try:
-        resp = requests.get(target_url, verify=VERIFY_SSL, timeout=30)
-        with open(file_path, "wb") as f:
-            f.write(resp.content)
 
-        if data_type == "fuel":
-            data_df = process_appendix_one(file_path, year)
-        elif data_type == "electricity":
-            data_df = process_utility_electricity(file_path)
-        else:
-            return {"status": "error", "message": "目前僅支援燃料與電力"}
+def _run_import_fuel():
+    """匯入 6.0.4 燃料係數 + 代碼檔對照"""
+    from tools.import_604 import build_code_map, parse_sheet, FUEL_CODE_OVERRIDE
 
-        preview_rows = []
-        with Session(engine) as session:
-            for _, row in data_df.iterrows():
-                row_dict = row.to_dict()
-                existing = session.get(
-                    EmissionFactor, (row_dict["code"], row_dict["gas_type"])
-                )
+    SHEET_CONFIG = {
+        "1_固定源與移動源(燃料)CO2排放係數": {"gas_type": "CO2", "factor_col": 17, "unit_col": 18},
+        "2_固定源與移動源(燃料)CH4排放係數": {"gas_type": "CH4", "factor_col": 14, "unit_col": 15},
+        "3_固定源與移動源(燃料)N2O排放係數": {"gas_type": "N2O", "factor_col": 14, "unit_col": 15},
+    }
+    EMISSION_TYPE_MAP = {"固定源": "固定燃燒", "移動源": "移動燃燒"}
 
-                if existing:
-                    changed_fields = []
-                    tracked_fields = [
-                        "name", "factor_value", "unit", "year",
-                        "emission_type",
-                    ]
-                    for fn in tracked_fields:
-                        old_val = str(getattr(existing, fn))
-                        new_val = str(row_dict.get(fn))
-                        if old_val != new_val:
-                            changed_fields.append({
-                                "field": fn,
-                                "old": old_val,
-                                "new": new_val,
-                            })
-                    action = "UPDATE" if changed_fields else "UNCHANGED"
+    import pandas as pd
+    code_map = build_code_map()
+    all_rows = []
+    for sheet_name, config in SHEET_CONFIG.items():
+        df = pd.read_excel(F604_PATH, sheet_name=sheet_name, engine="odf", header=None)
+        data = df.iloc[6:].copy()
+        data[1] = data[1].ffill()
+        for i in range(len(data)):
+            r = data.iloc[i]
+            fuel = r.iloc[3]
+            etype_raw = str(r.iloc[1]).strip()
+            factor_raw = r.iloc[config["factor_col"]]
+            unit_raw = r.iloc[config["unit_col"]]
+            if pd.isna(fuel) or str(fuel).strip() in ("", "NaN", "nan"):
+                continue
+            fuel_name = str(fuel).strip()
+            if fuel_name.startswith("註"):
+                continue
+            factor_str = str(factor_raw).strip()
+            if factor_str in ("", "-", "NaN", "nan"):
+                continue
+            emission_type = EMISSION_TYPE_MAP.get(etype_raw)
+            if not emission_type:
+                continue
+            try:
+                factor_value = float(factor_str)
+            except ValueError:
+                continue
+            unit = str(unit_raw).strip() if pd.notna(unit_raw) else ""
+
+            code = None
+            if fuel_name in code_map:
+                code = code_map[fuel_name]
+            elif fuel_name in FUEL_CODE_OVERRIDE:
+                code = FUEL_CODE_OVERRIDE[fuel_name]
+            else:
+                base = fuel_name.split("(")[0].split("（")[0].strip()
+                code = code_map.get(base)
+            if not code:
+                continue
+            all_rows.append((code, config["gas_type"], emission_type, fuel_name, factor_value, unit))
+
+    with Session(engine) as session:
+        for obj in session.exec(select(FactorCodeMap)).all():
+            session.delete(obj)
+        for obj in session.exec(select(EmissionFactor604)).all():
+            session.delete(obj)
+        session.commit()
+
+        seen = set()
+        for code, gas_type, emission_type, name, factor_value, unit in all_rows:
+            if code not in seen:
+                seen.add(code)
+                session.add(FactorCodeMap(code=code, fuel_name_zh=name, emission_type=emission_type))
+            pk = f"{code}_{gas_type}_{emission_type}_{name}"
+            session.add(EmissionFactor604(
+                code=pk, original_code=code, gas_type=gas_type,
+                emission_type=emission_type, name=name,
+                factor_value=factor_value, unit=unit, year=2023,
+            ))
+        session.commit()
+    return len(all_rows)
+
+
+def _run_import_electricity():
+    """匯入台電電力係數"""
+    import csv
+    rows = []
+    with open(CSV_PATH, encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append((r["年度"], float(r["電力排碳係數"])))
+    with Session(engine) as session:
+        for obj in session.exec(select(EmissionFactor604).where(
+            EmissionFactor604.original_code == "ELECTRICITY"
+        )).all():
+            session.delete(obj)
+        session.commit()
+        for year, factor in rows:
+            session.add(EmissionFactor604(
+                code=year, original_code="ELECTRICITY", gas_type="CO2e",
+                emission_type="能源間接排放", name=f"{year}年電力排碳係數",
+                factor_value=factor, unit="kgCO2e/kWh", year=int(year),
+            ))
+        session.commit()
+    return len(rows)
+
+
+def _run_import_gwp():
+    """更新 GWP（6.0.4 AR5 + 代碼檔V2 補充）"""
+    from tools.update_gwp_ar5 import parse_gas_names, parse_ar5
+
+    import pandas as pd
+    updated = 0
+    new_count = 0
+
+    df = pd.read_excel(F604_PATH, sheet_name="4_含氟氣體之GWP值", engine="odf", header=None)
+    gwp_data = df.iloc[1:]
+
+    with Session(engine) as session:
+        for i in range(len(gwp_data)):
+            r = gwp_data.iloc[i]
+            code = r.iloc[0]
+            if pd.isna(code) or str(code).strip() in ("", "nan", "NaN"):
+                continue
+            code = str(code).strip()
+            gas_zh, gas_en = parse_gas_names(str(r.iloc[1]) if pd.notna(r.iloc[1]) else "")
+            gwp_value, is_qual, note = parse_ar5(str(r.iloc[5]))
+
+            existing = session.exec(
+                select(GWPReference).where(GWPReference.formula == code)
+            ).first()
+            if existing:
+                existing.gwp_value = gwp_value
+                existing.is_qualitative = is_qual
+                if note:
+                    existing.note = note
+                existing.version = "AR5"
+                updated += 1
+            else:
+                session.add(GWPReference(
+                    formula=code, gas_name_zh=gas_zh, gas_name_en=gas_en,
+                    gwp_value=gwp_value, version="AR5",
+                    is_qualitative=is_qual, note=note,
+                ))
+                new_count += 1
+
+        # 代碼檔V2 補充
+        df_v2 = pd.read_excel(V2_PATH, sheet_name=1, engine="odf")
+        sec10 = df_v2.iloc[:, [41,42,43,44,45]].dropna(how="all")
+        sec10.columns = ["title","code","name","gwp","note"]
+
+        existing_codes = set(session.exec(select(GWPReference.formula)).all())
+        for _, r in sec10.iterrows():
+            code_v2 = str(r["code"]).strip() if pd.notna(r["code"]) else ""
+            if not code_v2 or code_v2 in existing_codes:
+                continue
+            gas_zh2, gas_en2 = parse_gas_names(str(r["name"]))
+            gwp_value2, is_qual2, note2 = parse_ar5(str(r["gwp"]))
+            session.add(GWPReference(
+                formula=code_v2, gas_name_zh=gas_zh2, gas_name_en=gas_en2,
+                gwp_value=gwp_value2, version="AR5",
+                is_qualitative=is_qual2, note=note2 or (str(r["note"]) if pd.notna(r["note"]) else None),
+            ))
+            new_count += 1
+
+        session.commit()
+    return updated + new_count
+
+
+def _run_import_codes():
+    """匯取代碼檔V2 → appendix_reference"""
+    from tools.import_code_table import SECTIONS
+
+    import pandas as pd
+    df = pd.read_excel(V2_PATH, sheet_name=1, engine="odf")
+    total = 0
+    with Session(engine) as session:
+        for key, cfg in SECTIONS.items():
+            atype = cfg["type"]
+            cols = cfg["cols"]
+            mode = cfg.get("mode", "")
+            data = df.iloc[:, cols[0]:cols[-1]+1].copy()
+            data = data.dropna(how="all")
+            count = 0
+            for i in range(len(data)):
+                row = data.iloc[i]
+                vals = [str(v).strip() for v in row if pd.notna(v)]
+                if mode == "name_only":
+                    if vals and vals[0] not in ("NaN", "nan", ""):
+                        name = vals[0]
+                        code = name
+                    else:
+                        continue
+                elif mode == "city":
+                    if len(vals) >= 3 and vals[2] not in ("NaN", "nan", ""):
+                        code = vals[2]
+                        name = f"{vals[0]}{vals[1]}" if vals[1] not in ("NaN", "nan", "") else vals[0]
+                    else:
+                        continue
                 else:
-                    action = "NEW"
-                    changed_fields = []
+                    code = vals[0] if len(vals) >= 1 and vals[0] not in ("NaN", "nan", "") else ""
+                    name = vals[1] if len(vals) >= 2 and vals[1] not in ("NaN", "nan", "") else ""
+                    if not code and not name:
+                        continue
 
-                preview_rows.append({
-                    "code": row_dict["code"],
-                    "gas_type": row_dict["gas_type"],
-                    "name": row_dict["name"],
-                    "factor_value": row_dict["factor_value"],
-                    "action": action,
-                    "changes": changed_fields,
-                })
+                existing = session.exec(
+                    select(AppendixReference).where(
+                        AppendixReference.appendix_type == atype,
+                        AppendixReference.code == (code if mode != "name_only" else name)
+                    )
+                ).first()
+                if not existing:
+                    session.add(AppendixReference(
+                        appendix_type=atype, code=code, name=name
+                    ))
+                    count += 1
+            session.commit()
+            total += count
+    return total
 
-        new_count = sum(1 for r in preview_rows if r["action"] == "NEW")
-        update_count = sum(1 for r in preview_rows if r["action"] == "UPDATE")
-        unchanged_count = sum(1 for r in preview_rows if r["action"] == "UNCHANGED")
 
-        return {
-            "status": "success",
-            "summary": {
-                "total": len(preview_rows),
-                "new": new_count,
-                "updated": update_count,
-                "unchanged": unchanged_count,
-            },
-            "rows": preview_rows[:100],  # 最多返回前 100 筆
-        }
-
+@router.post("/refresh/fuel")
+async def refresh_fuel():
+    """重新匯入 6.0.4 燃料係數"""
+    try:
+        count = _run_import_fuel()
+        return {"status": "success", "message": f"已匯入 {count} 筆燃料係數", "count": count}
     except Exception as e:
-        return {"status": "error", "message": f"預覽失敗：{str(e)}"}
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/refresh/electricity")
+async def refresh_electricity():
+    """重新匯入台電電力係數"""
+    try:
+        count = _run_import_electricity()
+        return {"status": "success", "message": f"已匯入 {count} 筆電力係數", "count": count}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/refresh/gwp")
+async def refresh_gwp():
+    """重新匯入 GWP"""
+    try:
+        count = _run_import_gwp()
+        return {"status": "success", "message": f"已更新 {count} 筆 GWP", "count": count}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/refresh/codes")
+async def refresh_codes():
+    """重新匯入代碼檔"""
+    try:
+        count = _run_import_codes()
+        return {"status": "success", "message": f"已匯入 {count} 筆代碼", "count": count}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @router.get("/status")

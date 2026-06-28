@@ -10,11 +10,7 @@ from audit_log import add_change_log
 from database import engine
 from model import Device, GasRecord
 from services.device_aggregator import recompute_device_emission
-from services.emission_calculator import (
-    calculate_combustion_emission,
-    get_lhv_for_fuel,
-)
-from constants.lhv_defaults import get_lhv_value
+from services.emission_calculator import calculate_combustion_emission_v2
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(
@@ -56,15 +52,12 @@ def _list_fuel_devices(session: Session) -> list[Device]:
 
 
 def _calc_fuel_type(session: Session, fuel_type: str, total_liters: float) -> dict[str, Any]:
-    """依燃油類型與總公升數，呼叫統一計算服務取得各氣體排放。"""
+    """依燃油類型與總公升數，呼叫新計算服務取得各氣體排放。"""
     original_code = FUEL_CODE_MAP.get(fuel_type)
     if not original_code or not total_liters:
         return {
             "fuel_type": fuel_type,
             "liters": float(total_liters or 0),
-            "lhv_value": 0.0,
-            "lhv_unit": "",
-            "tj": 0.0,
             "CO2": 0.0,
             "CH4": 0.0,
             "N2O": 0.0,
@@ -72,32 +65,21 @@ def _calc_fuel_type(session: Session, fuel_type: str, total_liters: float) -> di
             "supported": False,
         }
 
-    # 取熱值（DB → code defaults fallback）
-    lhv_value, lhv_unit = get_lhv_for_fuel(session, original_code)
-    if not lhv_value or not lhv_unit:
-        lhv_value, lhv_unit = get_lhv_value(original_code)
-    lhv_value = float(lhv_value or 0)
-    lhv_unit = str(lhv_unit or "")
-
-    # 移動燃燒
-    result = calculate_combustion_emission(
+    result = calculate_combustion_emission_v2(
         session=session,
         original_code=original_code,
         emission_type="移動燃燒",
         activity_value=float(total_liters),
-        lhv_value=lhv_value,
-        lhv_unit=lhv_unit,
+        activity_unit="公升",
         year=None,
     )
     return {
         "fuel_type": fuel_type,
         "liters": float(total_liters),
-        "lhv_value": lhv_value,
-        "lhv_unit": lhv_unit,
-        "CO2": float(result.get("CO2", 0) or 0),
-        "CH4": float(result.get("CH4", 0) or 0),
-        "N2O": float(result.get("N2O", 0) or 0),
-        "CO2e": float(result.get("CO2e", 0) or 0),
+        "CO2": result.co2,
+        "CH4": result.ch4,
+        "N2O": result.n2o,
+        "CO2e": result.co2e,
         "supported": True,
     }
 

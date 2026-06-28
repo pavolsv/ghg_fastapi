@@ -1,19 +1,206 @@
 {% extends "base.html" %}
-
 {% block head %}
 <link rel="stylesheet" href="/static/css/document_management.css">
+<style>
+.fuel-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.fuel-group {
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 12px; margin-bottom: 12px; overflow: hidden;
+}
+.fuel-group-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.fuel-group-header .icon-wrap {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+}
+.fuel-group-header .dev-label { flex: 1; font-weight: 600; color: #1e293b; }
+.fuel-group-header .dev-total { color: #64748b; font-size: 0.85rem; }
+.fuel-group-body { padding: 8px 20px 12px; }
+.fuel-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid #f1f5f9;
+    font-size: 0.88rem;
+}
+.fuel-row:last-child { border-bottom: none; }
+.fuel-date { color: #64748b; width: 100px; flex-shrink: 0; }
+.fuel-amt { color: #1e293b; font-weight: 500; width: 60px; text-align: right; }
+.fuel-unit { color: #94a3b8; width: 40px; }
+.fuel-del {
+    width: 24px; height: 24px; border: none; border-radius: 4px;
+    background: transparent; color: #94a3b8; cursor: pointer;
+    font-size: 14px; line-height: 24px; text-align: center; padding: 0;
+}
+.fuel-del:hover { background: #fee2e2; color: #dc2626; }
+.fuel-subtotal { color: #64748b; font-size: 0.85rem; padding: 6px 0; border-top: 1px dashed #e2e8f0; margin-top: 4px; }
+.fuel-add-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 6px; padding: 6px 14px;
+    border: 1px dashed #cbd5e1; border-radius: 6px;
+    background: none; color: #64748b; cursor: pointer;
+    font-size: 0.85rem; transition: all 0.12s;
+}
+.fuel-add-btn:hover { border-color: #6366f1; color: #6366f1; }
+
+/* Modal */
+.fuel-modal { display: none; position: fixed; z-index: 200; inset: 0;
+    background: rgba(0,0,0,0.3); align-items: center; justify-content: center; }
+.fuel-modal.open { display: flex; }
+.fuel-modal-content {
+    background: #fff; border-radius: 12px; padding: 24px;
+    max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.fuel-modal-content h3 { margin: 0 0 16px; color: #1e293b; }
+.fuel-modal-content label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+.fuel-modal-content input, .fuel-modal-content select {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #e2e8f0;
+    border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; margin-bottom: 12px;
+}
+.fuel-modal-content input:focus, .fuel-modal-content select:focus {
+    outline: none; border-color: #6366f1;
+}
+.fuel-modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+.fuel-modal-actions button {
+    flex: 1; padding: 10px; border: none; border-radius: 6px;
+    font-weight: 600; cursor: pointer;
+}
+.fuel-modal-actions .btn-save { background: #6366f1; color: #fff; }
+.fuel-modal-actions .btn-save:hover { background: #4f46e5; }
+.fuel-modal-actions .btn-cancel { background: #f1f5f9; color: #475569; }
+.fuel-modal-actions .btn-cancel:hover { background: #e2e8f0; }
+</style>
 {% endblock %}
 
 {% block content %}
+{% if bill_type == 'fuel' %}
+<div class="fuel-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">加油單據</h1>
+    </div>
+
+    {% for g in device_groups %}
+    {% set d = g.device %}
+    <div class="fuel-group">
+        <div class="fuel-group-header">
+            <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;">
+                <i data-lucide="car" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="dev-label">{{ d.name }}（{{ d.factor_ref_code }}）</span>
+            <span class="dev-total">{{ g.total }} {{ default_unit }}</span>
+        </div>
+        <div class="fuel-group-body">
+            {% for b in g.bills %}
+            <div class="fuel-row">
+                <span class="fuel-date">{{ b.period_start }}</span>
+                <span class="fuel-type" style="color:#475569;width:60px;">{{ b.fuel_type or '' }}</span>
+                <span class="fuel-amt">{{ '%.2f' % b.usage_amount }}</span>
+                <span class="fuel-unit">{{ b.unit }}</span>
+                <form action="/documents/delete/{{ b.id }}" method="post" style="display:inline;">
+                    <input type="hidden" name="bill_type" value="fuel">
+                    <button class="fuel-del" onclick="return confirm('確定刪除？')">✕</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% if not g.bills %}
+            <div style="color:#94a3b8;font-size:0.85rem;padding:4px 0;">尚無加油紀錄</div>
+            {% endif %}
+            <button class="fuel-add-btn" onclick="openFuelModal('{{ d.id }}', '{{ d.name }}')">＋ 新增加油</button>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if unassigned %}
+    <div class="fuel-group">
+        <div class="fuel-group-header">
+            <div class="icon-wrap" style="background:#f1f5f9;color:#64748b;">
+                <i data-lucide="help-circle" style="width:18px;height:18px;"></i>
+            </div>
+            <span class="dev-label">未掛載設備</span>
+            <span class="dev-total">{{ unassigned|length }} 筆</span>
+        </div>
+        <div class="fuel-group-body">
+            {% for b in unassigned %}
+            <div class="fuel-row">
+                <span class="fuel-date">{{ b.period_start }}</span>
+                <span class="fuel-type" style="color:#475569;width:60px;">{{ b.fuel_type or '' }}</span>
+                <span class="fuel-amt">{{ '%.2f' % b.usage_amount }}</span>
+                <span class="fuel-unit">{{ b.unit }}</span>
+                <form action="/documents/delete/{{ b.id }}" method="post" style="display:inline;">
+                    <input type="hidden" name="bill_type" value="fuel">
+                    <button class="fuel-del" onclick="return confirm('確定刪除？')">✕</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not device_groups and not unassigned %}
+    <div style="text-align:center;color:#94a3b8;padding:60px 20px;">
+        <p style="font-size:1.1rem;margin-bottom:8px;">尚無移動燃燒設備</p>
+        <p style="font-size:0.9rem;">請先至排放源管理新增設備</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 新增加油 Modal -->
+<div class="fuel-modal" id="fuelModal">
+    <div class="fuel-modal-content">
+        <h3>新增加油</h3>
+        <form method="post" action="/documents/create">
+            <input type="hidden" name="bill_type" value="fuel">
+            <input type="hidden" name="device_id" id="modal_device_id">
+
+            <label>設備</label>
+            <input type="text" id="modal_device_name" readonly style="background:#f8fafc;">
+
+            <label>燃料</label>
+            <select name="fuel_type" required>
+                <option value="">請選擇</option>
+                {% for ft in fuel_type_options %}
+                <option value="{{ ft }}">{{ ft }}</option>
+                {% endfor %}
+            </select>
+
+            <label>日期</label>
+            <input type="date" name="fuel_date" required>
+
+            <label>公升數</label>
+            <input type="number" step="0.01" name="usage_amount" required placeholder="如 50">
+
+            <input type="hidden" name="unit" value="公升">
+            <input type="hidden" name="bill_month" value="">
+            <input type="hidden" name="period_start" value="">
+            <input type="hidden" name="period_end" value="">
+            <input type="hidden" name="note" value="">
+
+            <div class="fuel-modal-actions">
+                <button type="submit" class="btn-save">儲存</button>
+                <button type="button" class="btn-cancel" onclick="closeFuelModal()">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openFuelModal(deviceId, deviceName) {
+    document.getElementById('modal_device_id').value = deviceId;
+    document.getElementById('modal_device_name').value = deviceName;
+    document.getElementById('fuelModal').classList.add('open');
+}
+function closeFuelModal() {
+    document.getElementById('fuelModal').classList.remove('open');
+}
+</script>
+
+{% else %}
+{# 電費/水費維持原狀 #}
 <div style="padding: 30px; max-width: 1200px; margin: auto;">
     <div class="summary-box">
-        {% if bill_type == 'fuel' %}
-            汽油總用量：{{ '%.2f' % gasoline_total }} {{ default_unit }}
-            &nbsp;｜&nbsp;
-            柴油總用量：{{ '%.2f' % diesel_total }} {{ default_unit }}
-        {% else %}
-            本頁總用量：{{ '%.2f' % total_usage }} {{ default_unit }}
-        {% endif %}
+        本頁總用量：{{ '%.2f' % total_usage }} {{ default_unit }}
     </div>
 
     <div class="device-card">
@@ -25,65 +212,40 @@
         <table class="device-table">
             <thead style="background: #f8f9fa;">
             <tr>
-                 {% if bill_type == 'fuel' %}
-                 <th class="center-header">加油日期</th>
-                 <th class="center-header">燃料</th>
-                 {% else %}
-                 <th id="monthSortHeader" class="sortable-header center-header">收據月份 <span id="monthSortIcon">↓</span></th>
-                 <th class="center-header">期間</th>
-                 {% endif %}
-                 <th class="center-header">用量</th>
-                 <th class="center-header">單位</th>
-                 <th class="center-header">掛載設備</th>
-                 <th class="center-header">備註</th>
-                 <th class="center-header">操作</th>
+                <th id="monthSortHeader" class="sortable-header center-header">收據月份 <span id="monthSortIcon">↓</span></th>
+                <th class="center-header">期間</th>
+                <th class="center-header">用量</th>
+                <th class="center-header">單位</th>
+                <th class="center-header">掛載設備</th>
+                <th class="center-header">備註</th>
+                <th class="center-header">操作</th>
             </tr>
             </thead>
             <tbody id="billsTableBody">
             {% for bill in bills %}
             <tr data-bill-id="{{ bill.id }}" data-month="{{ bill.bill_month }}">
-                {% if bill_type == 'fuel' %}
-                <td class="col-period">{{ bill.period_start }}</td>
-                <td class="col-fuel-type">{{ bill.fuel_type or '-' }}</td>
-                {% else %}
                 <td class="col-bill-month">{{ bill.bill_month }}</td>
                 <td class="col-period">{{ bill.period_start }} ~ {{ bill.period_end }}</td>
-                {% endif %}
-                <td class="col-usage-amount">{{ bill.usage_amount }}</td>
+                <td class="col-usage">{{ bill.usage_amount }}</td>
                 <td class="col-unit">{{ bill.unit }}</td>
                 <td class="col-device">
-                    {% set dev = device_options | selectattr('id', 'equalto', bill.device_id) | list %}
-                    {{ dev[0].name if dev else '—' }}
+                    <select class="device-select" data-bill-id="{{ bill.id }}">
+                        <option value="">無</option>
+                        {% for dev in device_options %}
+                        <option value="{{ dev.id }}" {% if bill.device_id == dev.id %}selected{% endif %}>{{ dev.name }}</option>
+                        {% endfor %}
+                    </select>
                 </td>
                 <td class="col-note">{{ bill.note or '-' }}</td>
                 <td>
-                    <button
-                        type="button"
-                        class="btn-edit"
-                        data-id="{{ bill.id }}"
-                        data-bill-month="{{ bill.bill_month | e }}"
-                        data-period-start="{{ bill.period_start | e }}"
-                        data-period-end="{{ bill.period_end | e }}"
-                        data-usage-amount="{{ bill.usage_amount }}"
-                        data-unit="{{ bill.unit | e }}"
-                        data-note="{{ (bill.note or '') | e }}"
-                        data-fuel-type="{{ (bill.fuel_type or '') | e }}"
-                        data-device-id="{{ bill.device_id or 0 }}"
-                        onclick="openEditModal(this)">
-                        編輯
-                    </button>
-                    <form action="/documents/delete/{{ bill.id }}" method="post" style="display:inline;">
+                    <form action="/documents/delete/{{ bill.id }}" method="post" style="display:inline;" onsubmit="return confirm('確定刪除？')">
                         <input type="hidden" name="bill_type" value="{{ bill_type }}">
-                        <button type="submit" class="btn-delete"
-                                onclick="return confirm('確定刪除？')">刪除
-                        </button>
+                        <button type="submit" class="btn-delete">刪除</button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr>
-                <td colspan="6" style="color:#6c757d;">目前沒有資料</td>
-            </tr>
+            <tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px;">尚無 {{ bill_title }}</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -109,38 +271,6 @@
                 </select>
             </div>
 
-            {% if bill_type == 'fuel' %}
-            <div class="form-group">
-                <label>加油日期</label>
-                <input type="date" name="fuel_date" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>用量</label>
-                <input type="number" name="usage_amount" step="0.01" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>單位</label>
-                <input type="text" name="unit" class="ui-input" value="{{ default_unit }}" required>
-            </div>
-
-            <div class="form-group">
-                <label>燃料</label>
-                <select name="fuel_type" class="ui-select" required>
-                    <option value="">請選擇...</option>
-                    {% for ft in fuel_type_options %}
-                    <option value="{{ ft }}">{{ ft }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>備註</label>
-                <input type="text" name="note" class="ui-input" placeholder="可留空">
-            </div>
-
-            {% else %}
             <div class="form-group">
                 <label>收據月份</label>
                 <input type="month" name="bill_month" class="ui-input" required>
@@ -170,106 +300,12 @@
                 <label>備註</label>
                 <input type="text" name="note" class="ui-input" placeholder="可留空">
             </div>
-            {% endif %}
 
             <button type="submit" class="btn-add">＋ 新增單據</button>
         </form>
     </div>
 </div>
 
-<div id="editBillModal" class="modal-overlay" onclick="onEditOverlayClick(event)">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3 style="margin:0;">編輯{{ bill_title }}</h3>
-            <button type="button" class="close-btn" onclick="closeEditModal()">×</button>
-        </div>
-        <form id="editBillForm" action="/documents/update/0" method="post" class="form-grid">
-            <input type="hidden" name="bill_type" value="{{ bill_type }}">
-
-            <div class="form-group">
-                <label>掛載設備（自動加總用電 / 用油）</label>
-                <select name="device_id" id="edit_device_id" class="ui-select">
-                    <option value="0">— 不掛載設備 —</option>
-                    {% for d in device_options %}
-                    <option value="{{ d.id }}">{{ d.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            {% if bill_type == 'fuel' %}
-            <div class="form-group">
-                <label>加油日期</label>
-                <input type="date" name="fuel_date" id="edit_fuel_date" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>用量</label>
-                <input type="number" name="usage_amount" id="edit_usage_amount" step="0.01" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>單位</label>
-                <input type="text" name="unit" id="edit_unit" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>燃料</label>
-                <select name="fuel_type" id="edit_fuel_type" class="ui-select" required>
-                    <option value="">請選擇...</option>
-                    {% for ft in fuel_type_options %}
-                    <option value="{{ ft }}">{{ ft }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>備註</label>
-                <input type="text" name="note" id="edit_note" class="ui-input" placeholder="可留空">
-            </div>
-
-            {% else %}
-            <div class="form-group">
-                <label>收據月份</label>
-                <input type="month" name="bill_month" id="edit_bill_month" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>期間起日</label>
-                <input type="date" name="period_start" id="edit_period_start" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>期間迄日</label>
-                <input type="date" name="period_end" id="edit_period_end" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>用量</label>
-                <input type="number" name="usage_amount" id="edit_usage_amount" step="0.01" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>單位</label>
-                <input type="text" name="unit" id="edit_unit" class="ui-input" required>
-            </div>
-
-            <div class="form-group">
-                <label>備註</label>
-                <input type="text" name="note" id="edit_note" class="ui-input" placeholder="可留空">
-            </div>
-            {% endif %}
-
-            <button type="submit" class="btn-add">儲存修改</button>
-        </form>
-    </div>
-</div>
-
 <script src="/static/js/document_management.js"></script>
-<script>
-// 確保 modal 初始為隱藏
-document.addEventListener('DOMContentLoaded', function() {
-    var billModal = document.getElementById('billModal');
-    if (billModal) billModal.style.display = 'none';
-});
-</script>
+{% endif %}
 {% endblock %}

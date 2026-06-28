@@ -19,7 +19,7 @@ UPLOAD_DIR = "uploads"
 
 BILL_TYPE_CONFIG = {
     "electricity": {"title": "電費單", "default_unit": "度"},
-    "water": {"title": "水費單", "default_unit": "立方公尺"},
+
     "fuel": {"title": "加油單據", "default_unit": "公升"},
 }
 
@@ -82,22 +82,47 @@ async def document_manage_page(
     if bill_type not in BILL_TYPE_CONFIG:
         return RedirectResponse(url="/documents/electricity", status_code=303)
 
-    query = select(UtilityBill).where(UtilityBill.bill_type == bill_type)
+    # 燃料模式：改用設備分組區塊顯示
+    if bill_type == "fuel":
+        devices = _list_devices_for_bill(session, bill_type)
+        fuel_bills = list(session.exec(
+            select(UtilityBill).where(UtilityBill.bill_type == "fuel")
+        ).all())
 
+        device_groups = []
+        for d in devices:
+            bills = [b for b in fuel_bills if b.device_id == d.id]
+            bills.sort(key=lambda b: b.period_start, reverse=True)
+            total_liters = sum(float(b.usage_amount) for b in bills)
+            device_groups.append({
+                "device": d,
+                "bills": bills,
+                "total": total_liters,
+            })
+
+        # 未掛載設備的加油單
+        unassigned = [b for b in fuel_bills if not b.device_id]
+        unassigned.sort(key=lambda b: b.period_start, reverse=True)
+
+        return templates.TemplateResponse(
+            "document_management.html",
+            {
+                "request": request,
+                "bill_type": bill_type,
+                "bill_title": BILL_TYPE_CONFIG[bill_type]["title"],
+                "default_unit": BILL_TYPE_CONFIG[bill_type]["default_unit"],
+                "device_groups": device_groups,
+                "unassigned": unassigned,
+                "fuel_type_options": FUEL_TYPE_OPTIONS,
+            },
+        )
+
+    # 非燃料模式（電費/水費）維持原狀
+    query = select(UtilityBill).where(UtilityBill.bill_type == bill_type)
     bills = list(session.exec(query).all())
     bills.sort(key=lambda bill: (bill.bill_month, bill.id or 0), reverse=True)
-
     total_usage = sum(float(bill.usage_amount) for bill in bills)
 
-    # 燃料帳單：分別計算汽油、柴油用量
-    gasoline_total = sum(
-        float(b.usage_amount) for b in bills if b.fuel_type == "車用汽油"
-    ) if bill_type == "fuel" else None
-    diesel_total = sum(
-        float(b.usage_amount) for b in bills if b.fuel_type == "柴油"
-    ) if bill_type == "fuel" else None
-
-    # 設備選單：給前端掛載用
     device_options = [
         {"id": d.id, "name": d.name}
         for d in _list_devices_for_bill(session, bill_type)
@@ -112,9 +137,6 @@ async def document_manage_page(
             "default_unit": BILL_TYPE_CONFIG[bill_type]["default_unit"],
             "bills": bills,
             "total_usage": total_usage,
-            "gasoline_total": gasoline_total,
-            "diesel_total": diesel_total,
-            "fuel_type_options": FUEL_TYPE_OPTIONS,
             "device_options": device_options,
         },
     )

@@ -4,6 +4,10 @@
 <link rel="stylesheet" href="/static/css/factor_management.css">
 <link rel="stylesheet" href="/static/css/logs_modal.css">
 <link rel="stylesheet" href="/static/css/factor_submenu.css">
+<style>
+.data-table th:first-child, .data-table td:first-child { width: 10%; min-width: 80px; }
+.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 50%; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -14,14 +18,13 @@
         <div class="fm-header-actions">
             {% if is_gwp %}
             <button type="button" onclick="openGwpCreate()" class="btn-fm-create">＋ 新增 GWP</button>
-            {% else %}
-            <button type="button" id="openCreateModal" class="btn-fm-create">＋ 新增因子</button>
             {% endif %}
             <button type="button" id="openLogModal" class="btn-fm-log">📝 查看日誌</button>
         </div>
     </div>
 
 
+    {% if active_category != '能源間接' %}
     <div class="filter-bar">
         <form method="get" action="/etl/manage" class="filter-form">
             {% if active_category %}
@@ -38,6 +41,7 @@
                     {% endfor %}
                 </datalist>
             </div>
+            {% if active_category not in ('固定燃燒', '移動燃燒') %}
             <div class="filter-group">
                 <label for="gasSelect">{% if is_gwp %}IPCC 版本{% else %}氣體種類{% endif %}</label>
                 <select id="gasSelect" name="gas_type" class="filter-select">
@@ -47,6 +51,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
             {% if not active_category %}
             <div class="filter-group">
                 <label for="catSelect">排放類型</label>
@@ -59,20 +64,13 @@
                 </select>
             </div>
             {% endif %}
-            {% if not is_gwp %}
-            <div class="filter-group">
-                <label for="yearInput">年度</label>
-                <input type="number" id="yearInput" name="year"
-                       class="filter-input filter-input-year" placeholder="例如: 2023"
-                       value="{{ request.query_params.get('year', '') }}">
-            </div>
-            {% endif %}
             <div class="filter-actions">
                 <a href="/etl/manage{% if active_category %}?category={{ active_category }}{% endif %}" class="btn-clear">清除條件</a>
                 <button type="submit" class="btn-filter">🔍 搜尋篩選</button>
             </div>
         </form>
     </div>
+    {% endif %}
 
     <table class="data-table">
         <thead>
@@ -83,19 +81,16 @@
             <th onclick="sortGwpTable(2)" style="cursor:pointer;">GWP 值 <span id="sort-gwp-value"></span></th>
             <th>版本</th>
             <th>備註</th>
-            <th>操作</th>
         </tr>
         {% else %}
         <tr>
-            <th class="center-header">編號</th>
+            <th class="center-header">代碼</th>
             <th class="center-header">名稱</th>
             <th class="center-header">CO2</th>
             <th class="center-header">CH4</th>
             <th class="center-header">N2O</th>
             <th class="center-header">單位</th>
-            <th class="center-header">低位熱值(LHV)</th>
-            <th class="center-header">年度</th>
-            <th class="center-header">操作</th>
+            <th class="center-header">備註</th>
         </tr>
         {% endif %}
         </thead>
@@ -106,29 +101,33 @@
         <tr>
             <td style="text-align:left;"><code>{{ r.formula }}</code></td>
             <td style="text-align:left;">{{ r.gas_name_zh }}</td>
-            <td>{% if r.is_qualitative %}&lt; 1{% else %}{{ r.gwp_value }}{% endif %}</td>
+            <td>
+                {% if r.note and '停用' in r.note %}
+                <span style="color:#999;">已停用</span>
+                {% elif r.is_qualitative %}
+                &lt; 1
+                {% elif r.gwp_value == 0 %}
+                <span style="color:#999;">僅需定性</span>
+                {% elif r.gwp_value >= 1000 %}
+                {{ '%.0f' % r.gwp_value }}
+                {% elif r.gwp_value >= 1 %}
+                {{ '%.2f' % r.gwp_value }}
+                {% else %}
+                {{ '%.4f' % r.gwp_value }}
+                {% endif %}
+            </td>
             <td><span class="badge badge-gas">{{ r.version }}</span></td>
-            <td class="td-truncate">{% if r.gwp_value == 0 %}僅需定性{% else %}{{ r.note or '-' }}{% endif %}</td>
-            <td class="td-actions">
-                <button type="button" class="btn-fm-edit"
-                    onclick="editGwp({
-                        id: {{ r.id }},
-                        formula: '{{ r.formula | replace("'", "\\'") }}',
-                        gas_name_zh: '{{ r.gas_name_zh | replace("'", "\\'") }}',
-                        gwp_value: '{{ r.gwp_value }}',
-                        version: '{{ r.version }}',
-                        is_qualitative: {{ 'true' if r.is_qualitative else 'false' }},
-                        note: '{{ (r.note or "") | replace("'", "\\'") }}'
-                    })"> 編輯</button>
-                <form action="/etl/gwp/delete" method="post" style="display:inline;">
-                    <input type="hidden" name="record_id" value="{{ r.id }}">
-                    <button type="submit" class="btn-factor-delete">刪除</button>
-                </form>
+            <td class="td-truncate">
+                {% if r.note and r.note != 'nan' %}{{ r.note }}
+                {% elif r.is_qualitative %}GWP &lt; 1
+                {% elif r.gwp_value == 0 %}僅需定性
+                {% else %}-
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
         {% else %}
-        <tr><td colspan="6" class="td-empty">查無符合條件的 GWP 資料。</td></tr>
+        <tr><td colspan="5" class="td-empty">查無符合條件的 GWP 資料。</td></tr>
         {% endif %}
         {% else %}
         {% if grouped_factors %}
@@ -138,45 +137,19 @@
             <td class="td-name">{{ g.name }}</td>
             <td class="td-value">
                 {% set co2_val = g.gas_values.get('CO2', g.gas_values.get('CO2e', None)) %}
-                {{ co2_val if co2_val is not none else '-' }}
+                {{ '%.6f' % co2_val if co2_val is not none else '-' }}
             </td>
-            <td class="td-value">{{ g.gas_values.get('CH4', '-') }}</td>
-            <td class="td-value">{{ g.gas_values.get('N2O', '-') }}</td>
+            <td class="td-value">{% set v = g.gas_values.get('CH4') %}{{ '%.6f' % v if v is not none else '-' }}</td>
+            <td class="td-value">{% set v = g.gas_values.get('N2O') %}{{ '%.6f' % v if v is not none else '-' }}</td>
             <td class="td-unit">{{ g.unit }}</td>
-            <td class="td-unit">
-                {% set first_factor = g.gas_factors.values()|list|first %}
-                {% if first_factor and first_factor.lower_heating_value %}
-                    {{ first_factor.lower_heating_value }} {{ first_factor.lhv_unit or '' }}
-                {% else %}
-                    <span style="color:#999">未設定</span>
-                {% endif %}
-            </td>
-            <td>{{ g.year }}</td>
             <td class="td-actions">
-                {% set edit_gas = g.gas_factors.get('CO2') or g.gas_factors.get('CO2e') or g.gas_factors.values()|list|first %}
-                <button type="button" class="btn-fm-edit"
-                    onclick="editFactor({
-                        factor_code: '{{ edit_gas.code | replace("'", "\\'") }}',
-                        factor_gas_type: '{{ edit_gas.gas_type }}',
-                        factor_original_code: '{{ edit_gas.original_code }}',
-                        factor_name: '{{ edit_gas.name | replace("'", "\\'") }}',
-                        factor_value: '{{ edit_gas.factor_value }}',
-                        factor_unit: '{{ edit_gas.unit }}',
-                        factor_year: '{{ edit_gas.year }}',
-                        factor_emission_type: '{{ edit_gas.emission_type }}',
-                        factor_source: '{{ edit_gas.factor_source | replace("'", "\\'") }}',
-                        factor_calculation_method: '{{ edit_gas.calculation_method | replace("'", "\\'") }}',
-                        factor_lhv_value: '{{ edit_gas.lower_heating_value or '' }}',
-                        factor_lhv_unit: '{{ edit_gas.lhv_unit or 'Kcal/公升' }}',
-                        delete_gas_types: {{ g.gas_factors.keys()|list }}
-                    })">編輯</button>
-                {# 刪除按鈕移至編輯 modal，modal 內根據 delete_gas_types 顯示 #}
+                <span style="color:#999;font-size:0.85em;">{% if g.original_code == 'ELECTRICITY' %}能源署公告電力排碳係數{% else %}6.0.4 公告值{% endif %}</span>
             </td>
         </tr>
         {% endfor %}
         {% else %}
         <tr>
-            <td colspan="10" class="td-empty">查無符合條件的係數資料，請調整篩選條件。</td>
+            <td colspan="7" class="td-empty">查無符合條件的係數資料，請調整篩選條件。</td>
         </tr>
         {% endif %}
         {% endif %}
@@ -184,101 +157,6 @@
     </table>
 
     <div class="fm-count">共顯示 {% if is_gwp %}{{ gwp_factors|length }}{% else %}{{ grouped_factors|length }}{% endif %} 筆燃料/係數資料</div>
-</div>
-
-<!-- 新增/編輯因子 Modal -->
-<div id="factorModal" class="factor-modal hidden">
-    <div class="factor-modal-content">
-        <div class="factor-modal-header">
-            <h3 id="factorModalTitle">新增排放因子</h3>
-            <button type="button" id="factorModalClose" class="factor-modal-close">×</button>
-        </div>
-        <form id="factorForm" action="/etl/factor/create" method="post" class="factor-form">
-            <div class="factor-form-grid">
-                <div class="factor-form-group">
-                    <label>因子編號 (code) *</label>
-                    <input type="text" id="factor_code" name="code" class="factor-input" required placeholder="如 F070002-23">
-                </div>
-                <div class="factor-form-group">
-                    <label>氣體類型 (gas_type) *</label>
-                    <input type="text" id="factor_gas_type" name="gas_type" class="factor-input" required placeholder="如 CO2">
-                </div>
-                <div class="factor-form-group">
-                    <label>原始代碼 *</label>
-                    <input type="text" id="factor_original_code" name="original_code" class="factor-input" required placeholder="如 070002">
-                </div>
-                <div class="factor-form-group">
-                    <label>名稱 *</label>
-                    <input type="text" id="factor_name" name="name" class="factor-input" required placeholder="如 天然氣">
-                </div>
-                <div class="factor-form-group">
-                    <label>係數數值 *</label>
-                    <input type="number" step="0.000001" id="factor_value" name="factor_value" class="factor-input" required placeholder="如 2.1622">
-                </div>
-                <div class="factor-form-group">
-                    <label>單位 *</label>
-                    <input type="text" id="factor_unit" name="unit" class="factor-input" required placeholder="如 公斤CO₂e/公斤">
-                </div>
-                <div class="factor-form-group">
-                    <label>年度 *</label>
-                    <input type="number" id="factor_year" name="year" class="factor-input" required placeholder="如 2023">
-                </div>
-                <div class="factor-form-group">
-                    <label>排放類型 *</label>
-                    <select id="factor_emission_type" name="emission_type" class="factor-input">
-                        <option value="固定燃燒">固定燃燒</option>
-                        <option value="能源間接排放">能源間接排放</option>
-                        <option value="移動燃燒">移動燃燒</option>
-                        <option value="逸散排放">逸散排放</option>
-                    </select>
-                </div>
-                <div class="factor-form-group factor-form-full">
-                    <label>因子來源</label>
-                    <input type="text" id="factor_source" name="factor_source" class="factor-input" placeholder="如 環境部 2023 查核表">
-                </div>
-                <div class="factor-form-group factor-form-full">
-                    <label>計算方法說明</label>
-                    <input type="text" id="factor_calculation_method" name="calculation_method"
-                           class="factor-input" value="total_co2e = activity_data × emission_factor"
-                           placeholder="計算方法說明">
-                </div>
-                <div class="factor-form-group" style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 8px;">
-                    <h4 style="margin: 0 0 12px 0; color: #1e293b;">低位熱值 (LHV) 設定</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label>低位熱值數值</label>
-                            <input type="number" step="0.01" id="factor_lhv_value" class="factor-input" placeholder="如 8400">
-                        </div>
-                        <div>
-                            <label>熱值單位</label>
-                            <select id="factor_lhv_unit" class="factor-input">
-                                <option value="Kcal/公升">Kcal/公升</option>
-                                <option value="Kcal/公斤">Kcal/公斤</option>
-                                <option value="Kcal/立方公尺">Kcal/立方公尺</option>
-                                <option value="MJ/公升">MJ/公升</option>
-                                <option value="MJ/公斤">MJ/公斤</option>
-                                <option value="MJ/立方公尺">MJ/立方公尺</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="button" onclick="updateLhv()" class="btn-fm-save" style="margin-top: 12px; width: auto;">更新 LHV</button>
-                </div>
-            </div>
-            <div class="factor-form-footer">
-                <button type="submit" class="btn-fm-save">儲存</button>
-                <button type="button" id="factorModalClose2" class="btn-fm-cancel">取消</button>
-                {% if delete_gas_types %}
-                    {% for gas_type in delete_gas_types %}
-                    <form action="/etl/factor/delete" method="post" style="display:inline;">
-                        <input type="hidden" name="code" value="{{ factor_code }}">
-                        <input type="hidden" name="gas_type" value="{{ gas_type }}">
-                        <button type="submit" class="btn-factor-delete">刪{{ gas_type }}</button>
-                    </form>
-                    {% endfor %}
-                {% endif %}
-            </div>
-        </form>
-    </div>
 </div>
 
 <!-- GWP Modal -->

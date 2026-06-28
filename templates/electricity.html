@@ -12,12 +12,12 @@
             background-color: #f4f7f9;
         }
         .container {
-            max-width: 900px;
+            max-width: 960px;
             margin: 0 auto;
             background-color: #fff;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
         h1 {
             color: #2c3e50;
@@ -229,13 +229,20 @@
             <input type="date" id="end-date">
         </div>
         <div class="input-group">
-            <label for="total-water-usage">用電度數</label>
-            <input type="number" id="total-water-usage">
+            <label for="usage-amount">用電度數</label>
+            <input type="number" id="usage-amount">
+        </div>
+        <div class="input-group">
+            <label for="device-select">所屬排放源</label>
+            <select id="device-select">
+                {% for d in device_options %}
+                <option value="{{ d.id }}">{{ d.name }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="input-group" id="target-year-group">
             <label for="target-year">計算年份</label>
-            <select id="target-year">
-            </select>
+            <select id="target-year"></select>
         </div>
         <button onclick="addRecord()">新增</button>
     </div>
@@ -246,13 +253,14 @@
                 <th>期別</th>
                 <th>期間</th>
                 <th>用電度數</th>
+                <th>所屬排放源</th>
                 <th>編輯</th>
             </tr>
         </thead>
         <tbody id="record-table-body">
         </tbody>
     </table>
-    
+
     <div class="summary">
         <span></span>
         <span>總用電度數：<span id="target-usage-sum">0</span> 度</span>
@@ -284,8 +292,16 @@
                 <input type="date" id="edit-end-date">
             </div>
             <div class="input-group">
-                <label for="edit-total-water-usage">總用電度數</label>
-                <input type="number" id="edit-total-water-usage">
+                <label for="edit-usage-amount">總用電度數</label>
+                <input type="number" id="edit-usage-amount">
+            </div>
+            <div class="input-group">
+                <label for="edit-device-select">所屬排放源</label>
+                <select id="edit-device-select">
+                    {% for d in device_options %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="input-group" id="edit-target-year-group" style="display: none;">
                 <label for="edit-target-year">計算年份</label>
@@ -297,7 +313,12 @@
 </div>
 
 <script>
+    const DEVICE_OPTIONS = {{ device_options | tojson | safe }};
+
     window.onload = function() {
+        generatePeriodSelects('bill-year', 'bill-month');
+        generatePeriodSelects('edit-bill-year', 'edit-bill-month');
+
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
         const targetYearGroup = document.getElementById('target-year-group');
@@ -311,11 +332,9 @@
         function checkDateRange(startInput, endInput, yearGroup, yearSelect) {
             const startDate = startInput.value;
             const endDate = endInput.value;
-
             if (startDate && endDate) {
                 const startYear = new Date(startDate).getFullYear();
                 const endYear = new Date(endDate).getFullYear();
-
                 if (startYear !== endYear) {
                     yearGroup.style.display = 'flex';
                     yearSelect.innerHTML = `
@@ -329,7 +348,7 @@
                 yearGroup.style.display = 'none';
             }
         }
-        
+
         startDateInput.addEventListener('change', function() {
             endDateInput.setAttribute('min', this.value);
             if (endDateInput.value && endDateInput.value < this.value) {
@@ -354,154 +373,188 @@
             checkDateRange(editStartDateInput, editEndDateInput, editTargetYearGroup, editTargetYearSelect);
         });
 
-        function generatePeriodSelects(yearSelectId, monthSelectId) {
-            const yearSelect = document.getElementById(yearSelectId);
-            const monthSelect = document.getElementById(monthSelectId);
-            
-            yearSelect.innerHTML = '';
-            monthSelect.innerHTML = '';
-
-            for (let i = 110; i <= 130; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.text = `${i} 年`;
-                yearSelect.appendChild(option);
-            }
-
-            for (let i = 1; i <= 12; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.text = `${i} 月`;
-                monthSelect.appendChild(option);
-            }
-        }
-        
-        generatePeriodSelects('bill-year', 'bill-month');
-        generatePeriodSelects('edit-bill-year', 'edit-bill-month');
-
-        updateSummary();
+        loadRecords();
     };
 
     let currentRow = null;
 
-    function addRecord() {
+    async function loadRecords() {
+        try {
+            const resp = await fetch('/electricity/api/records');
+            const result = await resp.json();
+            const tableBody = document.getElementById('record-table-body');
+            tableBody.innerHTML = '';
+            for (const bill of result.data) {
+                appendRow(bill);
+            }
+            updateSummary();
+        } catch (e) {
+            console.error('載入電費記錄失敗', e);
+        }
+    }
+
+    function appendRow(bill) {
+        const tableBody = document.getElementById('record-table-body');
+        const newRow = document.createElement('tr');
+
+        newRow.setAttribute('data-id', bill.id);
+        newRow.setAttribute('data-bill-month', bill.bill_month || '');
+        newRow.setAttribute('data-start-date', bill.period_start || '');
+        newRow.setAttribute('data-end-date', bill.period_end || '');
+        newRow.setAttribute('data-usage-amount', bill.usage_amount || 0);
+        newRow.setAttribute('data-target-year', bill.target_year || '');
+        newRow.setAttribute('data-target-usage', bill.target_usage || 0);
+        newRow.setAttribute('data-device-id', bill.device_id || '');
+
+        const billMonth = bill.bill_month || '';
+        const parts = billMonth.split('-');
+        const year = parts[0] || '';
+        const month = parts[1] || '';
+        const periodCell = document.createElement('td');
+        if (year && month) {
+            periodCell.innerText = `民國 ${parseInt(year) - 1911} 年 ${parseInt(month)} 月`;
+        } else {
+            periodCell.innerText = bill.bill_month || '-';
+        }
+
+        const dateCell = document.createElement('td');
+        const start = bill.period_start ? new Date(bill.period_start) : null;
+        const end = bill.period_end ? new Date(bill.period_end) : null;
+        const fmt = (d) => d ? d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/') : '?';
+        dateCell.innerText = start && end ? `${fmt(start)}~${fmt(end)}` : '-';
+
+        const usageCell = document.createElement('td');
+        usageCell.innerText = `${parseFloat(bill.target_usage || bill.usage_amount).toFixed(2)} 度`;
+
+        const deviceCell = document.createElement('td');
+        const dev = DEVICE_OPTIONS.find(d => d.id === bill.device_id);
+        deviceCell.innerText = dev ? dev.name : `設備#${bill.device_id}`;
+
+        const actionCell = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.innerText = '修改';
+        editBtn.className = 'edit-btn';
+        editBtn.onclick = function() { editRecord(newRow); };
+        actionCell.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerText = '刪除';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.onclick = function() { deleteRecord(newRow); };
+        actionCell.appendChild(deleteBtn);
+
+        newRow.appendChild(periodCell);
+        newRow.appendChild(dateCell);
+        newRow.appendChild(usageCell);
+        newRow.appendChild(deviceCell);
+        newRow.appendChild(actionCell);
+        tableBody.appendChild(newRow);
+    }
+
+    async function addRecord() {
         const billYear = document.getElementById('bill-year').value;
         const billMonth = document.getElementById('bill-month').value;
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
-        const totalUsage = document.getElementById('total-water-usage').value;
-        
-        if (!billYear || !billMonth || !startDate || !endDate || !totalUsage) {
+        const usageAmount = document.getElementById('usage-amount').value;
+        const deviceId = document.getElementById('device-select').value;
+
+        if (!billYear || !billMonth || !startDate || !endDate || !usageAmount || !deviceId) {
             alert("所有欄位都不能為空！");
             return;
         }
 
         const start = new Date(startDate);
         const end = new Date(endDate);
-        
         if (end < start) {
             alert("結束日期不能早於起始日期！");
             return;
         }
 
         const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        
         const startYear = start.getFullYear();
         const endYear = end.getFullYear();
-        
-        let targetUsage = 0;
-        let targetYearDisplay = '';
+        let targetUsage, targetYear;
 
         if (startYear === endYear) {
-            targetUsage = totalUsage;
-            targetYearDisplay = startYear;
+            targetUsage = parseFloat(usageAmount);
+            targetYear = startYear;
         } else {
             const targetYearSelect = document.getElementById('target-year');
-            const targetYear = targetYearSelect.value;
+            targetYear = parseInt(targetYearSelect.value);
             const daysInTargetYear = getDaysInTargetYear(start, end, targetYear);
-            if (daysInTargetYear > 0) {
-                targetUsage = (totalUsage / totalDays) * daysInTargetYear;
-            }
-            targetYearDisplay = targetYear;
+            targetUsage = daysInTargetYear > 0 ? (parseFloat(usageAmount) / totalDays) * daysInTargetYear : 0;
         }
-        
-        const tableBody = document.getElementById('record-table-body');
-        const newRow = document.createElement('tr');
 
-        newRow.setAttribute('data-bill-year', billYear);
-        newRow.setAttribute('data-bill-month', billMonth);
-        newRow.setAttribute('data-start-date', startDate);
-        newRow.setAttribute('data-end-date', endDate);
-        newRow.setAttribute('data-total-usage', totalUsage);
-        newRow.setAttribute('data-target-usage', parseFloat(targetUsage).toFixed(2));
-        newRow.setAttribute('data-target-year', targetYearDisplay);
+        const gregorianYear = parseInt(billYear) + 1911;
+        const billMonthStr = `${gregorianYear}-${String(billMonth).padStart(2, '0')}`;
 
-        const periodCell = document.createElement('td');
-        const dateCell = document.createElement('td');
-        const targetUsageCell = document.createElement('td');
-        const actionCell = document.createElement('td');
+        const formData = new FormData();
+        formData.append('bill_month', billMonthStr);
+        formData.append('period_start', startDate);
+        formData.append('period_end', endDate);
+        formData.append('usage_amount', usageAmount);
+        formData.append('target_year', targetYear);
+        formData.append('target_usage', targetUsage);
+        formData.append('device_id', deviceId);
 
-        const formattedStartDate = start.toLocaleDateString('zh-TW', {
-            year: 'numeric', month: '2-digit', day: '2-digit'
-        }).replace(/\//g, '/');
-        const formattedEndDate = end.toLocaleDateString('zh-TW', {
-            year: 'numeric', month: '2-digit', day: '2-digit'
-        }).replace(/\//g, '/');
-        
-        periodCell.innerText = `民國 ${billYear} 年 ${billMonth} 月`;
-        dateCell.innerText = `${formattedStartDate}~${formattedEndDate}`;
-        targetUsageCell.innerText = `${parseFloat(targetUsage).toFixed(2)} 度`;
-
-        const editBtn = document.createElement('button');
-        editBtn.innerText = '修改';
-        editBtn.className = 'edit-btn';
-        editBtn.onclick = function() {
-            editRecord(newRow);
-        };
-        actionCell.appendChild(editBtn);
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.innerText = '刪除';
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.onclick = function() {
-            deleteRecord(newRow);
-        };
-        actionCell.appendChild(deleteBtn);
-
-        newRow.appendChild(periodCell);
-        newRow.appendChild(dateCell);
-        // 不再新增 `targetYearCell` 到表格中
-        newRow.appendChild(targetUsageCell);
-        newRow.appendChild(actionCell);
-
-        tableBody.appendChild(newRow);
-
-        updateSummary();
-
-        document.getElementById('bill-year').value = '110';
-        document.getElementById('bill-month').value = '1';
-        document.getElementById('start-date').value = '';
-        document.getElementById('end-date').value = '';
-        document.getElementById('total-water-usage').value = '';
-        document.getElementById('end-date').removeAttribute('min');
-        document.getElementById('target-year-group').style.display = 'none';
+        try {
+            const resp = await fetch('/electricity/records/create', { method: 'POST', body: formData });
+            if (!resp.ok) {
+                const text = await resp.text();
+                alert('新增失敗 (HTTP ' + resp.status + '): ' + text.slice(0, 200));
+                return;
+            }
+            const result = await resp.json();
+            if (result.success) {
+                await loadRecords();
+                document.getElementById('bill-year').value = '110';
+                document.getElementById('bill-month').value = '1';
+                document.getElementById('start-date').value = '';
+                document.getElementById('end-date').value = '';
+                document.getElementById('usage-amount').value = '';
+                document.getElementById('device-select').value = deviceOptionsFirst();
+                document.getElementById('end-date').removeAttribute('min');
+                document.getElementById('target-year-group').style.display = 'none';
+            } else {
+                alert(result.message || '新增失敗');
+            }
+        } catch (e) {
+            alert('新增失敗：' + e.message);
+        }
     }
 
-    function deleteRecord(row) {
-        if (confirm("確定要刪除這筆記錄嗎？")) {
+    function deviceOptionsFirst() {
+        const sel = document.getElementById('device-select');
+        return sel.options.length > 0 ? sel.options[0].value : '';
+    }
+
+    async function deleteRecord(row) {
+        if (!confirm("確定要刪除這筆記錄嗎？")) return;
+        const billId = row.getAttribute('data-id');
+        if (!billId) {
             row.remove();
             updateSummary();
+            return;
+        }
+        try {
+            const resp = await fetch(`/electricity/records/delete/${billId}`, { method: 'POST' });
+            const result = await resp.json();
+            if (result.success) {
+                await loadRecords();
+            } else {
+                alert(result.message || '刪除失敗');
+            }
+        } catch (e) {
+            alert('刪除失敗');
         }
     }
 
     function getDaysInTargetYear(start, end, targetYear) {
         let days = 0;
         let tempDate = new Date(start);
-        
         while (tempDate <= end) {
-            if (tempDate.getFullYear() == targetYear) {
-                days++;
-            }
+            if (tempDate.getFullYear() == targetYear) days++;
             tempDate.setDate(tempDate.getDate() + 1);
         }
         return days;
@@ -509,28 +562,31 @@
 
     function editRecord(row) {
         currentRow = row;
-        const billYear = row.getAttribute('data-bill-year');
+        const billId = row.getAttribute('data-id');
         const billMonth = row.getAttribute('data-bill-month');
         const startDate = row.getAttribute('data-start-date');
         const endDate = row.getAttribute('data-end-date');
-        const totalUsage = row.getAttribute('data-total-usage');
+        const usageAmount = row.getAttribute('data-usage-amount');
         const targetYear = row.getAttribute('data-target-year');
-        
-        document.getElementById('edit-bill-year').value = billYear;
-        document.getElementById('edit-bill-month').value = billMonth;
+        const deviceId = row.getAttribute('data-device-id');
+
+        const [year, month] = billMonth ? billMonth.split('-') : ['', ''];
+        document.getElementById('edit-bill-year').value = year ? String(parseInt(year) - 1911) : '110';
+        document.getElementById('edit-bill-month').value = month ? String(parseInt(month)) : '1';
         document.getElementById('edit-start-date').value = startDate;
         document.getElementById('edit-end-date').value = endDate;
-        document.getElementById('edit-total-water-usage').value = totalUsage;
+        document.getElementById('edit-usage-amount').value = usageAmount;
+        document.getElementById('edit-device-select').value = deviceId;
 
-        const startYear = new Date(startDate).getFullYear();
-        const endYear = new Date(endDate).getFullYear();
-        if (startYear !== endYear) {
+        const sYear = new Date(startDate).getFullYear();
+        const eYear = new Date(endDate).getFullYear();
+        if (sYear !== eYear) {
             const editTargetYearGroup = document.getElementById('edit-target-year-group');
             const editTargetYearSelect = document.getElementById('edit-target-year');
             editTargetYearGroup.style.display = 'flex';
             editTargetYearSelect.innerHTML = `
-                <option value="${startYear}">${startYear} 年</option>
-                <option value="${endYear}">${endYear} 年</option>
+                <option value="${sYear}">${sYear} 年</option>
+                <option value="${eYear}">${eYear} 年</option>
             `;
             editTargetYearSelect.value = targetYear;
         } else {
@@ -540,65 +596,68 @@
         document.getElementById('editModal').style.display = 'block';
     }
 
-    function saveRecord() {
+    async function saveRecord() {
         if (!currentRow) return;
+        const billId = currentRow.getAttribute('data-id');
 
         const newBillYear = document.getElementById('edit-bill-year').value;
         const newBillMonth = document.getElementById('edit-bill-month').value;
         const newStartDate = document.getElementById('edit-start-date').value;
         const newEndDate = document.getElementById('edit-end-date').value;
-        const newTotalUsage = document.getElementById('edit-total-water-usage').value;
+        const newUsageAmount = document.getElementById('edit-usage-amount').value;
+        const newDeviceId = document.getElementById('edit-device-select').value;
 
-        if (!newBillYear || !newBillMonth || !newStartDate || !newEndDate || !newTotalUsage) {
+        if (!newBillYear || !newBillMonth || !newStartDate || !newEndDate || !newUsageAmount || !newDeviceId) {
             alert("所有欄位都不能為空！");
             return;
         }
 
         const start = new Date(newStartDate);
         const end = new Date(newEndDate);
-        
         if (end < start) {
             alert("結束日期不能早於起始日期！");
             return;
         }
 
-        currentRow.setAttribute('data-bill-year', newBillYear);
-        currentRow.setAttribute('data-bill-month', newBillMonth);
-        currentRow.setAttribute('data-start-date', newStartDate);
-        currentRow.setAttribute('data-end-date', newEndDate);
-        currentRow.setAttribute('data-total-usage', newTotalUsage);
-        
         const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        
         const startYear = start.getFullYear();
         const endYear = end.getFullYear();
-        
-        let newTargetUsage = 0;
-        let newTargetYearDisplay = '';
+        let newTargetUsage, newTargetYear;
 
         if (startYear === endYear) {
-            newTargetUsage = newTotalUsage;
-            newTargetYearDisplay = startYear;
+            newTargetUsage = parseFloat(newUsageAmount);
+            newTargetYear = startYear;
         } else {
             const newTargetYearSelect = document.getElementById('edit-target-year');
-            const newTargetYear = newTargetYearSelect.value;
+            newTargetYear = parseInt(newTargetYearSelect.value);
             const daysInTargetYear = getDaysInTargetYear(start, end, newTargetYear);
-            if (daysInTargetYear > 0) {
-                newTargetUsage = (newTotalUsage / totalDays) * daysInTargetYear;
-            }
-            newTargetYearDisplay = newTargetYear;
+            newTargetUsage = daysInTargetYear > 0 ? (parseFloat(newUsageAmount) / totalDays) * daysInTargetYear : 0;
         }
-        
-        currentRow.setAttribute('data-target-usage', parseFloat(newTargetUsage).toFixed(2));
-        currentRow.setAttribute('data-target-year', newTargetYearDisplay);
-        
-        const cells = currentRow.getElementsByTagName('td');
-        cells[0].innerText = `民國 ${newBillYear} 年 ${newBillMonth} 月`;
-        cells[1].innerText = `${start.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/')}~${end.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/')}`;
-        cells[2].innerText = `${parseFloat(newTargetUsage).toFixed(2)} 度`;
 
-        updateSummary();
-        closeModal();
+        const gregorianYear = parseInt(newBillYear) + 1911;
+        const billMonthStr = `${gregorianYear}-${String(newBillMonth).padStart(2, '0')}`;
+
+        const formData = new FormData();
+        formData.append('bill_month', billMonthStr);
+        formData.append('period_start', newStartDate);
+        formData.append('period_end', newEndDate);
+        formData.append('usage_amount', newUsageAmount);
+        formData.append('target_year', newTargetYear);
+        formData.append('target_usage', newTargetUsage);
+        formData.append('device_id', newDeviceId);
+
+        try {
+            const resp = await fetch(`/electricity/records/update/${billId}`, { method: 'POST', body: formData });
+            const result = await resp.json();
+            if (result.success) {
+                await loadRecords();
+                closeModal();
+            } else {
+                alert(result.message || '更新失敗');
+            }
+        } catch (e) {
+            alert('更新失敗');
+        }
     }
 
     function closeModal() {
@@ -609,19 +668,31 @@
     function updateSummary() {
         const tableBody = document.getElementById('record-table-body');
         const rows = tableBody.getElementsByTagName('tr');
-        
         let targetUsageSum = 0;
-
         for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const targetUsage = parseFloat(row.getAttribute('data-target-usage'));
-            
-            if (!isNaN(targetUsage)) {
-                targetUsageSum += targetUsage;
-            }
+            const usage = parseFloat(rows[i].getAttribute('data-target-usage'));
+            if (!isNaN(usage)) targetUsageSum += usage;
         }
-        
         document.getElementById('target-usage-sum').innerText = targetUsageSum.toFixed(2);
+    }
+
+    function generatePeriodSelects(yearSelectId, monthSelectId) {
+        const yearSelect = document.getElementById(yearSelectId);
+        const monthSelect = document.getElementById(monthSelectId);
+        yearSelect.innerHTML = '';
+        monthSelect.innerHTML = '';
+        for (let i = 110; i <= 130; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = `${i} 年`;
+            yearSelect.appendChild(option);
+        }
+        for (let i = 1; i <= 12; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = `${i} 月`;
+            monthSelect.appendChild(option);
+        }
     }
 </script>
 

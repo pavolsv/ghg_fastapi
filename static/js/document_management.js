@@ -136,5 +136,9 @@ function sortByMonth() {
     monthAsc = !monthAsc;
 }
 
-monthSortHeader.addEventListener('click', sortByMonth);
-editBillForm.addEventListener('submit', submitEditBill);
+if (monthSortHeader) {
+    monthSortHeader.addEventListener('click', sortByMonth);
+}
+if (editBillForm) {
+    editBillForm.addEventListener('submit', submitEditBill);
+}

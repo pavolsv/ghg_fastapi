@@ -1,250 +1,154 @@
 {% extends "base.html" %}
-
-{% block title %}活動數據 - 溫室氣體盤查系統{% endblock %}
+{% block title %}活動數據{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/factor_management.css">
-<link rel="stylesheet" href="/static/css/device_management.css">
 <style>
-.activity-page-wrap {
-    padding: 30px;
-    max-width: 1600px;
-    margin: auto;
-}
-
-.activity-page-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 6px;
-}
-
-.activity-page-desc {
-    color: #64748b;
-    margin-bottom: 20px;
-    font-size: 0.92rem;
-}
-
-.activity-filter-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 18px 22px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.activity-filter-card label {
-    font-weight: 600;
-    font-size: 0.88rem;
-    color: #475569;
-}
-
-.activity-filter-card select,
-.activity-filter-card input {
-    padding: 9px 12px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+.ac-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.ac-category {
     background: #fff;
-}
-
-.activity-filter-card select:focus,
-.activity-filter-card input:focus {
-    outline: none;
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.activity-table-wrap {
-    background: white;
-    border-radius: 16px;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    margin-bottom: 12px;
     overflow: hidden;
 }
-
-.activity-table { width: 100%; border-collapse: collapse; }
-.activity-table th, .activity-table td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; white-space: nowrap; }
-.activity-table th { background: linear-gradient(135deg, #059669, #047857); font-weight: 600; color: white; font-size: 0.85rem; letter-spacing: 0.3px; }
-.activity-table td { vertical-align: middle; }
-.activity-table tbody tr { transition: background 0.15s ease; }
-.activity-table tbody tr:hover { background: #f0fdf4; }
-.activity-table tbody tr:nth-child(even) { background: #fafbfc; }
-.activity-table tbody tr:nth-child(even):hover { background: #f0fdf4; }
-
-.activity-table td input[type="number"],
-.activity-table td input[type="text"] {
-    width: 100%; padding: 6px 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px;
-    transition: all 0.2s;
-    box-sizing: border-box;
+.ac-category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
 }
-.activity-table td input:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
-.activity-table td select { width: 100%; padding: 6px 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #fff; transition: all 0.2s; }
-.activity-table td select:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
-
-.badge-type { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.type-固定燃燒 { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
-.type-移動燃燒 { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #5b21b6; }
-.type-逸散排放 { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
-.type-能源間接排放 { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e40af; }
-
-.status-ok { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-.status-no { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-.na { color: #94a3b8; font-size: 12px; }
-
-.activity-empty {
-    text-align: center;
-    color: #94a3b8;
-    padding: 40px;
-    font-size: 0.92rem;
+.ac-category-header .icon-wrap {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.ac-category-header .cat-label { flex: 1; font-weight: 600; font-size: 1.05rem; color: #1e293b; }
+.ac-category-header .cat-count { font-size: 0.85rem; color: #64748b; }
+.ac-category-body { padding: 8px 20px 16px; }
+.ac-summary {
+    display: flex; gap: 16px; align-items: center;
+    padding: 12px 20px; margin-bottom: 16px;
+    background: #f8fafc; border-radius: 10px;
+    font-size: 0.9rem; color: #475569;
+}
+.ac-summary span { font-weight: 500; }
+.ac-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+.ac-row:hover { background: #fafafa; }
+.ac-row:last-child { border-bottom: none; }
+.ac-code { color: #64748b; font-size: 0.82rem; width: 60px; flex-shrink: 0; }
+.ac-name { flex: 1; color: #1e293b; font-weight: 500; min-width: 100px; }
+.ac-fuel { color: #64748b; font-size: 0.85rem; width: 90px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-unit { color: #64748b; font-size: 0.82rem; width: 50px; flex-shrink: 0; }
+.ac-input {
+    width: 140px; padding: 6px 10px;
+    border: 1.5px solid #e2e8f0; border-radius: 6px;
+    font-size: 0.9rem;
+}
+.ac-input:focus { outline: none; border-color: #6366f1; }
+.ac-btn {
+    padding: 6px 16px;
+    border: none; border-radius: 6px;
+    background: #6366f1; color: #fff;
+    cursor: pointer; font-size: 0.85rem; font-weight: 500;
+    white-space: nowrap;
+}
+.ac-btn:hover { background: #4f46e5; }
+.ac-btn.done { background: #10b981; }
+.ac-btn.done:hover { background: #059669; }
+.ac-empty {
+    text-align: center; color: #94a3b8; padding: 40px;
+    font-size: 0.9rem;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="activity-page-wrap">
-    <h1 class="activity-page-title">活動數據</h1>
-    <p class="activity-page-desc">依排放源設備填寫活動數據、數據單位、數據來源、低位熱值</p>
-
-    <div class="activity-filter-card">
-        <label>排放類型：</label>
-        <select id="filterType" onchange="render()">
-            <option value="">全部</option>
-            <option value="固定燃燒">固定燃燒</option>
-            <option value="移動燃燒">移動燃燒</option>
-            <option value="逸散排放">逸散排放</option>
-            <option value="能源間接排放">能源間接排放</option>
-        </select>
-        <label>搜尋：</label>
-        <input type="text" id="filterSearch" placeholder="設備名稱或編號" oninput="render()">
+<div class="fm-page-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">活動數據</h1>
     </div>
 
-    <div class="activity-table-wrap">
-    <table class="activity-table" id="activityTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>設備名稱</th>
-                <th>排放類型</th>
-                <th>燃料/物料</th>
-                <th>活動數據</th>
-                <th>數據單位</th>
-                <th>數據來源</th>
-                <th>低位熱值</th>
-                <th>熱值單位</th>
-                <th>狀態</th>
-            </tr>
-        </thead>
-        <tbody id="deviceList">
-            <tr><td colspan="10" class="activity-empty">載入中...</td></tr>
-        </tbody>
-    </table>
+    <div class="ac-wrap">
+        {% set colors = {'固定燃燒':('#fee2e2','#dc2626','flame'),'移動燃燒':('#dbeafe','#2563eb','car'),'逸散排放':('#e0f2fe','#0891b2','snowflake'),'能源間接排放':('#fef3c7','#d97706','zap')} %}
+
+        {% if groups %}
+        {% set ns = namespace(total_devices=0) %}
+        {% for cat, devices in groups.items() %}
+        {% set ns.total_devices = ns.total_devices + devices|length %}
+        {% endfor %}
+
+        <div class="ac-summary">
+            <span>{{ groups|length }} 類別</span>
+            <span>｜</span>
+            <span>{{ ns.total_devices }} 設備</span>
+        </div>
+        {% endif %}
+
+        {% for cat, devices in groups.items() %}
+        {% set bg, fg, icon = colors.get(cat, ('#f1f5f9','#475569','circle')) %}
+
+        <div class="ac-category">
+            <div class="ac-category-header">
+                <div class="icon-wrap" style="background:{{ bg }}; color:{{ fg }};">
+                    <i data-lucide="{{ icon }}" style="width:18px;height:18px;"></i>
+                </div>
+                <span class="cat-label">{{ cat }}</span>
+                <span class="cat-count">{{ devices|length }} 設備</span>
+            </div>
+
+            <div class="ac-category-body">
+                {% for d in devices %}
+                {% set fuel_name = factor_map.get(d.factor_ref_code, d.factor_ref_code) %}
+                <div class="ac-row" id="row_{{ d.id }}">
+                    <span class="ac-code">{{ d.device_code or '' }}</span>
+                    <span class="ac-name">{{ d.name }}</span>
+                    <span class="ac-fuel">{{ fuel_name }}</span>
+                    <input type="number" step="0.01" class="ac-input" id="val_{{ d.id }}"
+                           value="{{ d.activity_data or '' }}" placeholder="輸入">
+                    <select class="ac-input" id="unit_{{ d.id }}" style="width:90px;">
+                        <option value="公升" {% if d.unit == '公升' %}selected{% endif %}>公升</option>
+                        <option value="公斤" {% if d.unit == '公斤' %}selected{% endif %}>公斤</option>
+                        <option value="立方公尺" {% if d.unit == '立方公尺' %}selected{% endif %}>立方公尺</option>
+                        <option value="度" {% if d.unit == '度' %}selected{% endif %}>度</option>
+                        <option value="公噸" {% if d.unit == '公噸' %}selected{% endif %}>公噸</option>
+                    </select>
+                    <button class="ac-btn{% if d.has_data %} done{% endif %}" id="btn_{{ d.id }}"
+                            onclick="saveData({{ d.id }})">{% if d.has_data %}已儲存{% else %}儲存{% endif %}</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="ac-empty">尚無排放源設備，請先至排放源管理新增。</div>
+        {% endfor %}
     </div>
 </div>
 
 <script>
-const EMISSION_TYPE_UNITS = {
-    '固定燃燒': ['公升','公斤','立方公尺','公噸','公秉'],
-    '移動燃燒': ['公升','公斤','立方公尺','公噸','公秉'],
-    '逸散排放': ['公斤','公噸'],
-    '能源間接排放': ['度','千度','公斤','公噸'],
-};
-let devices = [];
-let lhvUnitOptions = [];
-
-function needsLHV(t) { return t === '固定燃燒' || t === '移動燃燒'; }
-
-function typeClass(t) {
-    const m = {'固定燃燒':'type-固定燃燒','移動燃燒':'type-移動燃燒','逸散排放':'type-逸散排放','能源間接排放':'type-能源間接排放'};
-    return m[t] || 'type-固定燃燒';
-}
-
-function esc(s) { if(s==null||s===undefined)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-async function loadData() {
-    try {
-        const r1 = await fetch('/devices/api/activities');
-        const d1 = await r1.json();
-        if (d1.success) devices = d1.data;
-        const r2 = await fetch('/devices/api/lhv_units');
-        const d2 = await r2.json();
-        if (d2.success) lhvUnitOptions = d2.data;
-    } catch(e) { console.error(e); }
-    render();
-}
-
-function render() {
-    const ft = document.getElementById('filterType').value;
-    const fs = document.getElementById('filterSearch').value.toLowerCase();
-    let list = devices;
-    if (ft) list = list.filter(d => d.emission_type === ft);
-    if (fs) list = list.filter(d => (d.name||'').toLowerCase().includes(fs) || (d.device_number||'').toLowerCase().includes(fs) || (d.factor_ref_name||'').toLowerCase().includes(fs));
-
-    const tbody = document.getElementById('deviceList');
-    if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="activity-empty">無設備資料</td></tr>';
-        return;
-    }
-    let html = '';
-    for (const d of list) {
-        const done = d.activity_data && d.activity_data > 0 && d.activity_unit && d.activity_unit.trim() !== '';
-        const showLHV = needsLHV(d.emission_type);
-        const isRefrigerant = d.emission_type === '逸散排放' && d.equipment_category;
-        const units = EMISSION_TYPE_UNITS[d.emission_type] || ['公升','公斤','立方公尺','公噸'];
-        const unitOpts = units.map(u => `<option value="${u}" ${u===d.activity_unit?'selected':''}>${u}</option>`).join('');
-        const lhvOpts = lhvUnitOptions.map(u => `<option value="${u}" ${u===d.lhv_unit?'selected':''}>${u}</option>`).join('');
-        const hv = d.heat_value !== null && d.heat_value !== undefined ? d.heat_value : '';
-        const ds = esc(d.data_source || 'manual');
-        const ad = d.activity_data || '';
-
-        // 冷媒設備：燃料欄位顯示冷媒+設備類型；LHV欄位顯示填充量
-        let fuelCell = esc(d.factor_ref_name);
-        let lhvCell = showLHV ? `<input type="number" step="0.01" id="lhv_${d.device_id}" value="${hv}" placeholder="帶入" onchange="saveData(${d.device_id})">` : `<span class="na">N/A</span>`;
-        let lhvuCell = showLHV ? `<select id="lhvu_${d.device_id}" onchange="saveData(${d.device_id})"><option value="">請選擇</option>${lhvOpts}</select>` : `<span class="na">N/A</span>`;
-
-        if (isRefrigerant) {
-            fuelCell = `<div style="line-height:1.5;">${esc(d.factor_ref_name)}<br>${d.fill_amount!==null?d.fill_amount:'--'} 公噸</div>`;
-            lhvCell = `<span class="na">冷媒設備</span>`;
-            lhvuCell = `<span class="na">冷媒設備</span>`;
-        }
-
-        html += `<tr data-id="${d.device_id}">
-<td>${esc(d.device_number||d.device_id)}</td>
-<td><strong>${esc(d.name)}</strong></td>
-<td><span class="badge-type ${typeClass(d.emission_type)}">${esc(d.emission_type)}</span></td>
-<td>${fuelCell}</td>
-<td><input type="number" step="0.01" id="val_${d.device_id}" value="${ad}" placeholder="輸入" onchange="saveData(${d.device_id})"></td>
-<td><select id="unit_${d.device_id}" onchange="saveData(${d.device_id})">${unitOpts}</select></td>
-<td><input type="text" id="src_${d.device_id}" value="${ds}" placeholder="手動" onchange="saveData(${d.device_id})"></td>
-<td>${lhvCell}</td>
-<td>${lhvuCell}</td>
-<td><span class="${done?'status-ok':'status-no'}">${done?'✓ 已填':'待填寫'}</span></td>
-</tr>`;
-    }
-    tbody.innerHTML = html;
+function resetSaveBtn(deviceId) {
+    const btn = document.getElementById('btn_' + deviceId);
+    btn.textContent = '儲存';
+    btn.classList.remove('done');
 }
 
 async function saveData(deviceId) {
-    const valEl = document.getElementById(`val_${deviceId}`);
-    const unitEl = document.getElementById(`unit_${deviceId}`);
-    const srcEl = document.getElementById(`src_${deviceId}`);
-    const lhvEl = document.getElementById(`lhv_${deviceId}`);
-    const lhvuEl = document.getElementById(`lhvu_${deviceId}`);
-
-    const activityData = valEl ? parseFloat(valEl.value) || 0 : 0;
+    const valEl = document.getElementById('val_' + deviceId);
+    const unitEl = document.getElementById('unit_' + deviceId);
+    const btn = document.getElementById('btn_' + deviceId);
+    const activityData = parseFloat(valEl.value) || 0;
     const unit = unitEl ? unitEl.value : '';
-    const dataSource = srcEl ? srcEl.value : 'manual';
-    const heatValue = lhvEl ? (lhvEl.value ? parseFloat(lhvEl.value) : null) : null;
-    const lhvUnit = lhvuEl ? lhvuEl.value : null;
-
-    const idx = devices.findIndex(d => d.device_id === deviceId);
-    if (idx === -1) return;
 
     try {
         const resp = await fetch('/devices/api/activities/save', {
@@ -254,32 +158,20 @@ async function saveData(deviceId) {
                 device_id: deviceId,
                 activity_data: activityData,
                 unit: unit,
-                data_source: dataSource,
-                heat_value: heatValue,
-                lhv_unit: lhvUnit,
+                data_source: 'manual',
             })
         });
         const result = await resp.json();
         if (result.success) {
-            devices[idx].activity_data = activityData;
-            devices[idx].activity_unit = unit;
-            devices[idx].data_source = dataSource;
-            devices[idx].heat_value = heatValue;
-            devices[idx].lhv_unit = lhvUnit;
-            render();
+            btn.textContent = '已儲存';
+            btn.classList.add('done');
         } else {
             alert(result.message || '儲存失敗');
         }
     } catch (e) {
-        console.error('儲存失敗:', e);
+        console.error(e);
         alert('系統錯誤');
     }
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadData);
-} else {
-    loadData();
 }
 </script>
 {% endblock %}

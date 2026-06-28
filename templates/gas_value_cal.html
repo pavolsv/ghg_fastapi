@@ -384,10 +384,10 @@
             if (!block) return '';
             const sup = block.supported
                 ? '已乘 GWP（CO₂×1 + CH₄×28 + N₂O×265）'
-                : '<span style="color:#b91c1c;">不支援的燃油類型或缺少熱值/排放係數</span>';
+                : '<span style="color:#b91c1c;">不支援的燃油類型或缺少排放係數</span>';
             return `
                 <div style="margin: 12px 0; padding: 10px; background:#fff; border-radius:8px;">
-                    <p><b>${label}</b>（${block.liters.toFixed(4)} 公升；LHV ${block.lhv_value || 0} ${block.lhv_unit || '-'}）</p>
+                    <p><b>${label}</b>（${block.liters.toFixed(4)} 公升）</p>
                     <p>CO₂：${_fmtKg(block.CO2)} kg</p>
                     <p>CH₄：${_fmtKg(block.CH4)} kg</p>
                     <p>N₂O：${_fmtKg(block.N2O)} kg</p>

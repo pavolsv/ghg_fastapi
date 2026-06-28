@@ -52,21 +52,6 @@
 
 
     <div class="nav-group">
-        <h3>盤查年度</h3>
-        <ul class="nav-list">
-            <li>
-                <a href="/inventory_list/"
-                hx-get="/inventory_list/"
-                hx-target="#main-content"
-                hx-select="#main-content"
-                hx-push-url="true"
-                hx-indicator="#global-loading"
-                class="dashboard-btn">
-                <i data-lucide="calendar"></i>
-                盤查年度列表
-                </a>
-            </li>
-        </ul>
     </div>
 
     <div class="nav-group">
@@ -122,12 +107,12 @@
 <div class="nav-group">
         <h3>排放源管理</h3>
         <ul class="nav-list">
-            <li><a href="/devices/"
-                 hx-get="/devices/"
+            <li><a href="/emission-source/"
+                 hx-get="/emission-source/"
                  hx-target="#main-content"
                  hx-select="#main-content"
                  hx-push-url="true"
-                  hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="settings-2"></i>排放源管理</a></li>
+                 hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="settings-2"></i>排放源管理</a></li>
             <li><a href="/devices/activity"
                  hx-get="/devices/activity"
                  hx-target="#main-content"
@@ -164,12 +149,6 @@
                    hx-select="#main-content"
                    hx-push-url="true"
                    hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="zap"></i>電費單</a></li>
-            <li><a href="/documents/water"
-                   hx-get="/documents/water"
-                   hx-target="#main-content"
-                   hx-select="#main-content"
-                   hx-push-url="true"
-                   hx-indicator="#global-loading" class="dashboard-btn"><i data-lucide="droplets"></i>水費單</a></li>
             <li><a href="/documents/fuel"
                    hx-get="/documents/fuel"
                    hx-target="#main-content"

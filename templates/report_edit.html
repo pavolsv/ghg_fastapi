@@ -46,12 +46,10 @@ textarea.template-editor { width:100%; height: 260px; font-family: monospace; fo
       <li>地址：{{ snapshot.company_summary.get('address') }}</li>
       <li>聯絡人：{{ snapshot.company_summary.get('contact_person') }}</li>
     </ul>
-    <h3>邊界摘要</h3>
+    <h3>排放源摘要</h3>
     <ul>
-      <li>邊界數量：{{ snapshot.boundary_summary.get('boundary_count') }}</li>
-      <li>納入排放源數量：{{ snapshot.boundary_summary.get('source_count') }}</li>
-      <li>已填寫活動數據數量：{{ snapshot.boundary_summary.get('completed_activity_source_count') }}</li>
-      <li>活動數據覆蓋率：{{ snapshot.boundary_summary.get('activity_coverage_rate') }}%</li>
+      <li>設備數量：{{ snapshot.summary.get('device_count') }}</li>
+      <li>排放紀錄筆數：{{ snapshot.summary.get('record_count') }}</li>
     </ul>
     <h3>排放類型統計 (Top)</h3>
     <ul>
@@ -59,20 +57,16 @@ textarea.template-editor { width:100%; height: 260px; font-family: monospace; fo
       <li>{{ item.emission_type }}：{{ item.total_co2e }} kg CO2e</li>
       {% endfor %}
     </ul>
-    <h3>快速檢視：各邊界</h3>
-    {% if snapshot.get('boundary_snapshots') %}
-      {% for b in snapshot.boundary_snapshots %}
-        <div class="boundary-block">
-          <strong>{{ b.boundary_name }}</strong>
-          <ul>
-            {% for s in b.sources %}
-              <li>{{ s.source_number }} - {{ s.source_name }}：{{ s.unit_or_process }} → {{ s.gases | join(', ') }}</li>
-            {% endfor %}
-          </ul>
-        </div>
+    <h3>快速檢視：排放源一覽</h3>
+    {% set dev_list = snapshot.get('devices_for_section', []) %}
+    {% if dev_list %}
+      <ul>
+      {% for d in dev_list %}
+        <li>{{ d.name }}（{{ d.emission_type }} / {{ "範疇一" if d.scope == "scope1" else "範疇二" }}）</li>
       {% endfor %}
+      </ul>
     {% else %}
-      <p class="info">目前快照未包含邊界細節（boundary_snapshots）。生成報告快照時會自動補上，若需要可先執行「生成報告」。</p>
+      <p class="info">目前快照未包含排放源資料。</p>
     {% endif %}
 
     <h3>快照 JSON 預覽</h3>
@@ -124,54 +118,26 @@ textarea.template-editor { width:100%; height: 260px; font-family: monospace; fo
 
 <section class="source-management-section">
   <h2 class="source-management-title"># 排放源管理</h2>
-  <p class="info">以下表格依快照資料自動整理，欄位格式比照你提供的範例樣式。</p>
-  {% set source_rows = snapshot.get('emission_source_management_rows', []) %}
-  {% if source_rows and source_rows|length > 0 %}
+  <p class="info">以下列表依資料庫即時查詢。</p>
+  {% set dev_list = snapshot.get('devices_for_section', []) %}
+  {% if dev_list and dev_list|length > 0 %}
     <div class="source-table-wrap">
       <table class="source-table">
         <thead>
           <tr>
-            <th>邊界</th>
-            <th>製程-編號</th>
-            <th>製程-名稱</th>
-            <th>設備-編號</th>
-            <th>設備-名稱</th>
-            <th>原（燃）物料-代碼</th>
-            <th>原（燃）物料或產品-名稱</th>
-            <th>直接/能源間接</th>
-            <th>排放型式</th>
-            <th>CO2</th>
-            <th>CH4</th>
-            <th>N2O</th>
-            <th>HFCs</th>
-            <th>PFCs</th>
-            <th>SF6</th>
-            <th>NF3</th>
-            <th>是否使用生質能源</th>
-            <th>是否屬汽電共生設備</th>
+            <th>設備名稱</th>
+            <th>排放類型</th>
+            <th>燃料代碼</th>
+            <th>範疇</th>
           </tr>
         </thead>
         <tbody>
-          {% for row in source_rows %}
+          {% for d in dev_list %}
           <tr>
-            <td class="text-left">{{ row.boundary_name }}</td>
-            <td>{{ row.process_code }}</td>
-            <td class="text-left">{{ row.process_name }}</td>
-            <td>{{ row.equipment_code }}</td>
-            <td class="text-left">{{ row.equipment_name }}</td>
-            <td>{{ row.material_code }}</td>
-            <td class="text-left">{{ row.material_name }}</td>
-            <td>{{ row.directness }}</td>
-            <td>{{ row.emission_style }}</td>
-            <td class="gas-flag">{{ row.gas_flags.co2 }}</td>
-            <td class="gas-flag">{{ row.gas_flags.ch4 }}</td>
-            <td class="gas-flag">{{ row.gas_flags.n2o }}</td>
-            <td class="gas-flag">{{ row.gas_flags.hfcs }}</td>
-            <td class="gas-flag">{{ row.gas_flags.pfcs }}</td>
-            <td class="gas-flag">{{ row.gas_flags.sf6 }}</td>
-            <td class="gas-flag">{{ row.gas_flags.nf3 }}</td>
-            <td>{{ row.is_biomass_energy }}</td>
-            <td>{{ row.is_cogen }}</td>
+            <td class="text-left">{{ d.name }}</td>
+            <td>{{ d.emission_type }}</td>
+            <td>{{ d.factor_ref_code }}</td>
+            <td>{{ "範疇一" if d.scope == "scope1" else "範疇二" }}</td>
           </tr>
           {% endfor %}
         </tbody>

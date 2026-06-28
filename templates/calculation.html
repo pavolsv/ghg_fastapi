@@ -26,8 +26,7 @@
                 <th>設備名稱</th>
                 <th>排放類型</th>
                 <th>數據 / 單位</th>
-                <th>熱值</th>
-                <th style="width: 350px;">計算過程 ({{ target_year }} 年度)</th>
+                <th style="width: 350px;">計算過程</th>
                 <th>結果 (kg CO₂e)</th>
                 <th>操作</th>
             </tr>
@@ -47,52 +46,38 @@
                         <span class="badge-combustion">{{ etype }}</span>
                     {% endif %}
                 </td>
-                <td>{{ r.activity_data }} <small>{{ device_unit_map.get(r.device_id) }}</small></td>
-                <td>{{ r.heat_value if r.heat_value else '-' }}</td>
+                <td>{{ r.activity_data }} <small>{{ r.activity_unit or device_unit_map.get(r.device_id) }}</small></td>
                 <td>
                     {% set code = device_to_code.get(r.device_id) %}
                     {% set emission_type = device_emission_type_map.get(r.device_id) %}
-                    {% set calc_info = device_calc_info.get(r.device_id, {}) %}
-                    {% set calc_type = calc_info.get("type", "combustion") %}
+                    {% set rc = record_calc_map.get(r.id, {}) %}
+                    {% set calc_type = rc.get("type", "combustion") %}
                     <details>
                         <summary>計算過程 ({{ code }} / {{ emission_type }})</summary>
                         <div class="detail-box">
                             {% if calc_type == "refrigerant" %}
-                                冷媒計算：填充量 {{ calc_info.get("fill_kg", 0) }} kg × GWP({{ calc_info.get("gwp_value", 0) }}) × 洩漏率({{ calc_info.get("emission_rate", 0) }})<br>
-                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
-                                {{ f_info.get("gas", "") }}：{{ calc_info.get("fill_kg", 0) }} kg × {{ f_info.get("val", 0) }} × {{ calc_info.get("emission_rate", 0) }} = {{ r.total_co2e }}<br>
-                                {% endfor %}
+                                冷媒計算：填充量 {{ rc.get("fill_kg", 0) }} kg × GWP({{ rc.get("gwp_value", 0) }}) × 洩漏率({{ rc.get("emission_rate", 0) }})<br>
+                                CO₂e = {{ rc.get("fill_kg", 0) }} × {{ rc.get("gwp_value", 0) }} × {{ rc.get("emission_rate", 0) }} = {{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg<br>
                             {% elif calc_type == "electricity" %}
-                                電力計算：活動數據(kWh) × 排放係數(kg CO₂e/kWh)<br>
-                                {% for f_info in factor_detail_map.get(r.device_id, []) %}
-                                {{ f_info.get("gas", "CO2e") }}：{{ r.activity_data }} × {{ f_info.get("val", 0) }} = {{ (r.activity_data * f_info.get("val", 0)) | round(4) }}<br>
-                                {% endfor %}
+                                電力計算：活動數據({{ rc.get("activity_unit", "度") }}) × 排放係數<br>
+                                係數年度：{{ rc.get("factor_year", "-") }}，係數：{{ rc.get("factor_value", 0) }} {{ rc.get("factor_unit", "") }}<br>
+                                CO₂e = {{ r.activity_data }} × {{ rc.get("factor_value", 0) }} = {{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg<br>
                             {% else %}
-                                {% set rc = record_calc_map.get(r.id, {}) %}
-                                {% set lhv_unit_str = rc.get("lhv_unit", "") %}
-                                {% if "kg/TJ" in lhv_unit_str or "公斤/兆焦耳" in lhv_unit_str %}
-                                    燃燒計算 (kg/TJ 排放係數路線，由服務統一計算)：<br>
-                                    1. 活動數據：{{ r.activity_data }}<br>
-                                    2. 排放係數：{{ rc.get("lhv_value", 0) }} (單位 {{ lhv_unit_str or "-" }})<br>
-                                    3. 各氣體排放量 (活動數據 × 排放係數，由服務計算)：<br>
-                                    &nbsp;&nbsp;CO2：{{ "{:,.4f}".format(rc.get("co2", 0)) }} kg<br>
-                                    &nbsp;&nbsp;CH4：{{ "{:,.6f}".format(rc.get("ch4", 0)) }} kg<br>
-                                    &nbsp;&nbsp;N2O：{{ "{:,.6f}".format(rc.get("n2o", 0)) }} kg<br>
-                                    4. 合計 CO₂e (= CO₂×1 + CH₄×28 + N₂O×265)：<br>
-                                    &nbsp;&nbsp;{{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg CO₂e<br>
-                                {% else %}
-                                    燃燒計算 (LHV → TJ 路線，由服務統一計算)：<br>
-                                    1. 計算總熱值：<br>
-                                    &nbsp;&nbsp;{{ r.activity_data }} (活動數據) × {{ rc.get("lhv_value", 0) }} (熱值，{{ lhv_unit_str or "-" }}) = {{ "{:,.2f}".format((r.activity_data or 0) * (rc.get("lhv_value", 0) or 0)) }}<br>
-                                    2. 換算兆焦耳(TJ)：<br>
-                                    &nbsp;&nbsp;{{ "{:,.6f}".format(rc.get("tj_total", 0)) }} TJ<br>
-                                    3. 各氣體排放量 (TJ × 排放係數，由服務計算)：<br>
-                                    &nbsp;&nbsp;CO2：{{ "{:,.4f}".format(rc.get("co2", 0)) }} kg<br>
-                                    &nbsp;&nbsp;CH4：{{ "{:,.6f}".format(rc.get("ch4", 0)) }} kg<br>
-                                    &nbsp;&nbsp;N2O：{{ "{:,.6f}".format(rc.get("n2o", 0)) }} kg<br>
-                                    4. 合計 CO₂e (= CO₂×1 + CH₄×28 + N₂O×265)：<br>
-                                    &nbsp;&nbsp;{{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg CO₂e<br>
+                                燃燒計算：活動數據 × 各氣體排放係數<br>
+                                活動數據：{{ r.activity_data }} {{ rc.get("activity_unit", "") }}<br>
+                                係數年度：{{ rc.get("factor_year", "-") }}<br>
+                                {% set gf = rc.get("gas_factors", {}) %}
+                                {% if gf.get("CO2") %}
+                                CO₂ = {{ r.activity_data }} × {{ gf["CO2"]["value"] }} = {{ "{:,.4f}".format(rc.get("co2", 0)) }} kg<br>
                                 {% endif %}
+                                {% if gf.get("CH4") %}
+                                CH₄ = {{ r.activity_data }} × {{ gf["CH4"]["value"] }} = {{ "{:,.6f}".format(rc.get("ch4", 0)) }} kg<br>
+                                {% endif %}
+                                {% if gf.get("N2O") %}
+                                N₂O = {{ r.activity_data }} × {{ gf["N2O"]["value"] }} = {{ "{:,.6f}".format(rc.get("n2o", 0)) }} kg<br>
+                                {% endif %}
+                                合計 CO₂e (= CO₂×1 + CH₄×28 + N₂O×265)：<br>
+                                &nbsp;&nbsp;{{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg CO₂e<br>
                             {% endif %}
                             <div class="detail-total">
                                 總計：{{ r.total_co2e }}

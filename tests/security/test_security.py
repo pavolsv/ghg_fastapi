@@ -44,7 +44,10 @@ def _iter_source_files():
             for path in directory.rglob(pattern):
                 if path.name in EXCLUDED_FILES:
                     continue
-                if any(part in {"venv", ".venv", "__pycache__", "uploads"} for part in path.parts):
+                skip_parts = {"__pycache__", "uploads"}
+                if any(part in skip_parts for part in path.parts):
+                    continue
+                if any(part.startswith(("venv", ".venv")) for part in path.parts):
                     continue
                 yield path
 

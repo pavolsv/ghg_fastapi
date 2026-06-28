@@ -1,38 +1,34 @@
 """
-排放計算核心服務
+排放計算核心服務（v2）
 
-三種排放類型計算：
+計算方式：活動數據 × 官方公告排放係數（EmissionFactor604）
+完全移除低位熱值（LHV）與 TJ 換算層。
 
-1. 固定燃燒/移動燃燒（燃燒排放）：
-    排放量(kg) = 活動數據 × LHV(→TJ) × 排放係數(kg/TJ)
-    CO2e = Σ(各氣體排放量 × GWP)
+支援排放類型：
+1. 固定燃燒 / 移動燃燒：
+   排放量(kg) = 活動數據 × EmissionFactor604.factor_value
+   CO2e = CO₂×1 + CH₄×28 + N₂O×265
 
 2. 能源間接排放（電力）：
-    CO2e(kg) = 活動數據(kWh/度) × 排放係數(kg CO2e/kWh)
+   CO2e(kg) = 用電度數 × 當年度電力排放係數
 
 3. 逸散排放（冷媒）：
-    CO2e(kg) = 填充量(kg) × GWP值 × 設備洩漏率
+   CO2e(kg) = 填充量(kg) × GWP × 設備洩漏率
 
-LHV 單位轉換：
-    TJ_per_unit = LHV_value × conversion_factor
-    
-    conversion_factor:
-        Kcal → TJ: 4.1868 × 10⁻⁹
-        MJ  → TJ: 1 × 10⁻⁶
-        GJ  → TJ: 1 × 10⁻³
-
-結果四捨五入到小數第 4 位
+結果四捨五入到小數第 4 位（ROUND_HALF_UP）。
 """
 
 import re
-from typing import Optional
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
 
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from model import EmissionFactor, GWPReference, Device
-from constants.lhv_defaults import get_lhv_value, get_lhv_by_name
 from constants.refrigerant_factors import get_rate_by_code
+from model import Device, EmissionFactor604, GWPReference
+
 
 GWP_VALUES = {
     "CO2": 1,
@@ -40,68 +36,32 @@ GWP_VALUES = {
     "N2O": 265,
 }
 
-LHV_CONVERSION = {
-    "Kcal": 4.1868e-9,
-    "MJ": 1e-6,
-    "GJ": 1e-3,
+# 係數單位 → 活動數據單位
+# 例如 KgCO2/L 代表活動數據應以「公升」輸入
+_FACTOR_UNIT_TO_ACTIVITY_UNIT = {
+    "KgCO2/Kg": "公斤",
+    "KgCH4/Kg": "公斤",
+    "KgN2O/Kg": "公斤",
+    "KgCO2/L": "公升",
+    "KgCH4/L": "公升",
+    "KgN2O/L": "公升",
+    "KgCO2/M3": "立方公尺",
+    "KgCH4/M3": "立方公尺",
+    "KgN2O/M3": "立方公尺",
+    "kgCO2e/kWh": "度",
 }
 
-# 明確白名單：只有這些字串會被換算；其他視為不支援。
-# 注意：活動數據的單位必須與 LHV 的分母一致（公升/公斤/立方公尺/公噸/公秉）。
-SUPPORTED_LHV_UNITS = (
-    # 能量 / 體積
-    "千卡/公升(Kcal/l)",
-    "千卡/公升",
-    "Kcal/l",
-    "Kcal/公升",
-    "兆焦耳/公升(MJ/l)",
-    "MJ/l",
-    "MJ/公升",
-    "吉焦耳/公升(GJ/l)",
-    "GJ/l",
-    "GJ/公升",
-    # 能量 / 質量
-    "千卡/公斤(Kcal/kg)",
-    "千卡/公斤",
-    "Kcal/kg",
-    "Kcal/公斤",
-    "兆焦耳/公斤(MJ/kg)",
-    "MJ/kg",
-    "MJ/公斤",
-    "吉焦耳/公斤(GJ/kg)",
-    "GJ/kg",
-    "GJ/公斤",
-    # 能量 / 氣體體積
-    "千卡/立方公尺(Kcal/m³)",
-    "千卡/立方公尺",
-    "Kcal/m³",
-    "Kcal/立方公尺",
-    "兆焦耳/立方公尺(MJ/m³)",
-    "MJ/m³",
-    "MJ/立方公尺",
-    "吉焦耳/立方公尺(GJ/m³)",
-    "GJ/m³",
-    "GJ/立方公尺",
-    # 能量 / 大量體積
-    "千卡/公秉(Kcal/kL)",
-    "千卡/公秉",
-    "Kcal/kL",
-    "Kcal/公秉",
-    # 能量 / 質量（公噸）
-    "千卡/公噸(Kcal/t)",
-    "千卡/公噸",
-    "Kcal/t",
-    "Kcal/公噸",
-    # 排放係數直接路線：活動數據視為能量（TJ）
-    "公斤/兆焦耳(kg/TJ)",
-    "公斤/兆焦耳",
-    "kg/TJ",
-)
 
-
-def is_supported_lhv_unit(lhv_unit: str) -> bool:
-    """與 _parse_lhv_unit 的支援範圍一致：只有真的能換算的單位才視為支援。"""
-    return _parse_lhv_unit(lhv_unit) > 0
+class EmissionResult(BaseModel):
+    co2: float
+    ch4: float
+    n2o: float
+    co2e: float
+    factor_year: Optional[int]
+    gwp_version: str
+    activity_unit: Optional[str]
+    factor_source: str
+    details: dict
 
 
 def _round4(value: float) -> float:
@@ -109,225 +69,178 @@ def _round4(value: float) -> float:
     return float(decimal_val.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
 
-# 支援的 LHV 格式：能量 / 分母；活動數據單位必須與分母一致。
-# 例子：千卡/公升(Kcal/l)、Kcal/kg、MJ/m³、GJ/公噸
-_LHV_UNIT_RE = re.compile(
-    r"^\s*(Kcal|千卡|MJ|兆焦耳|GJ|吉焦耳)\s*/\s*"
-    r"(公升|l|公斤|kg|立方公尺|m³|m3|公噸|t|公秉|kL|kl)"
-    r"(\s*\(.*\))?\s*$",
-    re.IGNORECASE,
-)
+def _normalize_factor_unit(unit: str) -> str:
+    u = (unit or "").strip().replace(" ", "").replace("/", "/")
+    return u
 
 
-def _parse_lhv_unit(lhv_unit: str) -> float:
-    """把 lhv_unit 解析成「每單位活動數據對應的 TJ」。
-
-    支援的單位：
-        - Kcal/...（千卡/公升、千卡/公斤、千卡/立方公尺、千卡/公噸、千卡/公秉）→ 4.1868e-9
-        - MJ/...（兆焦耳/公升、兆焦耳/公斤、兆焦耳/立方公尺）                → 1e-6
-        - GJ/...（吉焦耳/公升、吉焦耳/公斤、吉焦耳/立方公尺）                → 1e-3
-        - 公斤/兆焦耳(kg/TJ) / kg/TJ                                          → 1.0
-
-    前提：活動數據的單位必須與 LHV 分母一致。
-    例如 LHV 為 Kcal/公斤 時，activity_value 應以「公斤」輸入；
-    LHV 為 Kcal/立方公尺 時，activity_value 應以「立方公尺」輸入。
-
-    不支援的單位 → 0.0，避免錯算。
-    """
-    lhv_unit = (lhv_unit or "").strip()
-    if not lhv_unit:
-        return 0.0
-
-    # 排放係數已為 kg/TJ 的路線：活動數據視為 TJ
-    if "kg/TJ" in lhv_unit or "公斤/兆焦耳" in lhv_unit:
-        return 1.0
-
-    # 必須符合「能量 / 支援分母」格式
-    if not _LHV_UNIT_RE.match(lhv_unit):
-        return 0.0
-
-    # 依能量單位判定換算係數；分母由使用者自行與活動數據對齊
-    if "千卡" in lhv_unit or "Kcal" in lhv_unit:
-        return LHV_CONVERSION["Kcal"]
-    if "兆焦耳" in lhv_unit or "MJ" in lhv_unit:
-        return LHV_CONVERSION["MJ"]
-    if "吉焦耳" in lhv_unit or "GJ" in lhv_unit:
-        return LHV_CONVERSION["GJ"]
-
-    return 0.0
+def parse_activity_unit(factor_unit: str) -> Optional[str]:
+    """從 EmissionFactor604 的 unit 解析活動數據應使用的單位。"""
+    u = _normalize_factor_unit(factor_unit)
+    # 先精確比對
+    if u in _FACTOR_UNIT_TO_ACTIVITY_UNIT:
+        return _FACTOR_UNIT_TO_ACTIVITY_UNIT[u]
+    # 模糊比對（大小寫不敏感）
+    u_upper = u.upper()
+    if "/KG" in u_upper:
+        return "公斤"
+    if "/L" in u_upper:
+        return "公升"
+    if "/M3" in u_upper or "/M³" in u_upper:
+        return "立方公尺"
+    if "/KWH" in u_upper:
+        return "度"
+    return None
 
 
-def _is_lhv_in_tj(lhv_unit: str) -> bool:
-    if not lhv_unit:
-        return False
-    u = lhv_unit.strip()
-    return "kg/TJ" in u or "公斤/兆焦耳" in u
-
-
-def tj_per_unit(lhv_value: float, lhv_unit: str) -> float:
-    if not lhv_value or not lhv_unit:
-        return 0.0
-    conversion = _parse_lhv_unit(lhv_unit)
-    if not conversion:
-        return 0.0
-    return lhv_value * conversion
-
-
-def calculate_single_gas(
-    activity_value: float,
-    factor_value: float,
-    lhv_value: float,
-    lhv_unit: str,
-) -> float:
-    if not activity_value or not factor_value:
-        return 0.0
-    if activity_value < 0 or factor_value < 0:
-        return 0.0
-    tj = tj_per_unit(lhv_value, lhv_unit)
-    if not tj:
-        return 0.0
-    emission = activity_value * factor_value * tj
-    return _round4(emission)
-
-
-def get_lhv_for_fuel(
+def get_factor_604(
     session: Session,
     original_code: str,
-) -> tuple[float, str]:
-    db_factor = session.exec(
-        select(EmissionFactor).where(
-            EmissionFactor.original_code == original_code,
+    emission_type: str,
+    gas_type: str,
+    year: Optional[int] = None,
+) -> Optional[EmissionFactor604]:
+    """查詢官方公告係數。若同條件有多筆，取第一筆。"""
+    query = select(EmissionFactor604).where(
+        EmissionFactor604.original_code == original_code,
+        EmissionFactor604.emission_type == emission_type,
+        EmissionFactor604.gas_type == gas_type,
+    )
+    if year is not None:
+        year_query = query.where(EmissionFactor604.year == year)
+        result = session.exec(year_query).first()
+        if result:
+            return result
+    return session.exec(query).first()
+
+
+def _validate_activity_value(value: float) -> None:
+    if value < 0:
+        raise ValueError("活動數據不可為負數")
+
+
+def _validate_activity_unit(factor_unit: str, activity_unit: str) -> None:
+    expected = parse_activity_unit(factor_unit)
+    if expected and activity_unit != expected:
+        raise ValueError(
+            f"活動數據單位「{activity_unit}」與係數單位「{factor_unit}」不一致，應使用「{expected}」"
         )
-    ).first()
-    if db_factor and db_factor.lower_heating_value is not None and db_factor.lhv_unit:
-        return db_factor.lower_heating_value, db_factor.lhv_unit
-    return get_lhv_value(original_code)
 
 
-def get_lhv_for_device(
-    session: Session,
-    device: Device,
-    custom_heat_value: Optional[float] = None,
-    custom_lhv_unit: Optional[str] = None,
-) -> tuple[float, str]:
-    if custom_heat_value and custom_heat_value > 0 and custom_lhv_unit:
-        return custom_heat_value, custom_lhv_unit
-    rec = session.exec(
-        select(EmissionFactor).where(
-            EmissionFactor.original_code == device.factor_ref_code,
-        )
-    ).first()
-    if rec and rec.lower_heating_value is not None and rec.lhv_unit:
-        return rec.lower_heating_value, rec.lhv_unit
-    lhv_val, lhv_u = get_lhv_value(device.factor_ref_code)
-    if lhv_val is not None:
-        return lhv_val, lhv_u
-    if rec and rec.name:
-        lhv_val, lhv_u = get_lhv_by_name(rec.name)
-        if lhv_val is not None:
-            return lhv_val, lhv_u
-    return None, None
-
-
-def calculate_combustion_emission(
+def calculate_combustion_emission_v2(
     session: Session,
     original_code: str,
     emission_type: str,
     activity_value: float,
-    lhv_value: Optional[float] = None,
-    lhv_unit: Optional[str] = None,
+    activity_unit: str,
     year: Optional[int] = None,
-) -> dict[str, float]:
-    result = {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0, "CO2e": 0.0}
-    if not activity_value or activity_value < 0:
-        return result
-    if lhv_value is None or lhv_unit is None:
-        lhv_value, lhv_unit = get_lhv_for_fuel(session, original_code)
-    if not lhv_value or not lhv_unit:
-        return result
-    query = select(EmissionFactor).where(
-        EmissionFactor.original_code == original_code,
-        EmissionFactor.emission_type == emission_type,
-    )
-    if year:
-        year_query = query.where(EmissionFactor.year == year)
-        factors = session.exec(year_query).all()
-    else:
-        factors = session.exec(query).all()
-    if not factors:
-        factors = session.exec(query).all()
-    if not factors:
-        return result
-    latest_year = max(f.year for f in factors)
-    factors = [f for f in factors if f.year == latest_year]
-    for f in factors:
-        if not f.factor_value:
-            continue
-        emission = calculate_single_gas(
-            activity_value=activity_value,
-            factor_value=f.factor_value,
-            lhv_value=lhv_value,
-            lhv_unit=lhv_unit,
+) -> EmissionResult:
+    """固定/移動燃燒排放計算（使用 EmissionFactor604）。"""
+    _validate_activity_value(activity_value)
+
+    gases = {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0}
+    details = {"factors": {}, "missing": []}
+    factor_year = year
+
+    for gas in ("CO2", "CH4", "N2O"):
+        factor = get_factor_604(
+            session=session,
+            original_code=original_code,
+            emission_type=emission_type,
+            gas_type=gas,
+            year=year,
         )
-        gas_key = f.gas_type
-        if gas_key in result:
-            result[gas_key] = emission
-        result["CO2e"] += emission * GWP_VALUES.get(gas_key, 1)
-    result["CO2e"] = _round4(result["CO2e"])
-    return result
+        if not factor or factor.factor_value is None:
+            gases[gas] = 0.0
+            details["missing"].append(gas)
+            details["factors"][gas] = None
+            continue
+
+        _validate_activity_unit(factor.unit, activity_unit)
+
+        emission = activity_value * factor.factor_value
+        gases[gas] = _round4(emission)
+        details["factors"][gas] = {
+            "factor_value": factor.factor_value,
+            "unit": factor.unit,
+            "year": factor.year,
+        }
+        if factor_year is None:
+            factor_year = factor.year
+
+    co2e = _round4(
+        gases["CO2"] * GWP_VALUES["CO2"]
+        + gases["CH4"] * GWP_VALUES["CH4"]
+        + gases["N2O"] * GWP_VALUES["N2O"]
+    )
+
+    return EmissionResult(
+        co2=gases["CO2"],
+        ch4=gases["CH4"],
+        n2o=gases["N2O"],
+        co2e=co2e,
+        factor_year=factor_year or 2023,
+        gwp_version="AR5",
+        activity_unit=activity_unit,
+        factor_source="EmissionFactor604",
+        details=details,
+    )
 
 
-def calculate_electricity_emission(
+def calculate_electricity_emission_v2(
     session: Session,
     activity_value: float,
-    year: Optional[int] = None,
-) -> dict[str, float]:
-    result = {"CO2e": 0.0}
-    if not activity_value or activity_value < 0:
-        return result
-    factors = session.exec(
-        select(EmissionFactor).where(
-            EmissionFactor.original_code == "ELECTRICITY",
-            EmissionFactor.gas_type == "CO2e",
-        ).order_by(EmissionFactor.year.desc())
-    ).all()
-    factor = None
-    if year is not None:
-        for f in factors:
-            if f.year <= year:
-                factor = f
-                break
-    if not factor and factors:
-        factor = factors[0]
-    if factor and factor.factor_value:
-        co2e = activity_value * factor.factor_value
-        result["CO2e"] = _round4(co2e)
-        result["factor_value"] = factor.factor_value
-        result["factor_year"] = factor.year
-    return result
+    target_year: int,
+    activity_unit: str = "度",
+) -> EmissionResult:
+    """電力排放計算（依 target_year 選對應年度係數）。"""
+    _validate_activity_value(activity_value)
 
+    factor = session.exec(
+        select(EmissionFactor604).where(
+            EmissionFactor604.original_code == "ELECTRICITY",
+            EmissionFactor604.gas_type == "CO2e",
+            EmissionFactor604.code == str(target_year),
+        )
+    ).first()
 
-def calculate_refrigerant_emission(
-    session: Session,
-    refrigerant_code: str,
-    fill_amount_tonnes: float,
-    equipment_category: str,
-) -> dict[str, float]:
-    result = {"CO2e": 0.0}
-    if not fill_amount_tonnes or fill_amount_tonnes < 0 or not refrigerant_code:
-        return result
-    fill_kg = fill_amount_tonnes * 1000.0
-    gwp_value = _lookup_gwp(session, refrigerant_code)
-    emission_rate = get_rate_by_code(equipment_category)
-    co2e = fill_kg * gwp_value * emission_rate
-    result["CO2e"] = _round4(co2e)
-    result["gwp_value"] = gwp_value
-    result["emission_rate"] = emission_rate
-    result["fill_kg"] = fill_kg
-    return result
+    if not factor:
+        # fallback：取最新年度
+        factor = session.exec(
+            select(EmissionFactor604)
+            .where(
+                EmissionFactor604.original_code == "ELECTRICITY",
+                EmissionFactor604.gas_type == "CO2e",
+            )
+            .order_by(EmissionFactor604.year.desc())
+        ).first()
+
+    if not factor or factor.factor_value is None:
+        raise ValueError(f"找不到 {target_year} 年或最新的電力排放係數")
+
+    _validate_activity_unit(factor.unit, activity_unit)
+
+    co2e = _round4(activity_value * factor.factor_value)
+
+    return EmissionResult(
+        co2=co2e,
+        ch4=0.0,
+        n2o=0.0,
+        co2e=co2e,
+        factor_year=factor.year,
+        gwp_version="AR5",
+        activity_unit=activity_unit,
+        factor_source="EmissionFactor604",
+        details={
+            "factor_value": factor.factor_value,
+            "unit": factor.unit,
+            "year": factor.year,
+        },
+    )
 
 
 def _lookup_gwp(session: Session, refrigerant_code: str) -> float:
+    """從 GWPReference 查詢 GWP 值。"""
     gwp_ref = session.exec(
         select(GWPReference).where(GWPReference.formula == refrigerant_code)
     ).first()
@@ -341,101 +254,99 @@ def _lookup_gwp(session: Session, refrigerant_code: str) -> float:
     return 0.0
 
 
-def calculate_emission_by_source(
+def calculate_refrigerant_emission_v2(
     session: Session,
-    original_code: str,
-    activity_value: float,
-    activity_unit: str,
-    year: int,
-    emission_type: str,
-) -> dict[str, float]:
-    result = {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0, "CO2e": 0.0}
-    if not activity_value or activity_value < 0:
-        return result
-    lhv_value, lhv_unit = get_lhv_for_fuel(session, original_code)
-    if not lhv_value or not lhv_unit:
-        return result
-    for gas_type in ["CO2", "CH4", "N2O"]:
-        factor = session.exec(
-            select(EmissionFactor).where(
-                EmissionFactor.original_code == original_code,
-                EmissionFactor.gas_type == gas_type,
-                EmissionFactor.year == year,
-                EmissionFactor.emission_type == emission_type,
-            )
-        ).first()
-        if factor and factor.factor_value:
-            emission = calculate_single_gas(
-                activity_value=activity_value,
-                factor_value=factor.factor_value,
-                lhv_value=lhv_value,
-                lhv_unit=lhv_unit,
-            )
-            result[gas_type] = emission
-            result["CO2e"] += emission * GWP_VALUES.get(gas_type, 1)
-    result["CO2e"] = _round4(result["CO2e"])
-    return result
+    refrigerant_code: str,
+    fill_amount_tonnes: float,
+    equipment_category: str,
+) -> EmissionResult:
+    """冷媒逸散排放計算。"""
+    _validate_activity_value(fill_amount_tonnes)
 
+    if not refrigerant_code:
+        raise ValueError("冷媒代碼不可為空")
 
-def calculate_emission_simple(
-    activity_value: float,
-    factor_value: float,
-    lhv_value: float,
-    lhv_unit: str,
-) -> float:
-    return calculate_single_gas(
-        activity_value=activity_value,
-        factor_value=factor_value,
-        lhv_value=lhv_value,
-        lhv_unit=lhv_unit,
+    fill_kg = fill_amount_tonnes * 1000.0
+    gwp_value = _lookup_gwp(session, refrigerant_code)
+    emission_rate = get_rate_by_code(equipment_category)
+
+    if emission_rate is None:
+        raise ValueError(f"找不到設備類別「{equipment_category}」的洩漏率")
+
+    co2e = _round4(fill_kg * gwp_value * emission_rate)
+
+    return EmissionResult(
+        co2=0.0,
+        ch4=0.0,
+        n2o=0.0,
+        co2e=co2e,
+        factor_year=None,
+        gwp_version="AR5",
+        activity_unit="公噸",
+        factor_source="GWPReference",
+        details={
+            "fill_kg": fill_kg,
+            "gwp_value": gwp_value,
+            "emission_rate": emission_rate,
+            "refrigerant_code": refrigerant_code,
+        },
     )
 
 
-def compute_total_co2e_for_device(
+def compute_total_co2e_for_device_v2(
     session: Session,
     device: Device,
     activity_data: float,
-    custom_heat_value: Optional[float] = None,
-    custom_lhv_unit: Optional[str] = None,
-) -> float:
-    """根據設備排放類型計算 CO2e，作為單一計算入口。
-
-    此函式被 routers/devices.py（儲存紀錄時寫入 total_co2e）與
-    routers/result.py（彙總時重新計算舊紀錄）共用，避免兩處結果不一致。
-    """
+    activity_unit: Optional[str] = None,
+    target_year: Optional[int] = None,
+) -> EmissionResult:
+    """根據設備排放類型計算排放量，作為單一計算入口。"""
     etype = (device.emission_type or "").strip()
+    unit = (activity_unit or device.unit or "").strip()
 
     if etype == "逸散排放" and device.refrigerant_code:
-        result = calculate_refrigerant_emission(
+        return calculate_refrigerant_emission_v2(
             session=session,
             refrigerant_code=device.refrigerant_code,
             fill_amount_tonnes=device.fill_amount or 0,
             equipment_category=device.equipment_category or "",
         )
-        return float(result.get("CO2e", 0.0) or 0.0)
 
-    if etype == "能源間接排放":
-        result = calculate_electricity_emission(
+    if etype == "能源間接排放" or device.factor_ref_code == "ELECTRICITY":
+        year = target_year
+        if year is None:
+            # 嘗試從 record_date 或當前年度推斷
+            year = datetime.now().year
+        return calculate_electricity_emission_v2(
             session=session,
             activity_value=activity_data,
-            year=None,
+            target_year=year,
+            activity_unit=unit or "度",
         )
-        return float(result.get("CO2e", 0.0) or 0.0)
 
     # 固定燃燒 / 移動燃燒
-    lhv_value, lhv_unit = get_lhv_for_device(
-        session=session,
-        device=device,
-        custom_heat_value=custom_heat_value,
-        custom_lhv_unit=custom_lhv_unit,
-    )
-    result = calculate_combustion_emission(
+    return calculate_combustion_emission_v2(
         session=session,
         original_code=device.factor_ref_code or "",
         emission_type=etype or "固定燃燒",
         activity_value=activity_data,
-        lhv_value=lhv_value,
-        lhv_unit=lhv_unit,
-        year=None,
+        activity_unit=unit,
     )
-    return float(result.get("CO2e", 0.0) or 0.0)
+
+
+# 向後相容舊函式名稱（僅保留介面，內部轉調 v2）
+# 若未來完全移除，可刪除以下別名
+def calculate_combustion_emission(*args, **kwargs):
+    raise RuntimeError("已棄用，請使用 calculate_combustion_emission_v2")
+
+
+def calculate_electricity_emission(*args, **kwargs):
+    raise RuntimeError("已棄用，請使用 calculate_electricity_emission_v2")
+
+
+def calculate_refrigerant_emission(*args, **kwargs):
+    raise RuntimeError("已棄用，請使用 calculate_refrigerant_emission_v2")
+
+
+def compute_total_co2e_for_device(*args, **kwargs):
+    raise RuntimeError("已棄用，請使用 compute_total_co2e_for_device_v2")

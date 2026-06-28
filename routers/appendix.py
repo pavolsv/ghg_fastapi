@@ -22,7 +22,11 @@ from model import AppendixReference
 router = APIRouter(prefix="/appendix", tags=["appendix"])
 templates = Jinja2Templates(directory="templates")
 
-VALID_TYPES = {"industry", "process", "device", "material"}
+VALID_TYPES = {
+    "industry", "process", "device", "material",
+    "boundary", "verification_body", "competent_authority",
+    "city", "factor_code", "test_method", "usage",
+}
 SHEET_TYPE_MAP = {
     "附表四": "industry",
     "附表五": "process",

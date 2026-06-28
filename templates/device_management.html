@@ -264,7 +264,7 @@
             filtered.forEach(o => {
                 const opt = document.createElement('option');
                 opt.value = o.original_code;
-                opt.text = o.name;
+                opt.text = o.name + '（' + (o.unit || '單位') + '）';
                 fs.appendChild(opt);
             });
         }

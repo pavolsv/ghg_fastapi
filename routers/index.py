@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 
 from database import engine
-from model import Account, Year, EmissionSource, Device, UtilityBill, DataChangeLog
+from model import Account, Device, UtilityBill, DataChangeLog
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/index", tags=["index"])
@@ -21,14 +21,6 @@ async def index_page(request: Request):
     user_id = request.session.get("user")
     with Session(engine) as session:
         account = session.get(Account, user_id)
-        year_count = session.exec(
-            select(func.count()).select_from(Year).where(Year.account_id == user_id)
-        ).one() or 0
-        source_count = session.exec(
-            select(func.count())
-            .select_from(EmissionSource)
-            .where(EmissionSource.account_id == user_id)
-        ).one() or 0
         device_count = session.exec(
             select(func.count()).select_from(Device)
         ).one() or 0
@@ -47,8 +39,6 @@ async def index_page(request: Request):
             "request": request,
             "user": user_id,
             "account": account,
-            "year_count": year_count,
-            "source_count": source_count,
             "device_count": device_count,
             "bill_count": bill_count,
             "recent_logs": recent_logs,

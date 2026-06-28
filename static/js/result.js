@@ -3,6 +3,8 @@ function getResultData() {
         totalCo2e: 0,
         emissionTypeLabels: [],
         emissionTypeValues: [],
+        deviceLabels: [],
+        deviceValues: [],
     };
 }
 
@@ -19,6 +21,7 @@ const palette = [
 
 let totalChart = null;
 let typeChart = null;
+let deviceChart = null;
 
 function renderCharts() {
     if (typeof window.Chart === "undefined") {
@@ -93,6 +96,49 @@ function renderCharts() {
             },
         },
     });
+
+    // --- 設備排放量橫條圖 ---
+    const deviceCanvas = document.getElementById("deviceBar");
+    if (deviceCanvas) {
+        if (deviceChart) {
+            deviceChart.destroy();
+        }
+        const devLabels = resultData.deviceLabels || [];
+        const devValues = resultData.deviceValues || [];
+        if (devLabels.length > 0) {
+            deviceChart = new window.Chart(deviceCanvas, {
+                type: "bar",
+                data: {
+                    labels: devLabels,
+                    datasets: [{
+                        label: "kg CO₂e",
+                        data: devValues,
+                        backgroundColor: devLabels.map((_, i) => palette[i % palette.length]),
+                        borderWidth: 1,
+                    }],
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.parsed.x} kg CO₂e`,
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: { display: true, text: "kg CO₂e" },
+                        },
+                    },
+                },
+            });
+        }
+    }
 
     return true;
 }
