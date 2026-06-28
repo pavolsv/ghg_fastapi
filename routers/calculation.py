@@ -12,6 +12,7 @@ from audit_log import add_change_log
 from database import engine
 from model import Device, EmissionFactor604, EmissionRecord, DataChangeLog, GWPReference
 from constants.refrigerant_factors import get_rate_by_code
+from routers.emission_source import _derive_device_code_display
 
 router = APIRouter(prefix="/calculation", tags=["calculation"])
 templates = Jinja2Templates(directory="templates")
@@ -162,6 +163,7 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
     device_to_code = {d.id: d.factor_ref_code for d in devices}
     device_emission_type_map = {d.id: d.emission_type for d in devices}
     device_by_id = {d.id: d for d in devices}
+    device_code_map = {d.id: _derive_device_code_display(d) for d in devices}
 
     gwp_refs = session.exec(
         select(GWPReference).order_by(GWPReference.gas_name_zh)
@@ -201,11 +203,20 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
                 gwp_val = _lookup_gwp(session, d.refrigerant_code)
                 gwp_info = {"name": d.refrigerant_code, "gwp": gwp_val}
             rate = get_rate_by_code(d.equipment_category or "") or 0.0
+            from services.emission_calculator import _convert_to_kg
+            raw_activity = float(r.activity_data or 0)
+            activity_unit = r.activity_unit or d.unit or ""
+            try:
+                activity_kg = _convert_to_kg(raw_activity, activity_unit)
+            except ValueError:
+                activity_kg = raw_activity
             calc["type"] = "refrigerant"
             calc["refrigerant_name"] = gwp_info.get("name", d.refrigerant_code)
             calc["gwp_value"] = gwp_info.get("gwp", 0)
             calc["emission_rate"] = rate
-            calc["fill_kg"] = (d.fill_amount or 0) * 1000.0
+            calc["activity_value"] = raw_activity
+            calc["activity_unit"] = activity_unit
+            calc["activity_kg"] = activity_kg
         elif etype == "能源間接排放" or d.factor_ref_code == "ELECTRICITY":
             year = r.factor_year
             factor = session.exec(
@@ -261,6 +272,7 @@ async def calculation_page(request: Request, session: Session = Depends(get_sess
             "device_unit_map": device_unit_map,
             "device_to_code": device_to_code,
             "device_emission_type_map": device_emission_type_map,
+            "device_code_map": device_code_map,
             "factor_detail_map": factor_detail_map,
             "device_calc_info": device_calc_info,
             "record_calc_map": record_calc_map,

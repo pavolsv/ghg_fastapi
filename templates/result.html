@@ -53,10 +53,12 @@
                         <th>排放係數代碼</th>
                         {% if is_combustion %}<th>CO₂ (kg)</th><th>CH₄ (kg)</th><th>N₂O (kg)</th>{% endif %}
                         <th>CO₂e (kg)</th>
+                        <th>佔比</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for dev in et.devices %}
+                    {% set dev_pct = (dev.total_co2e / et.type_total_co2e * 100) if et.type_total_co2e else 0 %}
                     <tr>
                         <td class="cell-device">{{ dev.device_name }}</td>
                         <td class="cell-data">
@@ -74,18 +76,23 @@
                         <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.N2O) if dev.gas_totals.N2O else '-' }}</td>
                         {% endif %}
                         <td class="cell-co2e">{{ "{:,.4f}".format(dev.total_co2e) }}</td>
+                        <td class="cell-pct">
+                            <span class="pct-text">{{ '%.1f' % dev_pct }}%</span>
+                            <span class="pct-bar"><span class="pct-fill" style="width: {{ [dev_pct, 100] | min }}%"></span></span>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr class="type-subtotal">
-                        <td colspan="{{ 7 if is_combustion else 4 }}">{{ et.emission_type }} 小計</td>
+                        <td colspan="3">{{ et.emission_type }} 小計</td>
                         {% if is_combustion %}
                         <td class="cell-gas">{{ "{:,.4f}".format(et.type_gas_totals.CO2) if et.type_gas_totals.CO2 else '-' }}</td>
                         <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.CH4) if et.type_gas_totals.CH4 else '-' }}</td>
                         <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.N2O) if et.type_gas_totals.N2O else '-' }}</td>
                         {% endif %}
                         <td class="cell-co2e">{{ "{:,.4f}".format(et.type_total_co2e) }}</td>
+                        <td class="cell-pct"><span class="pct-text">100%</span></td>
                     </tr>
                 </tfoot>
             </table>
@@ -104,9 +111,15 @@
     <div class="section-title">視覺化摘要</div>
     <div class="result-chart-grid">
         <section class="result-card">
-            <h3>總排放量</h3>
-            <div class="chart-wrap"><canvas id="totalPie"></canvas></div>
-            <p class="result-value">{{ "{:,.4f}".format(total_co2e) }} kg CO₂e</p>
+            <h3>範疇佔比</h3>
+            <div class="chart-wrap"><canvas id="scopeDonut"></canvas></div>
+            <div class="scope-breakdown">
+                {% for label in scope_labels %}
+                    {% set value = scope_values[loop.index0] %}
+                    {% set percent = (value / (scope_values|sum) * 100) if (scope_values|sum) else 0 %}
+                    <div class="pct-row"><span class="pct-label">{{ label }}</span><span class="pct-val">{{ "{:,.2f}".format(value) }} kg ({{ '%.1f' % percent }}%)</span></div>
+                {% endfor %}
+            </div>
         </section>
         <section class="result-card">
             <h3>排放類型比例</h3>
@@ -115,7 +128,7 @@
                 {% for label in emission_type_labels %}
                     {% set value = emission_type_values[loop.index0] %}
                     {% set percent = (value / (emission_type_values|sum) * 100) if (emission_type_values|sum) else 0 %}
-                    <div class="pct-row"><span class="pct-label">{{ label }}</span><span class="pct-val">{{ '%.1f' % percent }}%</span></div>
+                    <div class="pct-row"><span class="pct-label">{{ label }}</span><span class="pct-val">{{ "{:,.2f}".format(value) }} kg ({{ '%.1f' % percent }}%)</span></div>
                 {% endfor %}
             </div>
         </section>
@@ -131,6 +144,8 @@
 <script>
     window.resultPageData = {
         totalCo2e: {{ total_co2e | tojson | safe }},
+        scopeLabels: {{ scope_labels | tojson | safe }},
+        scopeValues: {{ scope_values | tojson | safe }},
         emissionTypeLabels: {{ emission_type_labels | tojson | safe }},
         emissionTypeValues: {{ emission_type_values | tojson | safe }},
         deviceLabels: {{ device_labels | tojson | safe }},

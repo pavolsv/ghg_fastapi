@@ -721,6 +721,9 @@ async def result_page(request: Request, session: Session = Depends(get_session))
     record_count = len(records)
     device_count = len(devices)
 
+    scope_labels = [scope_display[k] for k in scope_order if scope_totals[k] > 0]
+    scope_values = [round(scope_totals[k], 4) for k in scope_order if scope_totals[k] > 0]
+
     # 各設備排放量（供圖表用）
     device_totals_raw: dict[str, float] = {}
     for scope_entry in scope_data:
@@ -746,6 +749,8 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             "emission_type_values": emission_type_values,
             "device_labels": device_labels,
             "device_values": device_values,
+            "scope_labels": scope_labels,
+            "scope_values": scope_values,
         },
     )
 

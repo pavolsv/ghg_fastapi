@@ -13,7 +13,7 @@
    CO2e(kg) = 用電度數 × 當年度電力排放係數
 
 3. 逸散排放（冷媒）：
-   CO2e(kg) = 填充量(kg) × GWP × 設備洩漏率
+    CO2e(kg) = 活動數據(kg) × GWP × 設備洩漏率
 
 結果四捨五入到小數第 4 位（ROUND_HALF_UP）。
 """
@@ -69,6 +69,11 @@ def _round4(value: float) -> float:
     return float(decimal_val.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
 
+def _round10(value: float) -> float:
+    decimal_val = Decimal(str(value))
+    return float(decimal_val.quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))
+
+
 def _normalize_factor_unit(unit: str) -> str:
     u = (unit or "").strip().replace(" ", "").replace("/", "/")
     return u
@@ -100,7 +105,7 @@ def get_factor_604(
     gas_type: str,
     year: Optional[int] = None,
 ) -> Optional[EmissionFactor604]:
-    """查詢官方公告係數。若同條件有多筆，取第一筆。"""
+    """查詢官方公告係數，回傳的 factor_value 四捨五入到小數第 10 位。"""
     query = select(EmissionFactor604).where(
         EmissionFactor604.original_code == original_code,
         EmissionFactor604.emission_type == emission_type,
@@ -110,8 +115,12 @@ def get_factor_604(
         year_query = query.where(EmissionFactor604.year == year)
         result = session.exec(year_query).first()
         if result:
+            result.factor_value = _round10(result.factor_value)
             return result
-    return session.exec(query).first()
+    result = session.exec(query).first()
+    if result:
+        result.factor_value = _round10(result.factor_value)
+    return result
 
 
 def _validate_activity_value(value: float) -> None:
@@ -151,7 +160,6 @@ def calculate_combustion_emission_v2(
             year=year,
         )
         if not factor or factor.factor_value is None:
-            gases[gas] = 0.0
             details["missing"].append(gas)
             details["factors"][gas] = None
             continue
@@ -159,7 +167,7 @@ def calculate_combustion_emission_v2(
         _validate_activity_unit(factor.unit, activity_unit)
 
         emission = activity_value * factor.factor_value
-        gases[gas] = _round4(emission)
+        gases[gas] = emission
         details["factors"][gas] = {
             "factor_value": factor.factor_value,
             "unit": factor.unit,
@@ -240,40 +248,64 @@ def calculate_electricity_emission_v2(
 
 
 def _lookup_gwp(session: Session, refrigerant_code: str) -> float:
-    """從 GWPReference 查詢 GWP 值。"""
+    """從 GWPReference 查詢 GWP 值。找不到時靜默回傳 0。"""
     gwp_ref = session.exec(
         select(GWPReference).where(GWPReference.formula == refrigerant_code)
     ).first()
     if gwp_ref and gwp_ref.gwp_value:
         return float(gwp_ref.gwp_value)
     all_gwps = session.exec(select(GWPReference)).all()
+    code = (refrigerant_code or "").strip()
     for g in all_gwps:
-        name_str = (g.gas_name_zh or "") + " " + (g.gas_name_en or "")
-        if refrigerant_code in name_str:
+        if code and (code == (g.formula or "").strip()
+                     or code == (g.gas_name_zh or "").strip()
+                     or code == (g.gas_name_en or "").strip()):
             return float(g.gwp_value or 0)
     return 0.0
+
+
+def _convert_to_kg(value: float, unit: str) -> float:
+    """將活動數據依單位換算成公斤。僅接受「公斤」「公克」。"""
+    u = (unit or "").strip()
+    if u == "公斤":
+        return value
+    if u == "公克":
+        return value / 1000.0
+    raise ValueError(
+        f"冷媒活動數據單位「{unit or '(空)'}」不支援，僅接受「公斤」或「公克」"
+    )
 
 
 def calculate_refrigerant_emission_v2(
     session: Session,
     refrigerant_code: str,
-    fill_amount_tonnes: float,
-    equipment_category: str,
+    activity_value: float,
+    activity_unit: str = "",
+    equipment_category: str = "",
 ) -> EmissionResult:
-    """冷媒逸散排放計算。"""
-    _validate_activity_value(fill_amount_tonnes)
+    """冷媒逸散排放計算（以活動數據為主）。
+
+    公式: co2e(kg) = activity(kg) × GWP × 洩漏率
+    單位: 僅接受「公斤」或「公克」（內部統一轉成公斤）
+    必填: refrigerant_code、equipment_category
+    靜默: GWP 查不到時 co2e=0
+    """
+    _validate_activity_value(activity_value)
 
     if not refrigerant_code:
         raise ValueError("冷媒代碼不可為空")
 
-    fill_kg = fill_amount_tonnes * 1000.0
+    if not equipment_category:
+        raise ValueError("設備類別不可為空")
+
+    activity_kg = _convert_to_kg(activity_value, activity_unit)
     gwp_value = _lookup_gwp(session, refrigerant_code)
     emission_rate = get_rate_by_code(equipment_category)
 
     if emission_rate is None:
         raise ValueError(f"找不到設備類別「{equipment_category}」的洩漏率")
 
-    co2e = _round4(fill_kg * gwp_value * emission_rate)
+    co2e = _round4(activity_kg * gwp_value * emission_rate)
 
     return EmissionResult(
         co2=0.0,
@@ -282,10 +314,12 @@ def calculate_refrigerant_emission_v2(
         co2e=co2e,
         factor_year=None,
         gwp_version="AR5",
-        activity_unit="公噸",
+        activity_unit=activity_unit or "公斤",
         factor_source="GWPReference",
         details={
-            "fill_kg": fill_kg,
+            "activity_value": activity_value,
+            "activity_unit": activity_unit or "公斤",
+            "activity_kg": activity_kg,
             "gwp_value": gwp_value,
             "emission_rate": emission_rate,
             "refrigerant_code": refrigerant_code,
@@ -308,7 +342,8 @@ def compute_total_co2e_for_device_v2(
         return calculate_refrigerant_emission_v2(
             session=session,
             refrigerant_code=device.refrigerant_code,
-            fill_amount_tonnes=device.fill_amount or 0,
+            activity_value=activity_data,
+            activity_unit=unit,
             equipment_category=device.equipment_category or "",
         )
 

@@ -3,6 +3,8 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from decimal import Decimal, ROUND_HALF_UP
+
 import csv
 from sqlmodel import Session, select
 from database import engine, create_db_and_tables
@@ -20,7 +22,7 @@ def main():
         for r in reader:
             year = r['年度']
             factor = r['電力排碳係數']
-            rows.append((year, float(factor)))
+            rows.append((year, float(Decimal(factor).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))))
 
     with Session(engine) as session:
         # 清除舊的電力資料

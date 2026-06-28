@@ -22,7 +22,6 @@
         <table class="record-table">
             <thead>
             <tr>
-                <th>日期</th>
                 <th>設備名稱</th>
                 <th>排放類型</th>
                 <th>數據 / 單位</th>
@@ -34,8 +33,10 @@
             <tbody>
             {% for r in records %}
             <tr>
-                <td>{{ r.record_date }}</td>
-                <td><strong>{{ device_map.get(r.device_id) }}</strong></td>
+                <td>
+                    <span class="dev-code-prefix" style="color:#0f172a; font-weight:600; font-size:0.85rem; margin-right:6px;">{{ device_code_map.get(r.device_id, '—') }}</span>
+                    <strong>{{ device_map.get(r.device_id) }}</strong>
+                </td>
                 <td>
                     {% set etype = device_emission_type_map.get(r.device_id, "") %}
                     {% if etype == "逸散排放" %}
@@ -56,8 +57,10 @@
                         <summary>計算過程 ({{ code }} / {{ emission_type }})</summary>
                         <div class="detail-box">
                             {% if calc_type == "refrigerant" %}
-                                冷媒計算：填充量 {{ rc.get("fill_kg", 0) }} kg × GWP({{ rc.get("gwp_value", 0) }}) × 洩漏率({{ rc.get("emission_rate", 0) }})<br>
-                                CO₂e = {{ rc.get("fill_kg", 0) }} × {{ rc.get("gwp_value", 0) }} × {{ rc.get("emission_rate", 0) }} = {{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg<br>
+                                冷媒計算：活動數據 {{ rc.get("activity_value", 0) }} {{ rc.get("activity_unit", "") }}
+                                {% if rc.get("activity_unit") == "公克" %}＝ {{ "{:,.4f}".format(rc.get("activity_kg", 0)) }} 公斤{% endif %}
+                                × GWP({{ rc.get("gwp_value", 0) }}) × 洩漏率({{ rc.get("emission_rate", 0) }})<br>
+                                CO₂e = {{ "{:,.4f}".format(rc.get("activity_kg", 0)) }} × {{ rc.get("gwp_value", 0) }} × {{ rc.get("emission_rate", 0) }} = {{ "{:,.4f}".format(rc.get("co2e", 0)) }} kg<br>
                             {% elif calc_type == "electricity" %}
                                 電力計算：活動數據({{ rc.get("activity_unit", "度") }}) × 排放係數<br>
                                 係數年度：{{ rc.get("factor_year", "-") }}，係數：{{ rc.get("factor_value", 0) }} {{ rc.get("factor_unit", "") }}<br>

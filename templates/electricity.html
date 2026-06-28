@@ -307,7 +307,11 @@
                 <label for="edit-target-year">計算年份</label>
                 <select id="edit-target-year"></select>
             </div>
-            <button onclick="saveRecord()">儲存修改</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="editSaveBtn" onclick="saveRecord()">💾 儲存修改</button>
+                <button type="button" onclick="closeModal()" style="background:#6b7280; color:#fff; border:none; border-radius:4px; padding:6px 12px; cursor:pointer;">取消</button>
+                <span id="editSaveResult" style="margin-left: 8px; font-size: 14px;"></span>
+            </div>
         </div>
     </div>
 </div>
@@ -646,17 +650,41 @@
         formData.append('target_usage', newTargetUsage);
         formData.append('device_id', newDeviceId);
 
+        const resultSpan = document.getElementById('editSaveResult');
+        const saveBtn = document.getElementById('editSaveBtn');
+        resultSpan.textContent = '儲存中…';
+        resultSpan.style.color = '#6b7280';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '儲存中…';
+        }
+
         try {
             const resp = await fetch(`/electricity/records/update/${billId}`, { method: 'POST', body: formData });
             const result = await resp.json();
             if (result.success) {
+                resultSpan.textContent = '✓ ' + (result.message || '已更新');
+                resultSpan.style.color = '#059669';
                 await loadRecords();
-                closeModal();
+                setTimeout(() => {
+                    resultSpan.textContent = '';
+                    closeModal();
+                }, 800);
             } else {
-                alert(result.message || '更新失敗');
+                resultSpan.textContent = '✗ ' + (result.message || '更新失敗');
+                resultSpan.style.color = '#dc2626';
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 儲存修改';
+                }
             }
         } catch (e) {
-            alert('更新失敗');
+            resultSpan.textContent = '✗ 網路錯誤';
+            resultSpan.style.color = '#dc2626';
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 儲存修改';
+            }
         }
     }
 

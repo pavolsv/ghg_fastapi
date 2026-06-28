@@ -114,6 +114,9 @@ async def document_manage_page(
                 "device_groups": device_groups,
                 "unassigned": unassigned,
                 "fuel_type_options": FUEL_TYPE_OPTIONS,
+                "device_options": [
+                    {"id": d.id, "name": d.name} for d in devices
+                ],
             },
         )
 

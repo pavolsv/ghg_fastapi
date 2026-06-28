@@ -138,9 +138,9 @@
     font-size: 0.9rem;
 }
 .es-device-row .dev-name { flex: 1; color: #1e293b; font-weight: 500; }
+.es-device-row .dev-code-prefix { color: #0f172a; font-size: 0.82rem; font-weight: 600; width: 70px; flex-shrink: 0; }
 .es-device-row .dev-code { color: #64748b; font-size: 0.82rem; width: 80px; }
 .es-device-row .dev-fuel { color: #6366f1; font-size: 0.82rem; width: 80px; }
-.es-device-row .dev-co2e { color: #059669; font-size: 0.82rem; width: 100px; text-align: right; font-weight: 600; }
 .es-device-row .dev-activity { color: #475569; font-size: 0.82rem; width: 100px; text-align: right; }
 .es-device-del {
     width: 24px; height: 24px;
@@ -251,6 +251,7 @@
                     {% set act = device_activity.get(d.id) %}
                     <div class="es-device-row">
                         <span class="dev-name">{{ d.name }}</span>
+                        <span class="dev-code-prefix" title="設備代碼">{{ device_code_map.get(d.id, '—') }}</span>
                         {% if key == "逸散排放" %}
                         <span class="dev-code">{{ d.equipment_category or '' }}</span>
                         <span class="dev-fuel">{{ d.refrigerant_code }}</span>
@@ -258,7 +259,6 @@
                         <span class="dev-code">{{ d.factor_ref_code }}</span>
                         {% endif %}
                         <span class="dev-activity">{{ "%.4f"|format(act[0]) if act else '-' }} {% if act %}{{ act[1] }}{% endif %}</span>
-                        <span class="dev-co2e">{{ "%.4f"|format(device_co2e.get(d.id, 0)) }} kg</span>
                         <button class="es-device-del" onclick="deleteDevice({{ d.id }})" title="刪除">✕</button>
                     </div>
                     {% endfor %}
@@ -341,16 +341,25 @@ async function submitDevice(category) {
         return;
     }
 
+    let equipValue = '';
+    if (category === '逸散排放') {
+        const equip = document.getElementById('equip_' + category);
+        equipValue = equip ? equip.value : '';
+        if (!equipValue) {
+            alert('請選擇設備類型');
+            if (equip) equip.focus();
+            return;
+        }
+    }
+
     const formData = new FormData();
     formData.append('emission_type', category);
     formData.append('factor_ref_code', code);
     formData.append('name', name);
     formData.append('quantity', 1);
 
-    // 冷媒設備：傳送設備類型
     if (category === '逸散排放') {
-        const equip = document.getElementById('equip_' + category);
-        if (equip) formData.append('equipment_category', equip.value);
+        formData.append('equipment_category', equipValue);
     }
 
     try {

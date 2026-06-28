@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 import os
 from typing import Optional
 from datetime import datetime
@@ -71,7 +73,7 @@ def process_appendix_one(file_path: str, year: int = 2023):
                 "gas_type": str(row["gas"]).strip(),
                 "original_code": raw_m_code,  # 增加此欄位儲存
                 "name": m_name,
-                "factor_value": float(row["value"]),
+                "factor_value": float(Decimal(str(row["value"])).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP)),
                 "unit": str(row["unit"]).strip(),
                 "year": year,
                 "emission_type": category,
@@ -105,7 +107,7 @@ def process_utility_electricity(file_path: str):
             year_val = int(row["年度"])
             # 僅抓取關鍵年份，如 2017-2024
             if 2010 <= year_val <= 2030:
-                factor_val = float(row["電力排碳係數"])
+                factor_val = float(Decimal(str(row["電力排碳係數"])).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))
 
                 rows.append(
                     {
@@ -370,7 +372,7 @@ def _run_import_fuel():
             if not emission_type:
                 continue
             try:
-                factor_value = float(factor_str)
+                factor_value = float(Decimal(factor_str).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))
             except ValueError:
                 continue
             unit = str(unit_raw).strip() if pd.notna(unit_raw) else ""
@@ -416,7 +418,7 @@ def _run_import_electricity():
     with open(CSV_PATH, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for r in reader:
-            rows.append((r["年度"], float(r["電力排碳係數"])))
+            rows.append((r["年度"], float(Decimal(r["電力排碳係數"]).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))))
     with Session(engine) as session:
         for obj in session.exec(select(EmissionFactor604).where(
             EmissionFactor604.original_code == "ELECTRICITY"

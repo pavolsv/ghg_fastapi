@@ -1,6 +1,8 @@
 function getResultData() {
     return window.resultPageData || {
         totalCo2e: 0,
+        scopeLabels: [],
+        scopeValues: [],
         emissionTypeLabels: [],
         emissionTypeValues: [],
         deviceLabels: [],
@@ -19,7 +21,7 @@ const palette = [
     "#BC6C25",
 ];
 
-let totalChart = null;
+let scopeChart = null;
 let typeChart = null;
 let deviceChart = null;
 
@@ -28,40 +30,53 @@ function renderCharts() {
         return false;
     }
 
-    const totalCanvas = document.getElementById("totalPie");
+    const scopeCanvas = document.getElementById("scopeDonut");
     const typeCanvas = document.getElementById("typePie");
-    if (!totalCanvas || !typeCanvas) {
+    if (!scopeCanvas && !typeCanvas) {
         return false;
     }
 
     const resultData = getResultData();
 
-    if (totalChart) {
-        totalChart.destroy();
-    }
-    totalChart = new window.Chart(totalCanvas, {
-        type: "pie",
-        data: {
-            labels: ["總排放量"],
-            datasets: [
-                {
-                    data: [Math.max(Number(resultData.totalCo2e || 0), 0)],
-                    backgroundColor: [palette[0]],
-                    borderWidth: 1,
-                },
-            ],
-        },
-        options: {
-            plugins: {
-                legend: { display: true, position: "bottom" },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `${context.label}: ${context.formattedValue} kg CO₂e`,
+    if (scopeCanvas) {
+        if (scopeChart) {
+            scopeChart.destroy();
+        }
+        const sLabels = resultData.scopeLabels || [];
+        const sValues = resultData.scopeValues || [];
+        const scopeColors = ["#059669", "#2563eb"];
+        if (sLabels.length === 0) {
+            sLabels.push("暫無資料");
+            sValues.push(1);
+        }
+        scopeChart = new window.Chart(scopeCanvas, {
+            type: "doughnut",
+            data: {
+                labels: sLabels,
+                datasets: [{
+                    data: sValues,
+                    backgroundColor: sLabels.map((_, i) => scopeColors[i % scopeColors.length]),
+                    borderWidth: 2,
+                    borderColor: "#ffffff",
+                }],
+            },
+            options: {
+                cutout: "55%",
+                plugins: {
+                    legend: { position: "bottom" },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                return `${ctx.label}: ${ctx.formattedValue} kg CO₂e (${pct}%)`;
+                            },
+                        },
                     },
                 },
             },
-        },
-    });
+        });
+    }
 
     const labels = [...(resultData.emissionTypeLabels || [])];
     const values = [...(resultData.emissionTypeValues || [])];
@@ -70,34 +85,38 @@ function renderCharts() {
         values.push(1);
     }
 
-    if (typeChart) {
-        typeChart.destroy();
-    }
-    typeChart = new window.Chart(typeCanvas, {
-        type: "pie",
-        data: {
-            labels,
-            datasets: [
-                {
+    if (typeCanvas) {
+        if (typeChart) {
+            typeChart.destroy();
+        }
+        typeChart = new window.Chart(typeCanvas, {
+            type: "pie",
+            data: {
+                labels,
+                datasets: [{
                     data: values,
                     backgroundColor: labels.map((_, index) => palette[index % palette.length]),
-                    borderWidth: 1,
-                },
-            ],
-        },
-        options: {
-            plugins: {
-                legend: { position: "bottom" },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `${context.label}: ${context.formattedValue} kg CO₂e`,
+                    borderWidth: 2,
+                    borderColor: "#ffffff",
+                }],
+            },
+            options: {
+                plugins: {
+                    legend: { position: "bottom" },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                return `${ctx.label}: ${ctx.formattedValue} kg CO₂e (${pct}%)`;
+                            },
+                        },
                     },
                 },
             },
-        },
-    });
+        });
+    }
 
-    // --- 設備排放量橫條圖 ---
     const deviceCanvas = document.getElementById("deviceBar");
     if (deviceCanvas) {
         if (deviceChart) {
@@ -106,6 +125,8 @@ function renderCharts() {
         const devLabels = resultData.deviceLabels || [];
         const devValues = resultData.deviceValues || [];
         if (devLabels.length > 0) {
+            const barHeight = Math.max(280, devLabels.length * 40);
+            deviceCanvas.parentElement.style.height = barHeight + "px";
             deviceChart = new window.Chart(deviceCanvas, {
                 type: "bar",
                 data: {
@@ -115,6 +136,7 @@ function renderCharts() {
                         data: devValues,
                         backgroundColor: devLabels.map((_, i) => palette[i % palette.length]),
                         borderWidth: 1,
+                        borderRadius: 4,
                     }],
                 },
                 options: {
@@ -125,14 +147,22 @@ function renderCharts() {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: (ctx) => `${ctx.parsed.x} kg CO₂e`,
+                                label: (ctx) => `${ctx.parsed.x.toLocaleString()} kg CO₂e`,
                             },
                         },
                     },
                     scales: {
                         x: {
                             beginAtZero: true,
-                            title: { display: true, text: "kg CO₂e" },
+                            title: { display: true, text: "kg CO₂e", font: { weight: "bold" } },
+                            ticks: {
+                                callback: (v) => v.toLocaleString(),
+                            },
+                        },
+                        y: {
+                            ticks: {
+                                font: { size: 12 },
+                            },
                         },
                     },
                 },
@@ -160,7 +190,7 @@ function waitForChartLibrary(onReady, retry = 0) {
 }
 
 function initResultPage() {
-    const hasResultCanvas = !!document.getElementById("totalPie") || !!document.getElementById("typePie");
+    const hasResultCanvas = !!document.getElementById("scopeDonut") || !!document.getElementById("typePie");
     if (!hasResultCanvas) {
         return;
     }

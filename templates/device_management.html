@@ -11,7 +11,7 @@
 
     <div class="device-card device-toolbar">
         <button type="button" class="btn-add" onclick="openDeviceModal()">＋ 新增排放源</button>
-        <button type="button" class="btn-add" style="background: linear-gradient(135deg, #10b981, #059669);" onclick="openRefrigerantModal()">＋ 新增冷媒設備</button>
+        <a href="/emission-source/?cat=逸散排放" class="btn-add" style="background: linear-gradient(135deg, #10b981, #059669); text-decoration: none; display: inline-flex; align-items: center;">＋ 新增冷媒設備</a>
     </div>
 
     <div class="device-card" style="padding: 0; overflow: hidden;">
@@ -157,61 +157,6 @@
     </div>
 </div>
 
-<!-- 新增冷媒設備 Modal -->
-<div id="refrigerantModal" class="factor-modal hidden">
-    <div class="factor-modal-content">
-        <div class="factor-modal-header">
-            <h3>新增冷媒設備</h3>
-            <button type="button" id="refrigerantModalClose" class="factor-modal-close">&times;</button>
-        </div>
-        <form class="factor-form" id="refrigerantForm" onsubmit="event.preventDefault(); submitRefrigerant();">
-            <div class="factor-form-grid">
-                <div class="factor-form-group">
-                    <label>設備編號</label>
-                    <input type="text" id="refDeviceNumber" class="factor-input" placeholder="如：RF01">
-                </div>
-                <div class="factor-form-group">
-                    <label>設備名稱 <span class="required">*</span></label>
-                    <input type="text" id="refDeviceName" class="factor-input" placeholder="如：會議室冷氣機" required>
-                </div>
-                <div class="factor-form-group">
-                    <label>設備類型（附表六）<span class="required">*</span></label>
-                    <select id="refCategory" class="factor-input" required>
-                        <option value="">請選擇設備類型</option>
-                    </select>
-                </div>
-                <div class="factor-form-group">
-                    <label>冷媒 <span class="required">*</span></label>
-                    <select id="refGas" class="factor-input" required>
-                        <option value="">請選擇冷媒</option>
-                    </select>
-                </div>
-                <div class="factor-form-group">
-                    <label>填充量 <span class="required">*</span></label>
-                    <input type="number" id="refFillAmount" class="factor-input" step="0.01" min="0" placeholder="輸入數量" required>
-                </div>
-                <div class="factor-form-group">
-                    <label>單位 <span class="required">*</span></label>
-                    <select id="refFillUnit" class="factor-input" required>
-                        <option value="公斤" selected>公斤 (kg)</option>
-                        <option value="公克">公克 (g)</option>
-                        <option value="公噸">公噸 (t)</option>
-                    </select>
-                </div>
-                <div class="factor-form-group">
-                    <label>設備位置</label>
-                    <input type="text" id="refLocation" class="factor-input" placeholder="如：A棟3F">
-                </div>
-            </div>
-            <div id="refPreview" style="margin-top:12px; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:13px; display:none;"></div>
-            <div class="factor-form-footer">
-                <button type="submit" class="btn-fm-save">新增</button>
-                <button type="button" id="refrigerantModalCancel" class="btn-fm-cancel">取消</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
     const factorOptionsRaw = {{ factor_options_json | tojson | safe }};
     const factorOptions = Array.isArray(factorOptionsRaw) ? factorOptionsRaw : [];
@@ -291,130 +236,11 @@
         document.getElementById('deviceModal').classList.add('hidden');
     }
 
-    // ========== 冷媒設備 Modal ==========
-    let refCategories = [];
-    let refGases = [];
-
-    function openRefrigerantModal() {
-        document.getElementById('refrigerantModal').classList.remove('hidden');
-        loadRefrigerantOptions();
-    }
-    function closeRefrigerantModal() {
-        document.getElementById('refrigerantModal').classList.add('hidden');
-        document.getElementById('refrigerantForm').reset();
-        document.getElementById('refPreview').style.display = 'none';
-    }
-
-    async function loadRefrigerantOptions() {
-        try {
-            const [catRes, gasRes] = await Promise.all([
-                fetch('/devices/api/refrigerant_categories'),
-                fetch('/devices/api/refrigerant_gases')
-            ]);
-            const catData = await catRes.json();
-            const gasData = await gasRes.json();
-
-            refCategories = catData.success ? catData.data : [];
-            refGases = gasData.success ? gasData.data : [];
-
-            const catSel = document.getElementById('refCategory');
-            catSel.innerHTML = '<option value="">請選擇設備類型</option>';
-            refCategories.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.code;
-                opt.text = c.code + ' ' + c.name + '（' + (c.rate * 100).toFixed(1) + '%）';
-                catSel.appendChild(opt);
-            });
-
-            const gasSel = document.getElementById('refGas');
-            gasSel.innerHTML = '<option value="">請選擇冷媒</option>';
-            refGases.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.code;
-                opt.text = g.name + '（' + g.code + '）';
-                gasSel.appendChild(opt);
-            });
-        } catch (e) {
-            console.error('載入冷媒選項失敗:', e);
-        }
-    }
-
-    function updateRefPreview() {
-        const catCode = document.getElementById('refCategory').value;
-        const gasCode = document.getElementById('refGas').value;
-        const amount = parseFloat(document.getElementById('refFillAmount').value);
-        const unit = document.getElementById('refFillUnit').value;
-        const preview = document.getElementById('refPreview');
-
-        if (!catCode && !gasCode) { preview.style.display = 'none'; return; }
-
-        const catInfo = refCategories.find(c => c.code === catCode);
-        const gasInfo = refGases.find(g => g.code === gasCode);
-        let html = '';
-        if (catInfo) html += '設備類型：' + catInfo.name + '（年洩漏率 ' + (catInfo.rate * 100).toFixed(1) + '%）<br>';
-        if (gasInfo) html += '冷媒：' + gasInfo.name + '（GWP = ' + gasInfo.gwp + '）<br>';
-        if (amount > 0 && unit) {
-            let tons;
-            if (unit === '公克') {
-                tons = amount / 1000000;
-            } else if (unit === '公斤') {
-                tons = amount / 1000;
-            } else if (unit === '公噸') {
-                tons = amount;
-            } else {
-                tons = amount / 1000;
-            }
-            html += '換算：' + amount + ' ' + unit + ' = ' + tons.toFixed(6) + ' 公噸';
-        }
-        preview.style.display = html ? 'block' : 'none';
-        preview.innerHTML = html;
-    }
-
-    async function submitRefrigerant() {
-        const payload = {
-            name: document.getElementById('refDeviceName').value.trim(),
-            device_number: document.getElementById('refDeviceNumber').value.trim() || null,
-            equipment_category: document.getElementById('refCategory').value,
-            refrigerant_code: document.getElementById('refGas').value,
-            fill_amount: parseFloat(document.getElementById('refFillAmount').value),
-            fill_unit: document.getElementById('refFillUnit').value,
-            location: document.getElementById('refLocation').value.trim() || null,
-        };
-
-        if (!payload.name || !payload.equipment_category || !payload.refrigerant_code || isNaN(payload.fill_amount) || payload.fill_amount <= 0) {
-            alert('請填寫所有必填欄位（設備名稱、設備類型、冷媒、填充量）');
-            return;
-        }
-
-        try {
-            const res = await fetch('/devices/refrigerant', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-            if (result.success) {
-                closeRefrigerantModal();
-                if (typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/devices/', '#main-content');
-                } else {
-                    location.reload();
-                }
-            } else {
-                alert(result.message || '新增失敗');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('系統錯誤');
-        }
-    }
-
     // ========== 事件綁定 ==========
     document.addEventListener('DOMContentLoaded', function() {
         try {
             populateEmissionTypes();
 
-            // 排放源 Modal
             const closeBtn = document.getElementById('deviceModalClose');
             const cancelBtn = document.getElementById('deviceModalCancel');
             const modal = document.getElementById('deviceModal');
@@ -431,21 +257,6 @@
             if (dn) dn.addEventListener('input', updateSubmitState);
             filterFuelOptions();
             updateSubmitState();
-
-            // 冷媒設備 Modal
-            const refClose = document.getElementById('refrigerantModalClose');
-            const refCancel = document.getElementById('refrigerantModalCancel');
-            const refMod = document.getElementById('refrigerantModal');
-            if (refClose) refClose.addEventListener('click', closeRefrigerantModal);
-            if (refCancel) refCancel.addEventListener('click', closeRefrigerantModal);
-            if (refMod) refMod.addEventListener('click', e => { if (e.target === refMod) closeRefrigerantModal(); });
-
-            // 預覽
-            ['refCategory', 'refGas', 'refFillAmount', 'refFillUnit'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('change', updateRefPreview);
-                if (el) el.addEventListener('input', updateRefPreview);
-            });
         } catch (e) {
             console.error('Init error:', e);
         }

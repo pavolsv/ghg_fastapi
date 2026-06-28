@@ -2,6 +2,7 @@
 冷媒設備排放係數對照表（來自 6.0.4 Sheet 8，取 IPCC 範圍中間值）
 固定排放係數 = 年設備洩漏率（作為逸散排放計算用）
 """
+from typing import Optional
 
 REFRIGERANT_EQUIPMENT = {
     "4090": {"name": "移動式空氣清靜機", "rate": 0.15},
@@ -22,8 +23,11 @@ def get_refrigerant_categories():
     ]
 
 
-def get_rate_by_code(code: str) -> float:
-    return REFRIGERANT_EQUIPMENT.get(code, {}).get("rate", 0.0)
+def get_rate_by_code(code: str) -> Optional[float]:
+    val = REFRIGERANT_EQUIPMENT.get(code, {}).get("rate")
+    if val is None:
+        return None
+    return float(val)
 
 
 def get_name_by_code(code: str) -> str:

@@ -93,11 +93,20 @@
         </div>
         <div class="fuel-group-body">
             {% for b in g.bills %}
-            <div class="fuel-row">
+            <div class="fuel-row" id="fuelBill_{{ b.id }}"
+                 data-id="{{ b.id }}"
+                 data-fuel-type="{{ b.fuel_type or '' }}"
+                 data-usage-amount="{{ b.usage_amount }}"
+                 data-unit="{{ b.unit }}"
+                 data-fuel-date="{{ b.period_start }}"
+                 data-device-id="{{ d.id }}"
+                 data-note="{{ b.note or '' }}">
                 <span class="fuel-date">{{ b.period_start }}</span>
                 <span class="fuel-type" style="color:#475569;width:60px;">{{ b.fuel_type or '' }}</span>
                 <span class="fuel-amt">{{ '%.2f' % b.usage_amount }}</span>
                 <span class="fuel-unit">{{ b.unit }}</span>
+                <button type="button" class="fuel-edit" onclick="openFuelEditModal({{ b.id }})"
+                        style="border:none; background:transparent; color:#6366f1; cursor:pointer; font-size:13px; margin-left:4px;">✎</button>
                 <form action="/documents/delete/{{ b.id }}" method="post" style="display:inline;">
                     <input type="hidden" name="bill_type" value="fuel">
                     <button class="fuel-del" onclick="return confirm('確定刪除？')">✕</button>
@@ -123,11 +132,20 @@
         </div>
         <div class="fuel-group-body">
             {% for b in unassigned %}
-            <div class="fuel-row">
+            <div class="fuel-row" id="fuelBill_{{ b.id }}"
+                 data-id="{{ b.id }}"
+                 data-fuel-type="{{ b.fuel_type or '' }}"
+                 data-usage-amount="{{ b.usage_amount }}"
+                 data-unit="{{ b.unit }}"
+                 data-fuel-date="{{ b.period_start }}"
+                 data-device-id=""
+                 data-note="{{ b.note or '' }}">
                 <span class="fuel-date">{{ b.period_start }}</span>
                 <span class="fuel-type" style="color:#475569;width:60px;">{{ b.fuel_type or '' }}</span>
                 <span class="fuel-amt">{{ '%.2f' % b.usage_amount }}</span>
                 <span class="fuel-unit">{{ b.unit }}</span>
+                <button type="button" class="fuel-edit" onclick="openFuelEditModal({{ b.id }})"
+                        style="border:none; background:transparent; color:#6366f1; cursor:pointer; font-size:13px; margin-left:4px;">✎</button>
                 <form action="/documents/delete/{{ b.id }}" method="post" style="display:inline;">
                     <input type="hidden" name="bill_type" value="fuel">
                     <button class="fuel-del" onclick="return confirm('確定刪除？')">✕</button>
@@ -194,7 +212,129 @@ function openFuelModal(deviceId, deviceName) {
 function closeFuelModal() {
     document.getElementById('fuelModal').classList.remove('open');
 }
+
+function openFuelEditModal(billId) {
+    const row = document.getElementById('fuelBill_' + billId);
+    if (!row) return;
+    document.getElementById('fuelEditId').value = billId;
+    document.getElementById('fuelEditFuel').value = row.dataset.fuelType || '';
+    document.getElementById('fuelEditDate').value = row.dataset.fuelDate || '';
+    document.getElementById('fuelEditUsage').value = row.dataset.usageAmount || '';
+    document.getElementById('fuelEditUnit').value = row.dataset.unit || '公升';
+    document.getElementById('fuelEditNote').value = row.dataset.note || '';
+    const deviceSelect = document.getElementById('fuelEditDevice');
+    deviceSelect.value = row.dataset.deviceId || '';
+    const result = document.getElementById('fuelEditResult');
+    result.textContent = '';
+    const saveBtn = document.getElementById('fuelEditSaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 儲存修改';
+    document.getElementById('fuelEditModal').classList.add('open');
+}
+function closeFuelEditModal() {
+    document.getElementById('fuelEditModal').classList.remove('open');
+}
+async function submitFuelEdit(event) {
+    event.preventDefault();
+    const id = document.getElementById('fuelEditId').value;
+    const fuelType = document.getElementById('fuelEditFuel').value;
+    const fuelDate = document.getElementById('fuelEditDate').value;
+    const usage = document.getElementById('fuelEditUsage').value;
+    const unit = document.getElementById('fuelEditUnit').value;
+    const deviceId = document.getElementById('fuelEditDevice').value;
+    const note = document.getElementById('fuelEditNote').value;
+
+    if (!id || !fuelType || !fuelDate || !usage) {
+        alert('請填寫所有必填欄位');
+        return false;
+    }
+
+    const result = document.getElementById('fuelEditResult');
+    const saveBtn = document.getElementById('fuelEditSaveBtn');
+    result.textContent = '儲存中…';
+    result.style.color = '#6b7280';
+    saveBtn.disabled = true;
+    saveBtn.textContent = '儲存中…';
+
+    const formData = new FormData();
+    formData.append('bill_type', 'fuel');
+    formData.append('fuel_type', fuelType);
+    formData.append('fuel_date', fuelDate);
+    formData.append('usage_amount', usage);
+    formData.append('unit', unit);
+    formData.append('device_id', deviceId || 0);
+    formData.append('note', note);
+
+    try {
+        const resp = await fetch('/documents/update/' + id, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+        const data = await resp.json();
+        if (data.success) {
+            result.textContent = '✓ ' + (data.bill ? '已更新' : '已更新');
+            result.style.color = '#059669';
+            setTimeout(() => location.reload(), 800);
+        } else {
+            result.textContent = '✗ ' + (data.message || '更新失敗');
+            result.style.color = '#dc2626';
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 儲存修改';
+        }
+    } catch (e) {
+        result.textContent = '✗ 網路錯誤';
+        result.style.color = '#dc2626';
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 儲存修改';
+    }
+    return false;
+}
 </script>
+
+<!-- 編輯加油單據 Modal -->
+<div class="fuel-modal" id="fuelEditModal">
+    <div class="fuel-modal-content">
+        <h3>編輯加油紀錄</h3>
+        <form onsubmit="return submitFuelEdit(event)">
+            <input type="hidden" id="fuelEditId" value="">
+
+            <label>設備</label>
+            <select id="fuelEditDevice">
+                <option value="">— 未掛載 —</option>
+                {% for dev in device_options %}
+                <option value="{{ dev.id }}">{{ dev.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label>燃料</label>
+            <select id="fuelEditFuel" required>
+                <option value="">請選擇</option>
+                {% for ft in fuel_type_options %}
+                <option value="{{ ft }}">{{ ft }}</option>
+                {% endfor %}
+            </select>
+
+            <label>日期</label>
+            <input type="date" id="fuelEditDate" required>
+
+            <label>公升數</label>
+            <input type="number" step="0.01" id="fuelEditUsage" required>
+
+            <label>單位</label>
+            <input type="text" id="fuelEditUnit" value="公升" required>
+
+            <label>備註</label>
+            <input type="text" id="fuelEditNote" placeholder="可留空">
+
+            <div class="fuel-modal-actions">
+                <button type="submit" id="fuelEditSaveBtn" class="btn-save">💾 儲存修改</button>
+                <button type="button" class="btn-cancel" onclick="closeFuelEditModal()">取消</button>
+            </div>
+            <div id="fuelEditResult" style="margin-top:8px; font-size:13px;"></div>
+        </form>
+    </div>
+</div>
 
 {% else %}
 {# 電費/水費維持原狀 #}
@@ -223,7 +363,16 @@ function closeFuelModal() {
             </thead>
             <tbody id="billsTableBody">
             {% for bill in bills %}
-            <tr data-bill-id="{{ bill.id }}" data-month="{{ bill.bill_month }}">
+            <tr data-bill-id="{{ bill.id }}" data-month="{{ bill.bill_month }}"
+                id="billRow_{{ bill.id }}"
+                data-id="{{ bill.id }}"
+                data-bill-month="{{ bill.bill_month }}"
+                data-period-start="{{ bill.period_start }}"
+                data-period-end="{{ bill.period_end }}"
+                data-usage-amount="{{ bill.usage_amount }}"
+                data-unit="{{ bill.unit }}"
+                data-device-id="{{ bill.device_id or '' }}"
+                data-note="{{ bill.note or '' }}">
                 <td class="col-bill-month">{{ bill.bill_month }}</td>
                 <td class="col-period">{{ bill.period_start }} ~ {{ bill.period_end }}</td>
                 <td class="col-usage">{{ bill.usage_amount }}</td>
@@ -238,6 +387,8 @@ function closeFuelModal() {
                 </td>
                 <td class="col-note">{{ bill.note or '-' }}</td>
                 <td>
+                    <button type="button" class="btn-edit" onclick="openBillEditModal({{ bill.id }})"
+                            style="background:#6366f1; color:#fff; border:none; border-radius:4px; padding:4px 10px; margin-right:4px; cursor:pointer;">編輯</button>
                     <form action="/documents/delete/{{ bill.id }}" method="post" style="display:inline;" onsubmit="return confirm('確定刪除？')">
                         <input type="hidden" name="bill_type" value="{{ bill_type }}">
                         <button type="submit" class="btn-delete">刪除</button>
@@ -307,5 +458,155 @@ function closeFuelModal() {
 </div>
 
 <script src="/static/js/document_management.js"></script>
+
+<!-- 編輯電費單 Modal -->
+<div id="billEditModal" class="modal-overlay" style="display:none;" onclick="onEditOverlayClick(event)">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;">編輯{{ bill_title }}</h3>
+            <button type="button" class="close-btn" onclick="closeBillEditModal()">×</button>
+        </div>
+        <form onsubmit="return submitBillEdit(event)" class="form-grid">
+            <input type="hidden" id="billEditId" value="">
+
+            <div class="form-group">
+                <label>掛載設備</label>
+                <select id="billEditDevice" class="ui-select">
+                    <option value="0">— 不掛載設備 —</option>
+                    {% for d in device_options %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>收據月份</label>
+                <input type="month" id="billEditMonth" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間起日</label>
+                <input type="date" id="billEditStart" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>期間迄日</label>
+                <input type="date" id="billEditEnd" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>用量</label>
+                <input type="number" id="billEditUsage" step="0.01" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>單位</label>
+                <input type="text" id="billEditUnit" class="ui-input" required>
+            </div>
+
+            <div class="form-group">
+                <label>備註</label>
+                <input type="text" id="billEditNote" class="ui-input" placeholder="可留空">
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="submit" id="billEditSaveBtn" class="btn-add">💾 儲存修改</button>
+                <button type="button" onclick="closeBillEditModal()" class="btn-add" style="background:#6b7280;">取消</button>
+                <span id="billEditResult" style="margin-left: 8px; font-size: 14px;"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openBillEditModal(billId) {
+    const row = document.getElementById('billRow_' + billId);
+    if (!row) return;
+    document.getElementById('billEditId').value = billId;
+    document.getElementById('billEditMonth').value = row.dataset.billMonth || '';
+    document.getElementById('billEditStart').value = row.dataset.periodStart || '';
+    document.getElementById('billEditEnd').value = row.dataset.periodEnd || '';
+    document.getElementById('billEditUsage').value = row.dataset.usageAmount || '';
+    document.getElementById('billEditUnit').value = row.dataset.unit || '{{ default_unit }}';
+    document.getElementById('billEditDevice').value = row.dataset.deviceId || '0';
+    document.getElementById('billEditNote').value = row.dataset.note || '';
+    const result = document.getElementById('billEditResult');
+    result.textContent = '';
+    const saveBtn = document.getElementById('billEditSaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 儲存修改';
+    document.getElementById('billEditModal').style.display = 'flex';
+}
+function closeBillEditModal() {
+    document.getElementById('billEditModal').style.display = 'none';
+}
+function onEditOverlayClick(e) {
+    if (e.target === document.getElementById('billEditModal')) {
+        closeBillEditModal();
+    }
+}
+async function submitBillEdit(event) {
+    event.preventDefault();
+    const id = document.getElementById('billEditId').value;
+    const billMonth = document.getElementById('billEditMonth').value;
+    const start = document.getElementById('billEditStart').value;
+    const end = document.getElementById('billEditEnd').value;
+    const usage = document.getElementById('billEditUsage').value;
+    const unit = document.getElementById('billEditUnit').value;
+    const deviceId = document.getElementById('billEditDevice').value;
+    const note = document.getElementById('billEditNote').value;
+
+    if (!id || !billMonth || !start || !end || !usage || !unit) {
+        alert('請填寫所有必填欄位');
+        return false;
+    }
+    if (new Date(end) < new Date(start)) {
+        alert('結束日期不能早於起始日期');
+        return false;
+    }
+
+    const result = document.getElementById('billEditResult');
+    const saveBtn = document.getElementById('billEditSaveBtn');
+    result.textContent = '儲存中…';
+    result.style.color = '#6b7280';
+    saveBtn.disabled = true;
+    saveBtn.textContent = '儲存中…';
+
+    const formData = new FormData();
+    formData.append('bill_type', '{{ bill_type }}');
+    formData.append('bill_month', billMonth);
+    formData.append('period_start', start);
+    formData.append('period_end', end);
+    formData.append('usage_amount', usage);
+    formData.append('unit', unit);
+    formData.append('device_id', deviceId);
+    formData.append('note', note);
+
+    try {
+        const resp = await fetch('/documents/update/' + id, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+        const data = await resp.json();
+        if (data.success) {
+            result.textContent = '✓ 已更新';
+            result.style.color = '#059669';
+            setTimeout(() => location.reload(), 800);
+        } else {
+            result.textContent = '✗ ' + (data.message || '更新失敗');
+            result.style.color = '#dc2626';
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 儲存修改';
+        }
+    } catch (e) {
+        result.textContent = '✗ 網路錯誤';
+        result.style.color = '#dc2626';
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 儲存修改';
+    }
+    return false;
+}
+</script>
 {% endif %}
 {% endblock %}

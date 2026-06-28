@@ -102,6 +102,14 @@ def _generate_device_code(session, emission_type: str) -> str:
     return f"{prefix}{n:0{digits}d}"
 
 
+def _derive_device_code_display(device: Device) -> str:
+    """顯示用：優先用 device.device_code，否則以 PREFIX_MAP + id 推導。"""
+    if device.device_code:
+        return device.device_code
+    prefix, digits = PREFIX_MAP.get(device.emission_type, ("XX", 2))
+    return f"{prefix}{device.id:0{digits}d}"
+
+
 @router.get("/", response_class=HTMLResponse)
 async def emission_source_home(request: Request):
     with Session(engine) as session:
@@ -113,15 +121,15 @@ async def emission_source_home(request: Request):
             select(Device).order_by(col(Device.id).desc())
         ).all()
         device_groups: dict[str, list] = {}
+        device_code_map: dict[int, str] = {}
         for d in all_devices:
             device_groups.setdefault(d.emission_type, []).append(d)
+            device_code_map[d.id] = _derive_device_code_display(d)
 
-        # 各設備排放量 + 活動數據查詢
+        # 各設備活動數據查詢
         records = session.exec(select(EmissionRecord)).all()
-        device_co2e: dict[int, float] = {}
         device_activity: dict[int, tuple[float, str]] = {}
         for r in records:
-            device_co2e[r.device_id] = device_co2e.get(r.device_id, 0) + float(r.total_co2e or 0)
             if r.activity_data:
                 device_activity[r.device_id] = (float(r.activity_data), r.unit or "")
 
@@ -135,8 +143,8 @@ async def emission_source_home(request: Request):
             "category_fuels": category_fuels,
             "device_groups": device_groups,
             "equipment_types": equipment_types,
-            "device_co2e": device_co2e,
             "device_activity": device_activity,
+            "device_code_map": device_code_map,
         },
     )
 
@@ -155,9 +163,12 @@ async def create_emission_source(request: Request):
     if not name or not emission_type or not factor_ref_code:
         return RedirectResponse(url=f"/emission-source/", status_code=303)
 
+    if emission_type == "逸散排放" and not equipment_category:
+        return RedirectResponse(url=f"/emission-source/?cat={emission_type}", status_code=303)
+
     with Session(engine) as session:
         if emission_type == "逸散排放":
-            device_unit = "公噸"
+            device_unit = "公斤"
         elif emission_type == "能源間接排放":
             device_unit = "度"
         else:

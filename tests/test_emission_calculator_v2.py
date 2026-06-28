@@ -214,7 +214,8 @@ def test_calculate_refrigerant(session):
     result = calculate_refrigerant_emission_v2(
         session=session,
         refrigerant_code="R-134a",
-        fill_amount_tonnes=0.005,  # 5 公斤
+        activity_value=5.0,
+        activity_unit="公斤",
         equipment_category="4097",  # 家用冷凍冷藏裝備，洩漏率 0.003
     )
 
@@ -222,6 +223,109 @@ def test_calculate_refrigerant(session):
     assert result.co2e == pytest.approx(21.45, abs=1e-4)
     assert result.details["gwp_value"] == 1430.0
     assert result.details["emission_rate"] == 0.003
+    assert result.activity_unit == "公斤"
+
+
+def test_calculate_refrigerant_missing_equipment_category_raises(session):
+    session.add(
+        GWPReference(
+            formula="R-134a",
+            gas_name_zh="四氟乙烷",
+            gas_name_en="HFC-134a",
+            gwp_value=1430.0,
+        )
+    )
+    session.commit()
+
+    with pytest.raises(ValueError, match="設備類別"):
+        calculate_refrigerant_emission_v2(
+            session=session,
+            refrigerant_code="R-134a",
+            activity_value=5.0,
+            activity_unit="公斤",
+            equipment_category="",
+        )
+
+
+def test_calculate_refrigerant_unknown_category_raises(session):
+    session.add(
+        GWPReference(
+            formula="R-134a",
+            gas_name_zh="四氟乙烷",
+            gas_name_en="HFC-134a",
+            gwp_value=1430.0,
+        )
+    )
+    session.commit()
+
+    with pytest.raises(ValueError, match="找不到設備類別"):
+        calculate_refrigerant_emission_v2(
+            session=session,
+            refrigerant_code="R-134a",
+            activity_value=5.0,
+            activity_unit="公斤",
+            equipment_category="9999",
+        )
+
+
+def test_calculate_refrigerant_unit_gram_converts_to_kg(session):
+    session.add(
+        GWPReference(
+            formula="R-134a",
+            gas_name_zh="四氟乙烷",
+            gas_name_en="HFC-134a",
+            gwp_value=1430.0,
+        )
+    )
+    session.commit()
+
+    result = calculate_refrigerant_emission_v2(
+        session=session,
+        refrigerant_code="R-134a",
+        activity_value=5000.0,
+        activity_unit="公克",
+        equipment_category="4097",
+    )
+
+    assert result.details["activity_kg"] == pytest.approx(5.0, abs=1e-6)
+    assert result.co2e == pytest.approx(21.45, abs=1e-4)
+    assert result.activity_unit == "公克"
+
+
+def test_calculate_refrigerant_invalid_unit_raises(session):
+    session.add(
+        GWPReference(
+            formula="R-134a",
+            gas_name_zh="四氟乙烷",
+            gas_name_en="HFC-134a",
+            gwp_value=1430.0,
+        )
+    )
+    session.commit()
+
+    with pytest.raises(ValueError, match="單位"):
+        calculate_refrigerant_emission_v2(
+            session=session,
+            refrigerant_code="R-134a",
+            activity_value=5.0,
+            activity_unit="公噸",
+            equipment_category="4097",
+        )
+
+
+def test_calculate_refrigerant_gwp_missing_returns_zero_silent(session):
+    session.commit()
+
+    result = calculate_refrigerant_emission_v2(
+        session=session,
+        refrigerant_code="R-XXX",
+        activity_value=5.0,
+        activity_unit="公斤",
+        equipment_category="4097",
+    )
+
+    assert result.co2e == 0.0
+    assert result.details["gwp_value"] == 0.0
 
 
 def test_compute_total_co2e_for_device_combustion(session):

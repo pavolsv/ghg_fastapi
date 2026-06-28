@@ -8,17 +8,12 @@ from datetime import datetime
 
 from audit_log import add_change_log
 from database import engine
-from model import AppendixReference, Device, EmissionFactor604, EmissionRecord, GWPReference
-from constants.refrigerant_factors import (
-    get_refrigerant_categories,
-    get_name_by_code,
-    get_rate_by_code,
-    REFRIGERANT_EQUIPMENT,
-)
+from model import AppendixReference, Device, EmissionFactor604, EmissionRecord
 from services.emission_calculator import (
     EmissionResult,
     compute_total_co2e_for_device_v2,
     parse_activity_unit,
+    _round4,
 )
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -49,21 +44,6 @@ def _compute_emission(
 
 def _norm_text(value: object) -> str:
     return str(value or "").strip()
-
-
-import re
-
-def _extract_refrigerant_aliases(gwp_ref) -> list[str]:
-    aliases = []
-    name_zh = (gwp_ref.gas_name_zh or "")
-    name_en = (gwp_ref.gas_name_en or "")
-    for name_str in [name_zh, name_en]:
-        parts = re.split(r'[,，、/]', name_str)
-        for part in parts:
-            token = part.strip()
-            if token and re.match(r'^[A-Z]', token) and token != gwp_ref.formula:
-                aliases.append(token)
-    return aliases
 
 
 # 取得資料庫 Session 的輔助函式
@@ -114,28 +94,6 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
         )
         factor_map.setdefault(normalized_code, normalized_name)
 
-    # 加入逸散排放（冷媒）選項，來源為 GWPReference
-    gwp_refs = session.exec(
-        select(GWPReference).order_by(GWPReference.gas_name_zh)
-    ).all()
-    for gwp in gwp_refs:
-        formula = _norm_text(gwp.formula)
-        if not formula:
-            continue
-        label = f"{gwp.gas_name_zh}（{formula}）"
-        dedupe_key = ("逸散排放", formula)
-        if dedupe_key in seen_keys:
-            continue
-        seen_keys.add(dedupe_key)
-        factor_options_json.append({
-            "name": label,
-            "original_code": formula,
-            "emission_type": "逸散排放",
-        })
-        factor_map[formula] = label
-        for alias in _extract_refrigerant_aliases(gwp):
-            factor_map.setdefault(alias, label)
-
     factor_options_json.sort(
         key=lambda item: (
             EMISSION_TYPE_ORDER.get(item["emission_type"], 99),
@@ -149,8 +107,6 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
         .order_by(col(AppendixReference.seq), AppendixReference.code)
     ).all()
 
-    refrigerant_names = {code: info["name"] for code, info in REFRIGERANT_EQUIPMENT.items()}
-
     return templates.TemplateResponse(
         "device_management.html",
         {
@@ -159,7 +115,6 @@ async def device_manage_page(request: Request, session: Session = Depends(get_se
             "factor_map": factor_map,
             "factor_options_json": factor_options_json,
             "appendix_device_options": appendix_device_options,
-            "refrigerant_names": refrigerant_names,
         },
     )
 
@@ -242,27 +197,21 @@ async def create_device(
     if not normalized_name or not normalized_emission_type or not normalized_factor_ref:
         return RedirectResponse(url="/devices/", status_code=303)
 
-    # 2. 自動根據燃料代碼，找出該燃料的類型與單位
+    # 冷媒設備統一從排放源管理頁新增
     if normalized_emission_type == "逸散排放":
-        # 冷媒設備：從 GWPReference 查詢
-        gwp_ref = session.exec(
-            select(GWPReference).where(GWPReference.formula == normalized_factor_ref)
-        ).first()
-        if not gwp_ref:
-            return RedirectResponse(url="/devices/", status_code=303)
-        device_category = "逸散排放"
-        device_unit = "公斤"
-    else:
-        base_factor = session.exec(
-            select(EmissionFactor604).where(
-                EmissionFactor604.original_code == normalized_factor_ref,
-                EmissionFactor604.emission_type == normalized_emission_type,
-            )
-        ).first()
-        if not base_factor:
-            return RedirectResponse(url="/devices/", status_code=303)
-        device_category = normalized_emission_type
-        device_unit = parse_activity_unit(base_factor.unit) or "單位"
+        return RedirectResponse(url="/emission-source/", status_code=303)
+
+    # 2. 自動根據燃料代碼，找出該燃料的類型與單位
+    base_factor = session.exec(
+        select(EmissionFactor604).where(
+            EmissionFactor604.original_code == normalized_factor_ref,
+            EmissionFactor604.emission_type == normalized_emission_type,
+        )
+    ).first()
+    if not base_factor:
+        return RedirectResponse(url="/devices/", status_code=303)
+    device_category = normalized_emission_type
+    device_unit = parse_activity_unit(base_factor.unit) or "單位"
 
     dev_scope = "scope2" if normalized_emission_type == "能源間接排放" else "scope1"
 
@@ -326,95 +275,6 @@ class DeviceActivityData(BaseModel):
     record_date: Optional[str] = None
 
 
-class RefrigerantDeviceData(BaseModel):
-    name: str
-    device_number: Optional[str] = None
-    equipment_category: str
-    refrigerant_code: str
-    fill_amount: float
-    fill_unit: str
-    location: Optional[str] = None
-
-
-# ========== 冷媒設備 API ==========
-
-@router.get("/api/refrigerant_categories")
-async def list_refrigerant_categories():
-    return JSONResponse(content={"success": True, "data": get_refrigerant_categories()})
-
-
-@router.get("/api/refrigerant_gases")
-async def list_refrigerant_gases(session: Session = Depends(get_session)):
-    gases = session.exec(
-        select(GWPReference).order_by(GWPReference.gas_name_zh)
-    ).all()
-    return JSONResponse(content={
-        "success": True,
-        "data": [
-            {"code": g.formula, "name": g.gas_name_zh, "gwp": g.gwp_value}
-            for g in gases
-        ]
-    })
-
-
-@router.post("/refrigerant")
-async def create_refrigerant_device(
-    request: Request,
-    data: RefrigerantDeviceData,
-    session: Session = Depends(get_session),
-):
-    try:
-        if data.fill_amount <= 0:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "填充量必須大於 0"}
-            )
-
-        # 統一換算成公噸（資料庫固定以公噸儲存，計算時再轉 kg）
-        if data.fill_unit == "公克":
-            amount_ton = data.fill_amount / 1_000_000
-        elif data.fill_unit == "公斤":
-            amount_ton = data.fill_amount / 1_000
-        elif data.fill_unit == "公噸":
-            amount_ton = data.fill_amount
-        else:
-            # 未知單位預設按公斤處理，避免錯算
-            amount_ton = data.fill_amount / 1_000
-
-        new_device = Device(
-            name=get_name_by_code(data.equipment_category) or data.name,
-            device_number=data.device_number or None,
-            emission_type="逸散排放",
-            category="逸散排放",
-            location=data.location or "",
-            factor_ref_code=data.refrigerant_code,
-            gas_type="HFCs",
-            unit="公噸",
-            fill_amount=amount_ton,
-            fill_unit=data.fill_unit,
-            equipment_category=data.equipment_category,
-            refrigerant_code=data.refrigerant_code,
-            scope="scope1",
-        )
-        session.add(new_device)
-        session.commit()
-        session.refresh(new_device)
-
-        add_change_log(
-            session=session,
-            module="refrigerant_device",
-            entity_name="Device",
-            record_key=str(new_device.id),
-            action_type="CREATE",
-            changed_by=str(request.session.get("user", "system")),
-            change_details=f"name={new_device.name}, category={new_device.equipment_category}, refrigerant={new_device.refrigerant_code}, fill={new_device.fill_amount}公噸",
-        )
-        return JSONResponse(content={"success": True, "message": "冷媒設備新增成功", "device_id": new_device.id})
-    except Exception as e:
-        session.rollback()
-        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
-
-
 # ========== 活動數據 API ==========
 
 @router.get("/api/activities")
@@ -439,26 +299,10 @@ async def list_device_activities(
         for name, code in all_factors:
             factor_map[code] = name
 
-        # 加入 GWP 冷媒全名
-        gwp_refs = session.exec(
-            select(GWPReference).order_by(GWPReference.gas_name_zh)
-        ).all()
-        for gwp in gwp_refs:
-            formula = _norm_text(gwp.formula)
-            if formula:
-                factor_map[formula] = gwp.gas_name_zh
-                for alias in _extract_refrigerant_aliases(gwp):
-                    factor_map.setdefault(alias, gwp.gas_name_zh)
-
         result = []
         for d in devices:
             rec = records.get(d.id)
-
-            # 冷媒設備：factor_ref_name 從 GWP 或 factor_map 查詢
-            if d.emission_type == "逸散排放" and d.refrigerant_code:
-                factor_ref_name = factor_map.get(d.refrigerant_code, d.refrigerant_code)
-            else:
-                factor_ref_name = factor_map.get(d.factor_ref_code, "未知")
+            factor_ref_name = factor_map.get(d.factor_ref_code, "未知")
 
             result.append({
                 "device_id": d.id,
@@ -478,11 +322,6 @@ async def list_device_activities(
                 "activity_unit": rec.unit if rec else (d.unit or ""),
                 "data_source": rec.data_source if rec else "manual",
                 "record_date": rec.record_date if rec else None,
-                "fill_amount": d.fill_amount,
-                "fill_unit": d.fill_unit,
-                "equipment_category": d.equipment_category,
-                "equipment_name": get_name_by_code(d.equipment_category or ""),
-                "refrigerant_code": d.refrigerant_code,
             })
 
         return JSONResponse(content={"success": True, "data": result})
@@ -507,11 +346,12 @@ async def save_device_activity(
                 content={"success": False, "message": "設備不存在"}
             )
 
+        activity_data_rounded = _round4(data.activity_data)
         activity_unit = (data.unit or device.unit or "").strip()
         result = _compute_emission(
             session=session,
             device=device,
-            activity_data=data.activity_data,
+            activity_data=activity_data_rounded,
             activity_unit=activity_unit,
         )
 
@@ -523,7 +363,7 @@ async def save_device_activity(
         ).first()
 
         if existing:
-            existing.activity_data = data.activity_data
+            existing.activity_data = activity_data_rounded
             existing.unit = data.unit
             existing.data_source = data.data_source or "manual"
             existing.record_date = data.record_date or existing.record_date
@@ -541,7 +381,7 @@ async def save_device_activity(
         else:
             new_record = EmissionRecord(
                 device_id=data.device_id,
-                activity_data=data.activity_data,
+                activity_data=activity_data_rounded,
                 total_co2e=result.co2e,
                 unit=data.unit,
                 data_source=data.data_source or "manual",

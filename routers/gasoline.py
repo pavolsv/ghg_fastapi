@@ -232,3 +232,76 @@ async def delete_gas_record(
             recompute_device_emission(session, device)
     session.commit()
     return JSONResponse(content={"success": True, "message": "加油紀錄已刪除"})
+
+
+@router.post("/records/update/{record_id}")
+async def update_gas_record(
+    request: Request,
+    record_id: int,
+    fuel_type: str = Form(...),
+    liters: float = Form(...),
+    record_date: str = Form(...),
+    device_id: int = Form(...),
+    note: str = Form(default=""),
+    session: Session = Depends(get_session),
+):
+    """更新加油紀錄並重新加總到對應設備。"""
+    record = session.get(GasRecord, record_id)
+    if not record:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": "找不到加油紀錄"},
+        )
+
+    if fuel_type not in FUEL_CODE_MAP:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "燃料類型必須為「汽油」或「柴油」"},
+        )
+    if liters <= 0:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "公升數必須大於 0"},
+        )
+
+    new_device = session.get(Device, device_id)
+    if not new_device:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "找不到對應設備，請先建立設備"},
+        )
+
+    old_device_id = record.device_id
+    record.fuel_type = fuel_type
+    record.liters = liters
+    record.record_date = record_date
+    record.device_id = device_id
+    record.note = note or None
+    session.add(record)
+    session.flush()
+
+    affected_ids = {old_device_id, device_id} - {None}
+    for did in affected_ids:
+        device = session.get(Device, did)
+        if device:
+            recompute_device_emission(session, device)
+
+    add_change_log(
+        session=session,
+        module="gasoline",
+        entity_name="GasRecord",
+        record_key=str(record_id),
+        action_type="UPDATE",
+        changed_by=str(request.session.get("user", "system")),
+        change_details=(
+            f"device_id={device_id}, fuel_type={fuel_type}, liters={liters}, "
+            f"record_date={record_date}"
+        ),
+    )
+    session.commit()
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": f"已更新 {liters} 公升 {fuel_type} 到「{new_device.name}」",
+        }
+    )

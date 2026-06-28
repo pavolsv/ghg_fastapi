@@ -14,6 +14,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from decimal import Decimal, ROUND_HALF_UP
+
 import pandas as pd
 from sqlmodel import Session, select, SQLModel
 from database import engine, create_db_and_tables
@@ -149,9 +151,9 @@ def parse_sheet(sheet_name, config, code_map):
         if not emission_type:
             continue
 
-        # 解析數值
+        # 解析數值（四捨五入到小數第 10 位）
         try:
-            factor_value = float(factor_str)
+            factor_value = float(Decimal(factor_str).quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))
         except ValueError:
             continue
 
