@@ -9,6 +9,7 @@ from datetime import datetime
 from audit_log import add_change_log
 from database import engine
 from model import AppendixReference, Device, EmissionFactor604, EmissionRecord
+from routers.emission_source import _generate_device_code, _renumber_device_codes
 from services.emission_calculator import (
     EmissionResult,
     compute_total_co2e_for_device_v2,
@@ -214,6 +215,7 @@ async def create_device(
     device_unit = parse_activity_unit(base_factor.unit) or "單位"
 
     dev_scope = "scope2" if normalized_emission_type == "能源間接排放" else "scope1"
+    final_device_code = _generate_device_code(session, normalized_emission_type) if not device_code else device_code
 
     new_device = Device(
         name=name,
@@ -224,7 +226,7 @@ async def create_device(
         category=device_category,
         unit=device_unit,
         device_number=device_number or None,
-        device_code=device_code or None,
+        device_code=final_device_code,
         quantity=quantity,
         scope=dev_scope,
     )
@@ -251,6 +253,7 @@ async def delete_device(
     """刪除設備邏輯"""
     device = session.get(Device, device_id)
     if device:
+        emission_type = device.emission_type
         add_change_log(
             session=session,
             module="devices",
@@ -261,6 +264,7 @@ async def delete_device(
             change_details=f"name={device.name}, location={device.location}, category={device.category}",
         )
         session.delete(device)
+        _renumber_device_codes(session, emission_type)
         session.commit()
     return RedirectResponse(url="/devices/", status_code=303)
 

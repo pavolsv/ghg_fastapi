@@ -24,6 +24,7 @@ from routers import (
     logout,
     org_chart,
     register,
+    reports,
     result,
     set,
 )
@@ -75,6 +76,7 @@ app.include_router(devices.router)
 app.include_router(emission_source.router)
 app.include_router(calculation.router)
 app.include_router(result.router)
+app.include_router(reports.router)
 app.include_router(set.router)
 app.include_router(org_chart.router)
 app.include_router(logs_router.router)
@@ -154,4 +156,4 @@ async def read_root(request: Request):
 
 if __name__ == "__main__":
     create_db_and_tables()
-    uvicorn.run("main:app", port=8000)
+    uvicorn.run("main:app", port=8001)

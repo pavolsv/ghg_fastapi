@@ -216,3 +216,60 @@ class AppendixReference(SQLModel, table=True):
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Report(SQLModel, table=True):
+    __tablename__ = "report"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    inventory_year: int = Field(index=True)
+    base_year: int
+    org_boundary_method: str = Field(default="控制權法")
+    operational_boundary_note: Optional[str] = None
+    status: str = Field(default="draft", index=True)  # draft / final
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    chapters: List["ReportChapter"] = Relationship(
+        back_populates="report",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    sub_chapters: List["ReportSubChapter"] = Relationship(
+        back_populates="report",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class ReportChapter(SQLModel, table=True):
+    __tablename__ = "report_chapter"
+    __table_args__ = (
+        UniqueConstraint("report_id", "chapter_no", name="uq_report_chapter_no"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    report_id: int = Field(foreign_key="report.id", index=True)
+    chapter_no: int  # 1 ~ 6
+    title: str
+    generated_content: Optional[str] = None
+    edited_content: Optional[str] = None
+    is_generated_by_llm: bool = Field(default=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    report: Optional[Report] = Relationship(back_populates="chapters")
+
+
+class ReportSubChapter(SQLModel, table=True):
+    __tablename__ = "report_sub_chapter"
+    __table_args__ = (
+        UniqueConstraint("report_id", "chapter_no", "sub_no", name="uq_report_sub_chapter_no"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    report_id: int = Field(foreign_key="report.id", index=True)
+    chapter_no: int  # 所屬大章編號 1~6
+    sub_no: int  # 小節編號 1, 2, 3...
+    title: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    report: Optional[Report] = Relationship(back_populates="sub_chapters")

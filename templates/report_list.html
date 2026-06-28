@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}盤查報告書{% endblock %}
+
+{% block content %}
+<h1>溫室氣體盤查報告書</h1>
+
+<section class="card">
+  <h2>新建報告</h2>
+  <form action="/reports" method="post">
+    <div class="form-row">
+      <label>
+        盤查年度
+        <input type="number" name="inventory_year" value="2023" required>
+      </label>
+      <label>
+        基準年度
+        <input type="number" name="base_year" placeholder="預設同盤查年度">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>
+        組織邊界方法
+        <select name="org_boundary_method">
+          <option value="控制權法" selected>控制權法</option>
+          <option value="股權持分法">股權持分法</option>
+        </select>
+      </label>
+      <label>
+        營運邊界說明
+        <input type="text" name="operational_boundary_note" style="width: 30rem;"
+               value="本公司之營運邊界包含直接（類別 1）、能源間接（類別 2）之溫室氣體排放。">
+      </label>
+    </div>
+    <button type="submit" class="btn-primary">生成報告草稿</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>既有報告</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>年度</th>
+        <th>基準年</th>
+        <th>狀態</th>
+        <th>產生時間</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td>{{ r.inventory_year }}</td>
+        <td>{{ r.base_year }}</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>
+          <a href="/reports/{{ r.id }}" class="btn-link">編輯</a>
+          <a href="/reports/{{ r.id }}/preview" target="_blank" class="btn-link">預覽</a>
+          <a href="/reports/{{ r.id }}/pdf" class="btn-link">下載 PDF</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align: center;">尚無報告</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

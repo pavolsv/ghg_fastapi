@@ -124,9 +124,6 @@ def ensure_schema_updates():
                 except Exception:
                     pass  # nosec: B110 部分 SQLite 版本不支援 DROP COLUMN，留待下次重建
 
-        # --- 清除舊 EmissionRecord（新計算方式開始）---
-        conn.exec_driver_sql("DELETE FROM emissionrecord")
-
         # --- AppendixReference 表遷移 ---
         try:
             app_columns = {
@@ -230,7 +227,7 @@ def ensure_schema_updates():
             if dev.emission_type == "能源間接排放" or dev.factor_ref_code == "ELECTRICITY":
                 dev.unit = "度"
             elif dev.emission_type == "逸散排放":
-                dev.unit = "公噸"
+                dev.unit = "公斤"
             else:
                 factor = session.exec(
                     select(model.EmissionFactor604).where(

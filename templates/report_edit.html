@@ -1,150 +1,587 @@
 {% extends "base.html" %}
 
+{% block title %}編輯報告書{% endblock %}
+
 {% block head %}
-<link rel="stylesheet" href="/static/css/calculation.css">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
 <style>
-.report-edit-wrap { max-width: 1400px; margin: 20px auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-.snapshot-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; }
-.editor-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; display:flex; flex-direction:column; }
-textarea.payload-editor { width:100%; height: 620px; font-family: monospace; font-size: 13px; white-space: pre; }
-textarea.snapshot-json-preview { width:100%; height: 260px; font-family: monospace; font-size: 12px; white-space: pre; margin-top: 8px; }
-.template-pane { background: #fff; padding: 16px; border-radius: 6px; border: 1px solid #e6e6e6; display:flex; flex-direction:column; }
-textarea.template-editor { width:100%; height: 260px; font-family: monospace; font-size: 13px; white-space: pre; }
-.template-preview { border: 1px solid #e6e6e6; border-radius: 4px; padding: 10px; min-height: 280px; white-space: pre-wrap; background: #fafafa; font-family: monospace; font-size: 13px; overflow: auto; }
-.btn-save-report { margin-top: 12px; padding:8px 12px; background:#2b7cff; color:white; border:none; border-radius:4px; }
-.error { color: red; margin-top: 8px; }
-.info { color: #666; font-size: 0.95em; margin-bottom:8px; }
-.boundary-block { margin-bottom: 8px; }
-.warning { color: #8a6d3b; background: #fff7e6; border: 1px solid #f5deb3; padding: 8px; border-radius: 4px; margin-top: 8px; }
-.var-box { border:1px solid #e6e6e6; border-radius:4px; padding:8px; max-height: 180px; overflow:auto; background:#fcfcfc; }
-.var-item { font-family: monospace; font-size: 12px; margin: 2px 0; }
-.source-management-section { margin-top: 18px; background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 16px; }
-.source-management-title { font-size: 20px; margin-bottom: 8px; }
-.source-table-wrap { overflow-x: auto; border: 1px solid #dfe3e8; border-radius: 4px; }
-.source-table { width: 100%; min-width: 1700px; border-collapse: collapse; }
-.source-table th, .source-table td { border: 1px solid #dfe3e8; padding: 6px 8px; text-align: center; font-size: 13px; }
-.source-table th { background: #eef4fb; font-weight: 600; }
-.source-table td.text-left { text-align: left; }
-.gas-flag { font-weight: 700; color: #0f5132; }
-@media (max-width: 1200px) {
-  .report-edit-wrap { grid-template-columns: 1fr; }
-}
+  .report-workspace {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
+    margin: -1rem;
+  }
+  .report-tabs {
+    display: flex;
+    background: #4a5568;
+    padding: 0 1rem;
+    flex-shrink: 0;
+  }
+  .report-tabs a {
+    color: #cbd5e0;
+    padding: 0.9rem 1.8rem;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    border-bottom: 3px solid transparent;
+  }
+  .report-tabs a:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+  }
+  .report-tabs a.active {
+    color: #fff;
+    background: #2d3748;
+    border-bottom: 3px solid #63b3ed;
+  }
+  .report-body {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  .tab-panel {
+    display: none;
+    height: 100%;
+  }
+  .tab-panel.active {
+    display: flex;
+  }
+  .report-sidebar {
+    width: 240px;
+    background: #f7fafc;
+    border-right: 1px solid #e2e8f0;
+    overflow-y: auto;
+    padding: 1rem;
+    flex-shrink: 0;
+  }
+  .report-sidebar h3 {
+    font-size: 0.8rem;
+    color: #718096;
+    margin: 0 0 0.6rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .chapter-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .chapter-tree li {
+    padding: 0.6rem 0.7rem;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-bottom: 2px;
+    font-size: 0.9rem;
+    color: #2d3748;
+    line-height: 1.4;
+  }
+  .chapter-tree li:hover {
+    background: #edf2f7;
+  }
+  .chapter-tree li.active {
+    background: #e2e8f0;
+    color: #2b6cb0;
+    font-weight: 600;
+  }
+  .chapter-tree .sub-chapter {
+    padding-left: 1.5rem;
+    font-size: 0.85rem;
+    color: #4a5568;
+  }
+  .chapter-tree .sub-chapter:hover {
+    background: #edf2f7;
+  }
+  .chapter-tree .sub-chapter.active {
+    background: #e2e8f0;
+    color: #2b6cb0;
+    font-weight: 600;
+  }
+  .report-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+  }
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+  }
+  .editor-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #2d3748;
+  }
+  .editor-actions {
+    display: flex;
+    gap: 0.6rem;
+  }
+  .editor-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+  #editor {
+    height: 520px;
+    background: #fff;
+    font-size: 12pt;
+    line-height: 1.8;
+  }
+  #editor .ql-editor {
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+  }
+  .report-rightbar {
+    width: 280px;
+    background: #f7fafc;
+    border-left: 1px solid #e2e8f0;
+    padding: 1rem;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .variable-group {
+    margin-bottom: 1.5rem;
+  }
+  .variable-group h4 {
+    font-size: 0.8rem;
+    color: #718096;
+    margin: 0 0 0.6rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .var-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.45rem 0.7rem;
+    margin-bottom: 0.35rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #4a5568;
+    transition: all 0.15s;
+  }
+  .var-btn:hover {
+    background: #edf2f7;
+    border-color: #cbd5e0;
+  }
+  .ai-btn {
+    width: 100%;
+    padding: 0.7rem;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+  .ai-btn:hover {
+    opacity: 0.92;
+  }
+  .status-select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+  }
+  .simple-panel {
+    padding: 2rem;
+    overflow-y: auto;
+  }
+  .framework-table {
+    width: 100%;
+    max-width: 800px;
+    border-collapse: collapse;
+  }
+  .framework-table th, .framework-table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.8rem;
+    text-align: left;
+  }
+  .framework-table th {
+    background: #edf2f7;
+  }
+  .framework-table input {
+    width: 100%;
+    padding: 0.4rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<h1>報告編輯</h1>
-<div class="report-edit-wrap">
-  <div class="snapshot-pane">
-    <h2>快照摘要</h2>
-    <p>盤查年度：{{ snapshot.inventory_year }}</p>
-    <p>生成時間：{{ snapshot.generated_at }}</p>
-    <h3>公司資訊</h3>
-    <ul>
-      <li>事業名稱：{{ snapshot.company_summary.get('company_name') }}</li>
-      <li>統一編號：{{ snapshot.company_summary.get('tax_id') }}</li>
-      <li>地址：{{ snapshot.company_summary.get('address') }}</li>
-      <li>聯絡人：{{ snapshot.company_summary.get('contact_person') }}</li>
-    </ul>
-    <h3>排放源摘要</h3>
-    <ul>
-      <li>設備數量：{{ snapshot.summary.get('device_count') }}</li>
-      <li>排放紀錄筆數：{{ snapshot.summary.get('record_count') }}</li>
-    </ul>
-    <h3>排放類型統計 (Top)</h3>
-    <ul>
-      {% for item in snapshot.emission_type_totals %}
-      <li>{{ item.emission_type }}：{{ item.total_co2e }} kg CO2e</li>
-      {% endfor %}
-    </ul>
-    <h3>快速檢視：排放源一覽</h3>
-    {% set dev_list = snapshot.get('devices_for_section', []) %}
-    {% if dev_list %}
-      <ul>
-      {% for d in dev_list %}
-        <li>{{ d.name }}（{{ d.emission_type }} / {{ "範疇一" if d.scope == "scope1" else "範疇二" }}）</li>
-      {% endfor %}
-      </ul>
-    {% else %}
-      <p class="info">目前快照未包含排放源資料。</p>
-    {% endif %}
-
-    <h3>快照 JSON 預覽</h3>
-    <p class="info">此區顯示目前由資料庫即時生成的完整快照（包含公司資料、排放源、邊界統計等）。</p>
-    <textarea class="snapshot-json-preview" readonly>{{ snapshot_json }}</textarea>
-  </div>
-  <div class="editor-pane">
-    <h2>報告內容</h2>
-    <p class="info"></p>
-    <form method="post" action="/calculation/report/save">
-      <textarea class="payload-editor" name="payload_json">{{ payload_json }}</textarea>
-      <textarea name="template_text" style="display:none;">{{ template_text }}</textarea>
-      {% if error %}
-        <div class="error">錯誤：{{ error }}</div>
-      {% endif %}
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn-save-report" type="submit">儲存報告 JSON</button>
-        <a class="btn-save-report" href="/result" style="padding:8px 12px; display:inline-block; background:#f4f4f4; color:#000; border-radius:4px; text-decoration:none;">回到 計算結果</a>
-      </div>
-    </form>
+<div class="report-workspace">
+  <div class="report-tabs">
+    <a href="#framework" onclick="switchTab(event, 'framework')">框架管理</a>
+    <a href="#content" class="active" onclick="switchTab(event, 'content')">內容填寫</a>
+    <a href="#export" onclick="switchTab(event, 'export')">報告匯出</a>
+    <a href="#download" onclick="switchTab(event, 'download')">報告下載</a>
   </div>
 
-  <div class="template-pane">
-    <h2>範本變數填入</h2>
-    <p class="info">使用標籤語法：{{ '{{ summary.total_co2e }}' }}、{{ '{{ company_summary.company_name }}' }}、{{ '{{ boundary_snapshots[0].boundary_name }}' }}。</p>
-    <form method="post" action="/calculation/report/render">
-      <textarea class="template-editor" name="template_text">{{ template_text }}</textarea>
-      <textarea name="payload_json" style="display:none;">{{ payload_json }}</textarea>
-      <button class="btn-save-report" type="submit">以快照渲染範本</button>
-    </form>
+  <div class="report-body">
+    <!-- 內容填寫 -->
+    <div id="panel-content" class="tab-panel active">
+      <aside class="report-sidebar">
+        <h3>章節大綱</h3>
+        <ul class="chapter-tree" id="chapter-tree">
+          {% for ch in chapters %}
+          <li data-no="{{ ch.chapter_no }}" onclick="selectChapter({{ ch.chapter_no }})">
+            第 {{ ch.chapter_no }} 章 {{ ch.title }}
+          </li>
+          {% for sub in sub_chapters if sub.chapter_no == ch.chapter_no %}
+          <li class="sub-chapter" onclick="selectChapter({{ ch.chapter_no }})">
+            {{ ch.chapter_no }}.{{ sub.sub_no }} {{ sub.title }}
+          </li>
+          {% endfor %}
+          {% endfor %}
+        </ul>
+      </aside>
 
-    {% if missing_template_tags and missing_template_tags|length > 0 %}
-      <div class="warning">
-        找不到以下標籤：{{ missing_template_tags | join(', ') }}
+      <main class="report-main">
+        <div class="editor-header">
+          <div class="editor-title" id="editor-title">第 1 章 {{ chapters[0].title }}</div>
+          <div class="editor-actions">
+            <button class="btn-secondary" onclick="regenerateCurrent()">🤖 報告書生成 AI</button>
+            <button class="btn-primary" onclick="saveCurrent()">儲存</button>
+          </div>
+        </div>
+        <div class="editor-container">
+          <div id="editor"></div>
+        </div>
+      </main>
+
+      <aside class="report-rightbar">
+        <button class="ai-btn" onclick="regenerateCurrent()">
+          <span>🤖</span> 報告書生成 AI
+        </button>
+
+        <div class="variable-group">
+          <h4>編輯狀態</h4>
+          <select class="status-select" id="edit-status" onchange="updateStatus(this.value)">
+            <option value="draft" {% if report.status == 'draft' %}selected{% endif %}>編輯中</option>
+            <option value="final" {% if report.status == 'final' %}selected{% endif %}>已完成</option>
+          </select>
+        </div>
+
+        <div class="variable-group">
+          <h4>公司資料變數</h4>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.company_name }}' }}')">公司名稱</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.tax_id }}' }}')">統一編號</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.address }}' }}')">公司地址</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.owner }}' }}')">負責人</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.contact_person }}' }}')">聯絡人</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.telephone }}' }}')">電話</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ company.email }}' }}')">Email</button>
+        </div>
+
+        <div class="variable-group">
+          <h4>報告資訊變數</h4>
+          <button class="var-btn" onclick="insertVar('{{ '{{ report.inventory_year }}' }}')">盤查年度（西元）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ report.base_year }}' }}')">基準年度（西元）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ report.org_boundary_method }}' }}')">組織邊界方法</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ report.operational_boundary_note }}' }}')">營運邊界說明</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ report.status }}' }}')">報告狀態</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ generated_at }}' }}')">產生時間</button>
+        </div>
+
+        <div class="variable-group">
+          <h4>排放數據：總量</h4>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.total_co2e }}' }}')">總排放量（tCO₂e）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.scope1_total }}' }}')">範疇一（直接）排放</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.scope2_total }}' }}')">範疇二（間接）排放</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.scope1_percentage }}' }}')">範疇一佔比（%）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.scope2_percentage }}' }}')">範疇二佔比（%）</button>
+        </div>
+
+        <div class="variable-group">
+          <h4>排放數據：分類</h4>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.combustion_total }}' }}')">固定燃燒排放量</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.combustion_percentage }}' }}')">固定燃燒佔比（%）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.mobile_total }}' }}')">移動燃燒排放量</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.mobile_percentage }}' }}')">移動燃燒佔比（%）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.refrigerant_total }}' }}')">逸散排放量</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.refrigerant_percentage }}' }}')">逸散排放佔比（%）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.electricity_total }}' }}')">外購電力排放量</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.electricity_percentage }}' }}')">外購電力佔比（%）</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.source_count }}' }}')">排放來源數量</button>
+          <button class="var-btn" onclick="insertVar('{{ '{{ emission.device_count }}' }}')">設備總數</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 框架管理 -->
+    <div id="panel-framework" class="tab-panel" style="flex-direction: column; overflow-y: auto;">
+      <div style="max-width: 900px; margin: 0 auto; padding: 2rem 1rem; width: 100%;">
+        <h2 style="margin-bottom: 0.3rem;">框架管理</h2>
+        <p style="color:#718096; margin-bottom: 1.5rem;">設定報告基本資料、組織邊界與各章節標題。</p>
+
+        <h3 style="font-size: 1rem; margin: 1.5rem 0 0.8rem 0; color: #2d3748;">報告基本資料</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display:block; font-size:0.85rem; color:#4a5568; margin-bottom:0.3rem;">盤查年度</label>
+            <input type="number" id="meta-inventory-year" value="{{ report.inventory_year }}" style="width:100%; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px;">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.85rem; color:#4a5568; margin-bottom:0.3rem;">基準年度</label>
+            <input type="number" id="meta-base-year" value="{{ report.base_year }}" style="width:100%; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px;">
+          </div>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.85rem; color:#4a5568; margin-bottom:0.3rem;">組織邊界方法</label>
+          <select id="meta-org-boundary" style="width:100%; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+            <option value="控制權法" {% if report.org_boundary_method == '控制權法' %}selected{% endif %}>控制權法</option>
+            <option value="股權比例法" {% if report.org_boundary_method == '股權比例法' %}selected{% endif %}>股權比例法</option>
+          </select>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.85rem; color:#4a5568; margin-bottom:0.3rem;">營運邊界說明</label>
+          <textarea id="meta-operational-note" rows="3" style="width:100%; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px; resize:vertical;">{{ report.operational_boundary_note or '' }}</textarea>
+        </div>
+        <button class="btn-primary" onclick="saveMeta()" style="margin-bottom: 2rem;">儲存基本資料</button>
+
+        <h3 style="font-size: 1rem; margin: 1.5rem 0 0.8rem 0; color: #2d3748;">章節與小節標題</h3>
+        <p style="color:#718096; margin-bottom:1rem;">點擊標題可直接編輯，離開輸入框後自動儲存。小節僅供報告大綱參考，實際內容仍在「內容填寫」頁編輯。</p>
+
+        {% for ch in chapters %}
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; margin-bottom:1rem;">
+          <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.8rem;">
+            <span style="font-weight:600; color:#2b6cb0; white-space:nowrap;">第 {{ ch.chapter_no }} 章</span>
+            <input type="text" value="{{ ch.title }}" onchange="updateTitle({{ ch.chapter_no }}, this.value)" style="flex:1; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px;">
+          </div>
+
+          <div style="margin-left:1.5rem; margin-bottom:0.5rem; color:#718096; font-size:0.85rem;">小節：</div>
+          <div id="sub-list-{{ ch.chapter_no }}" style="margin-left:1.5rem;">
+            {% for sub in sub_chapters if sub.chapter_no == ch.chapter_no %}
+            <div class="sub-item" data-id="{{ sub.id }}" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+              <span style="color:#718096; font-size:0.85rem; white-space:nowrap;">{{ ch.chapter_no }}.{{ sub.sub_no }}</span>
+              <input type="text" value="{{ sub.title }}" onchange="updateSubTitle({{ sub.id }}, this.value)" style="flex:1; padding:0.4rem; border:1px solid #e2e8f0; border-radius:6px;">
+              <button onclick="deleteSub({{ sub.id }})" style="background:#fff; border:1px solid #fc8181; color:#c53030; padding:0.35rem 0.6rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">刪除</button>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div style="margin-left:1.5rem; display:flex; gap:0.5rem; margin-top:0.6rem;">
+            <input type="text" id="new-sub-{{ ch.chapter_no }}" placeholder="新增小節標題" style="flex:1; padding:0.4rem; border:1px solid #e2e8f0; border-radius:6px;">
+            <button onclick="addSub({{ ch.chapter_no }})" style="background:#edf2f7; border:1px solid #e2e8f0; color:#2d3748; padding:0.4rem 0.8rem; border-radius:6px; cursor:pointer; font-size:0.85rem;">新增小節</button>
+          </div>
+        </div>
+        {% endfor %}
       </div>
-    {% endif %}
+    </div>
 
-    <h3 style="margin-top:12px;">渲染結果</h3>
-    <div class="template-preview">{{ rendered_template }}</div>
+    <!-- 報告匯出 -->
+    <div id="panel-export" class="tab-panel simple-panel">
+      <h2>報告匯出</h2>
+      <p style="color:#718096; margin-bottom:1rem;">HTML 預覽，確認無誤後請切換到「報告下載」。</p>
+      <iframe src="/reports/{{ report.id }}/preview" style="width:100%; height:650px; border:1px solid #e2e8f0; border-radius:8px;"></iframe>
+    </div>
 
-    <h3 style="margin-top:12px;">可用變數路徑（節錄）</h3>
-    <div class="var-box">
-      {% for p in template_paths %}
-        <div class="var-item">{{ '{{ ' }}{{ p }}{{ ' }}' }}</div>
-      {% endfor %}
+    <!-- 報告下載 -->
+    <div id="panel-download" class="tab-panel simple-panel">
+      <h2>報告下載</h2>
+      <p style="color:#718096; margin-bottom:1rem;">點擊下方按鈕生成並下載 PDF 報告書。</p>
+      <a href="/reports/{{ report.id }}/pdf" class="dashboard-btn" style="font-size:1.1rem; padding:0.8rem 1.5rem;">📄 下載 PDF</a>
     </div>
   </div>
 </div>
 
-<section class="source-management-section">
-  <h2 class="source-management-title"># 排放源管理</h2>
-  <p class="info">以下列表依資料庫即時查詢。</p>
-  {% set dev_list = snapshot.get('devices_for_section', []) %}
-  {% if dev_list and dev_list|length > 0 %}
-    <div class="source-table-wrap">
-      <table class="source-table">
-        <thead>
-          <tr>
-            <th>設備名稱</th>
-            <th>排放類型</th>
-            <th>燃料代碼</th>
-            <th>範疇</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for d in dev_list %}
-          <tr>
-            <td class="text-left">{{ d.name }}</td>
-            <td>{{ d.emission_type }}</td>
-            <td>{{ d.factor_ref_code }}</td>
-            <td>{{ "範疇一" if d.scope == "scope1" else "範疇二" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p class="info">目前沒有可顯示的排放源資料。</p>
-  {% endif %}
-</section>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.min.js"></script>
+<script>
+  const chapterData = {
+    {% for ch in chapters %}
+    {{ ch.chapter_no }}: {
+      title: {{ ch.title | tojson }},
+      content: {{ (ch.edited_content or ch.generated_content or '') | tojson }}
+    },
+    {% endfor %}
+  };
+  let activeNo = 1;
+  let quill;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ 'header': [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'align': [] }],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          ['link', 'image'],
+          ['clean']
+        ]
+      }
+    });
+    selectChapter(1);
+  });
+
+  function switchTab(event, tab) {
+    event.preventDefault();
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.report-tabs a').forEach(a => a.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  function selectChapter(no) {
+    activeNo = no;
+    document.querySelectorAll('#chapter-tree li').forEach(li => li.classList.remove('active'));
+    const activeLi = document.querySelector('#chapter-tree li[data-no="' + no + '"]');
+    if (activeLi) activeLi.classList.add('active');
+    document.getElementById('editor-title').textContent = '第 ' + no + ' 章 ' + (chapterData[no]?.title || '');
+    if (quill) {
+      quill.root.innerHTML = chapterData[no]?.content || '';
+    }
+  }
+
+  function insertVar(varText) {
+    if (!quill) return;
+    const range = quill.getSelection(true);
+    const index = range ? range.index : quill.getLength();
+    quill.insertText(index, varText);
+    quill.setSelection(index + varText.length, 0);
+  }
+
+  async function saveCurrent() {
+    if (!quill) return;
+    const content = quill.root.innerHTML;
+    chapterData[activeNo].content = content;
+    try {
+      const res = await fetch('/reports/{{ report.id }}/chapters/' + activeNo, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'content=' + encodeURIComponent(content)
+      });
+      if (!res.ok) throw new Error('儲存失敗');
+      showToast('已儲存第 ' + activeNo + ' 章');
+    } catch (err) {
+      alert('錯誤：' + err.message);
+    }
+  }
+
+  async function regenerateCurrent() {
+    if (!confirm('確定要重新生成第 ' + activeNo + ' 章？現有內容將被覆蓋。')) return;
+    const btn = document.querySelector('.ai-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span>⏳</span> 生成中...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/reports/{{ report.id }}/chapters/' + activeNo + '/regenerate', {method: 'POST'});
+      if (res.ok) {
+        location.reload();
+      } else {
+        const text = await res.text();
+        alert('生成失敗：' + text);
+      }
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
+  
+
+  async function updateTitle(no, title) {
+    chapterData[no].title = title;
+    if (activeNo === no) {
+      document.getElementById('editor-title').textContent = '第 ' + no + ' 章 ' + title;
+    }
+    const treeLi = document.querySelector('#chapter-tree li[data-no="' + no + '"]');
+    if (treeLi) treeLi.textContent = '第 ' + no + ' 章 ' + title;
+    await fetch('/reports/{{ report.id }}/chapters/' + no + '/title', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'title=' + encodeURIComponent(title)
+    });
+  }
+
+  async function saveMeta() {
+    const inventoryYear = document.getElementById('meta-inventory-year').value;
+    const baseYear = document.getElementById('meta-base-year').value;
+    const orgBoundary = document.getElementById('meta-org-boundary').value;
+    const operationalNote = document.getElementById('meta-operational-note').value;
+    try {
+      const res = await fetch('/reports/{{ report.id }}/meta', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'inventory_year=' + encodeURIComponent(inventoryYear) +
+              '&base_year=' + encodeURIComponent(baseYear) +
+              '&org_boundary_method=' + encodeURIComponent(orgBoundary) +
+              '&operational_boundary_note=' + encodeURIComponent(operationalNote)
+      });
+      if (!res.ok) throw new Error('儲存失敗');
+      showToast('基本資料已更新');
+    } catch (err) {
+      alert('錯誤：' + err.message);
+    }
+  }
+
+  async function updateStatus(status) {
+    await fetch('/reports/{{ report.id }}/status', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'status=' + encodeURIComponent(status)
+    });
+    showToast('狀態已更新');
+  }
+
+  async function addSub(chapterNo) {
+    const input = document.getElementById('new-sub-' + chapterNo);
+    const title = input.value.trim();
+    if (!title) return;
+    try {
+      const res = await fetch('/reports/{{ report.id }}/sub-chapters', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'chapter_no=' + encodeURIComponent(chapterNo) + '&title=' + encodeURIComponent(title)
+      });
+      if (!res.ok) throw new Error('新增失敗');
+      location.reload();
+    } catch (err) {
+      alert('錯誤：' + err.message);
+    }
+  }
+
+  async function updateSubTitle(subId, title) {
+    await fetch('/reports/{{ report.id }}/sub-chapters/' + subId + '/title', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'title=' + encodeURIComponent(title)
+    });
+    showToast('小節標題已更新');
+  }
+
+  async function deleteSub(subId) {
+    if (!confirm('確定要刪除這個小節嗎？')) return;
+    try {
+      const res = await fetch('/reports/{{ report.id }}/sub-chapters/' + subId, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('刪除失敗');
+      location.reload();
+    } catch (err) {
+      alert('錯誤：' + err.message);
+    }
+  }
+
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#2d3748; color:#fff; padding:0.8rem 1.2rem; border-radius:6px; z-index:9999;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  }
+</script>
 {% endblock %}

@@ -47,7 +47,7 @@ def get_fuels_for_category(category: str):
             for f in factors:
                 fuels.append({
                     "code": f.code,
-                    "name": f"{f.code}年 ({f.factor_value} kgCO2e/kWh)",
+                    "name": f"{f.code}年 ({f.factor_value} kg CO₂e/kWh)",
                 })
     else:
         with Session(engine) as session:
@@ -100,6 +100,21 @@ def _generate_device_code(session, emission_type: str) -> str:
     while n in used:
         n += 1
     return f"{prefix}{n:0{digits}d}"
+
+
+def _renumber_device_codes(session, emission_type: str):
+    """刪除設備後，將同類別所有裝置編碼遞補成連續號碼"""
+    prefix, digits = PREFIX_MAP.get(emission_type, ("XX", 2))
+    devices = session.exec(
+        select(Device).where(
+            Device.emission_type == emission_type,
+            Device.device_code.isnot(None),
+            Device.device_code.like(f"{prefix}%")
+        ).order_by(Device.device_code)
+    ).all()
+    for i, device in enumerate(devices, start=1):
+        device.device_code = f"{prefix}{i:0{digits}d}"
+        session.add(device)
 
 
 def _derive_device_code_display(device: Device) -> str:
@@ -220,6 +235,7 @@ async def delete_emission_source(request: Request, device_id: int):
     with Session(engine) as session:
         device = session.get(Device, device_id)
         if device:
+            emission_type = device.emission_type
             add_change_log(
                 session=session,
                 module="devices",
@@ -230,5 +246,6 @@ async def delete_emission_source(request: Request, device_id: int):
                 change_details=f"name={device.name}, type={device.emission_type}",
             )
             session.delete(device)
+            _renumber_device_codes(session, emission_type)
             session.commit()
     return RedirectResponse(url="/emission-source/", status_code=303)

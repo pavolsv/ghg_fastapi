@@ -7,12 +7,12 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import engine
-from model import CompanyInfo, Device, EmissionRecord, GWPReference
+from model import CompanyInfo, Device, EmissionRecord, GWPReference, Report
 from datetime import datetime
 
 # ...
@@ -151,7 +151,7 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
     device_map = {device.id: device for device in devices}
 
     emission_type_totals_raw: dict[str, float] = {}
-    device_totals_raw: dict[str, float] = {}
+    device_totals_raw: dict[int, float] = {}
     scope_source_counts_raw: dict[str, int] = {}
     total_co2e = 0.0
 
@@ -165,7 +165,7 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         co2e_value = float(record.total_co2e or 0.0)
         total_co2e += co2e_value
         emission_type_totals_raw[emission_type] = emission_type_totals_raw.get(emission_type, 0.0) + co2e_value
-        device_totals_raw[device_name] = device_totals_raw.get(device_name, 0.0) + co2e_value
+        device_totals_raw[record.device_id] = device_totals_raw.get(record.device_id, 0.0) + co2e_value
 
         # scope 統計（來自 Device）
         dev_scope = (device.scope if device else "scope1") or "scope1"
@@ -181,8 +181,11 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         )
     ]
     top_devices = [
-        {"device_name": key, "total_co2e": round(value, 4)}
-        for key, value in sorted(
+        {
+            "device_name": (device_map.get(did).name if device_map.get(did) else f"設備#{did}"),
+            "total_co2e": round(value, 4),
+        }
+        for did, value in sorted(
             device_totals_raw.items(),
             key=lambda item: item[1],
             reverse=True,
@@ -324,7 +327,7 @@ def _normalize_report_payload(payload: dict[str, Any], snapshot: dict[str, Any])
                 continue
             emission_type = str(item.get("emission_type", "未分類")).strip() or "未分類"
             total_value = item.get("total_co2e", 0)
-            lines.append(f"排放類型：{emission_type}，排放量：{total_value} kg CO2e")
+            lines.append(f"排放類型：{emission_type}，排放量：{total_value} kg CO₂e")
         if not lines:
             lines.append("資料缺口：尚無可用之排放源鑑別或排放類型統計資料。")
         return lines
@@ -334,7 +337,7 @@ def _normalize_report_payload(payload: dict[str, Any], snapshot: dict[str, Any])
         record_count = int(summary.get("record_count", 0) or 0)
         total_co2e = summary.get("total_co2e", 0)
         if record_count > 0:
-            lines.append(f"年排放量總計：{total_co2e} kg CO2e（依既有紀錄彙總）")
+            lines.append(f"年排放量總計：{total_co2e} kg CO₂e（依既有紀錄彙總）")
             lines.append(f"排放量計算紀錄筆數：{record_count}")
             lines.append("計算依據：採用環保署公告溫室氣體排放係數表（EmissionFactor604）與 AR5 GWP 值。")
         else:
@@ -507,45 +510,100 @@ def _validate_report_payload(payload: dict[str, Any], snapshot: dict[str, Any]) 
 def _build_docx_report(payload: dict[str, Any], snapshot: dict[str, Any], task_id: str) -> Path:
     try:
         from docx import Document
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml.ns import qn
+        from docx.shared import Pt
     except ImportError as exc:
         raise RuntimeError("缺少 python-docx 套件，請執行: pip install python-docx==1.1.2") from exc
 
     document = Document()
-    document.add_heading("溫室氣體盤查報告範例", level=1)
-    document.add_paragraph(f"盤查年度：{snapshot.get('inventory_year')}")
-    document.add_paragraph(f"生成時間：{snapshot.get('generated_at')}")
-    document.add_paragraph(f"總排放量：{snapshot.get('summary', {}).get('total_co2e')} kg CO2e")
+    normal_style = document.styles["Normal"]
+    normal_style.font.name = "Microsoft JhengHei"
+    normal_style.font.size = Pt(11)
+    try:
+        normal_style._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft JhengHei")
+    except Exception:
+        pass
 
-    document.add_heading("一、執行摘要", level=2)
+    company_name = str(snapshot.get("company_summary", {}).get("company_name") or "溫室氣體盤查報告")
+    inventory_year = snapshot.get("inventory_year")
+    total_co2e = snapshot.get("summary", {}).get("total_co2e")
+
+    title = document.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title.add_run(company_name)
+    title_run.bold = True
+    title_run.font.size = Pt(22)
+
+    subtitle = document.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle_run = subtitle.add_run(f"{inventory_year} 年溫室氣體盤查報告書")
+    subtitle_run.bold = True
+    subtitle_run.font.size = Pt(18)
+
+    period = document.add_paragraph()
+    period.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    period.add_run(f"盤查期間：{inventory_year} 年 1 月 1 日 ~ {inventory_year} 年 12 月 31 日")
+
+    document.add_page_break()
+    document.add_heading("目錄", level=1)
+    toc_lines = [
+        "第1章 公司基本資料",
+        "  1.1 公司基本資料",
+        "第2章 盤查邊界設定",
+        "  2.1 邊界設定",
+        "第3章 排放源與排放量",
+        "  3.1 排放源鑑別",
+        "  3.2 排放量計算",
+        "  3.3 溫室氣體總排放量",
+        "第4章 其他規定事項與管理建議",
+        "  4.1 其他主管機關規定事項",
+        "  4.2 現況洞察",
+        "  4.3 減量建議與策略",
+        "第5章 假設條件與資料缺口",
+        "第6章 數值引用",
+    ]
+    for line in toc_lines:
+        document.add_paragraph(line)
+
+    document.add_page_break()
+    document.add_heading("第1章 公司基本資料", level=1)
+    document.add_heading("1.1 執行摘要", level=2)
     document.add_paragraph(str(payload.get("executive_summary", "")))
 
     compliance_sections = payload.get("compliance_template_sections", {})
 
-    document.add_heading("二、公司基本資料", level=2)
+    document.add_heading("1.2 公司基本資料", level=2)
     for item in compliance_sections.get("company_basic_info", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("三、盤查邊界設定", level=2)
+    document.add_heading("第2章 盤查邊界設定", level=1)
+    document.add_heading("2.1 邊界設定", level=2)
     for item in compliance_sections.get("boundary_setting", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("四、排放源鑑別", level=2)
+    document.add_heading("第3章 排放源與排放量", level=1)
+    document.add_heading("3.1 排放源鑑別", level=2)
     for item in compliance_sections.get("source_identification", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("五、排放量計算", level=2)
+    document.add_heading("3.2 排放量計算", level=2)
     for item in compliance_sections.get("emission_calculation", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("六、其他主管機關規定事項", level=2)
+    document.add_heading("3.3 溫室氣體總排放量", level=2)
+    document.add_paragraph(f"本公司 {inventory_year} 年溫室氣體總排放量為 {total_co2e} kg CO₂e。")
+
+    document.add_heading("第4章 其他規定事項與管理建議", level=1)
+    document.add_heading("4.1 其他主管機關規定事項", level=2)
     for item in compliance_sections.get("other_regulatory_items", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("七、現狀分析與洞察", level=2)
+    document.add_heading("4.2 現況分析與洞察", level=2)
     for item in payload.get("current_state_findings", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("八、減碳建議與策略", level=2)
+    document.add_heading("4.3 減碳建議與策略", level=2)
     for item in payload.get("reduction_actions", []):
         if isinstance(item, dict):
             title = str(item.get("title", "未命名建議"))
@@ -559,15 +617,16 @@ def _build_docx_report(payload: dict[str, Any], snapshot: dict[str, Any], task_i
         else:
             document.add_paragraph(str(item), style="List Number")
 
-    document.add_heading("九、假設條件", level=2)
+    document.add_heading("第5章 假設條件與資料缺口", level=1)
+    document.add_heading("5.1 假設條件", level=2)
     for item in payload.get("assumptions", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("十、資料缺口", level=2)
+    document.add_heading("5.2 資料缺口", level=2)
     for item in payload.get("data_gaps", []):
         document.add_paragraph(str(item), style="List Bullet")
 
-    document.add_heading("十一、數值引用", level=2)
+    document.add_heading("第6章 數值引用", level=1)
     for citation in payload.get("citations", []):
         metric = citation.get("metric", "") if isinstance(citation, dict) else ""
         source_path = citation.get("source_path", "") if isinstance(citation, dict) else ""
@@ -636,6 +695,7 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             device = device_map.get(record.device_id)
             etype = ((device.emission_type if device else "未分類") or "未分類").strip()
             dev_name = ((device.name if device else f"設備#{record.device_id}") or "未命名").strip()
+            device_key = record.device_id
             factor_code = (device.factor_ref_code if device else "") or ""
 
             if emission_type_to_scope.get(etype, "scope1") != scope_key:
@@ -664,8 +724,8 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             for g in ("CO2", "CH4", "N2O"):
                 et_data["type_gas_totals"][g] = et_data["type_gas_totals"].get(g, 0.0) + gases.get(g, 0.0)
 
-            if dev_name not in et_data["devices"]:
-                et_data["devices"][dev_name] = {
+            if device_key not in et_data["devices"]:
+                et_data["devices"][device_key] = {
                     "device_name": dev_name,
                     "factor_code": factor_code,
                     "records": [],
@@ -673,7 +733,7 @@ async def result_page(request: Request, session: Session = Depends(get_session))
                     "gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
                 }
 
-            dev_data = et_data["devices"][dev_name]
+            dev_data = et_data["devices"][device_key]
             dev_data["records"].append({
                 "record_date": record.record_date,
                 "activity_data": record.activity_data,
@@ -691,8 +751,7 @@ async def result_page(request: Request, session: Session = Depends(get_session))
         for etype_key in sorted(emission_types_in_scope.keys()):
             et = emission_types_in_scope[etype_key]
             device_list = []
-            for dev_key in sorted(et["devices"].keys()):
-                dev = et["devices"][dev_key]
+            for dev in sorted(et["devices"].values(), key=lambda d: d["device_name"]):
                 dev["total_co2e"] = round(dev["total_co2e"], 4)
                 for g in ("CO2", "CH4", "N2O"):
                     dev["gas_totals"][g] = round(dev["gas_totals"][g], 4)
@@ -753,6 +812,14 @@ async def result_page(request: Request, session: Session = Depends(get_session))
             "scope_values": scope_values,
         },
     )
+
+
+@router.get("/download-report-pdf")
+async def download_report_pdf(session: Session = Depends(get_session)):
+    from services.report_generator import create_report_draft
+    year = _get_target_year(session)
+    report = await create_report_draft(inventory_year=year)
+    return RedirectResponse(url=f"/reports/{report.id}/pdf")
 
 
 @router.post("/generate-ai-report")
