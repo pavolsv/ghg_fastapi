@@ -1,0 +1,173 @@
+=== Sheet: 說明 ===
+Shape: (19, 3)
+環境部於中華民國113年2月5日依環部授氣字第1139101231號公告「溫室氣體排放係數」 |  | 
+法源依據 | 溫室氣體排放量盤查登錄及查驗管理辦法第四條第二項第一款。 | 
+公告事項 | 一、事業盤查溫室氣體排放量以排放係數法計算者，採用之溫室氣體排放係數如下：       (一) 固定與移動燃燒排放源排放 | 
+附表 | 表名稱 | 資料來源
+附表一、固定與移動燃燒排放源排放係數 |  | 
+ | 一、固定燃燒排放源排放係數 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+ | 二、移動燃燒排放源排放係數 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+附表二、製程排放之係數 |  | 
+ | 一、非金屬礦物製品製造 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+ | 二、化學製品製造 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+ | 三、金屬製品製造 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+ | 四、非能源產品使用或生產 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+ | 五、電子製品製造 | 2019 IPCC Guidelines for National Greenhouse Gas Inventories
+附表三、逸散排放之係數 |  | 
+ | 一、生活廢水及廢棄污泥 | 2006 IPCC Guidelines for National Greenhouse Gas Inventories
+
+=== Sheet: 附表一_固定燃燒排放源排放係數 ===
+Shape: (65, 16)
+ | 黃色欄位表示為公告「溫室氣體排放係數」之數值。 |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ | 灰色欄位為排放係數之單位轉換(TJ轉為Kcal)結果。 |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ | 藍色欄位由事業自行鍵入。 |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ | 粉色欄位為燃料單位熱值之排放係數與低位熱值之乘積。 |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+一、固定燃燒排放源排放係數 |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+燃料 |  | 英譯名稱 |  | 燃料單位熱值之排放係數 |  |  | 燃料單位熱值之排放係數(排放係數×4186.8×10-9×10-3 |  |  | 低位熱值 |  | 排放係數 |  |  | 排放係數單位
+ |  |  |  | 公斤/兆焦耳(kg/TJ) |  |  | 公斤/千卡(Kg/Kcal) |  |  |  |  |  |  |  | 
+ |  |  |  | CO2 | CH4 | N2O | CO2 | CH4 | N2O | 單位(下拉式選項) | 數值 | CO2 | CH4 | N2O | 
+原油 |  | Crude Oil |  | 73300 | 3 | 0.6 | 0.00030689244000000005 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+奧里油 |  | Orimulsion |  | 77000 | 3 | 0.6 | 0.0003223836 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+液化天然氣 |  | Natural Gas Liquids (NGLs) |  | 64200 | 3 | 0.6 | 0.00026879256000000005 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+汽油 | 車用汽油 | Gasoline | Motor Gasoline | 69300 | 3 | 0.6 | 0.00029014524 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+ | 航空汽油 |  | Aviation Gasoline | 70000 | 3 | 0.6 | 0.000293076 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+ | 航空燃油-汽油型 |  | Jet Gasoline | 70000 | 3 | 0.6 | 0.000293076 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+航空燃油-煤油型 |  | Jet Kerosene |  | 71500 | 3 | 0.6 | 0.00029935620000000004 | 1.2560400000000001e-08 | 2.5120800000000003e-09 |  |  |  |  |  | 
+
+=== Sheet: 附表一_移動燃燒排放源排放係數 ===
+Shape: (35, 11)
+ | 黃色欄位表示為公告「溫室氣體排放係數」之數值。 |  |  |  |  |  |  |  |  | 
+ | 灰色欄位為排放係數之單位轉換(TJ轉為Kcal)結果。 |  |  |  |  |  |  |  |  | 
+ | 藍色欄位由事業自行鍵入。 |  |  |  |  |  |  |  |  | 
+ | 粉色欄位為燃料單位熱值之排放係數與低位熱值之乘積。 |  |  |  |  |  |  |  |  | 
+二、移動燃燒排放源排放係數 |  |  |  |  |  |  |  |  |  | 
+燃料 | 英譯名稱 | 燃料單位熱值之排放係數 | 燃料單位熱值之排放係數(排放係數×4186.8×10-9×10-3 | 低位熱值 |  | 排放係數 | 排放係數單位 |  |  | 
+ |  | 公斤/兆焦耳(kg/TJ) | 公斤/千卡(Kg/Kcal) |  |  |  |  |  |  | 
+ |  | CO2 | CO2 | 單位(下拉式選項) | 數值 | CO2 |  |  |  | 
+車用汽油 | Motor Gasoline | 69300 | 0.00029014524 |  |  |  |  |  |  | 
+柴油 | Gas/ Diesel | 74100 | 0.00031024188000000006 |  |  |  |  |  |  | 
+液化石油氣 | Liquefied Petroleum Gases | 63100 | 0.00026418708000000004 |  |  |  |  |  |  | 
+煤油 | Kerosene | 71900 | 0.00030103092000000005 |  |  |  |  |  |  | 
+潤滑油 | Lubricants | 73300 | 0.00030689244000000005 |  |  |  |  |  |  | 
+壓縮天然氣 | Compressed Natural Gas | 56100 | 0.00023487948000000002 |  |  |  |  |  |  | 
+液化天然氣 | Liquefied Natural Gas | 56100 | 0.00023487948000000002 |  |  |  |  |  |  | 
+
+=== Sheet: 附表二_非金屬礦物製品製造 ===
+Shape: (54, 6)
+一、非金屬礦物製品製造 |  |  |  |  | 
+（一）常見碳酸鹽物種的分子式、分子量及二氧化碳含量 |  |  |  |  | 
+原料 （碳酸鹽） | 礦石名稱 | 分子量 | CO2（公噸/公噸碳酸鹽） |  | 
+ |  |  |  |  | 
+CaCO3 | 方解石或霰石(Calcite or aragonite) | 100.0869 | 0.43971 |  | 
+MgCO3 | 菱鎂礦(Magnesite) | 84.3139 | 0.52197 |  | 
+CaMg(CO3)2 | 白雲石(Dolomite) | 184.4008 | 0.47732 |  | 
+FeCO3 | 菱鐵礦(Siderite) | 115.8539 | 0.37987 |  | 
+Ca(Fe,Mg,Mn)(CO3)2 | 鐵白雲石(Ankerite) | 185.0225−215.6160 | 0.40822−0.47572 |  | 
+MnCO3 | 菱錳礦(Rhodochrosite) | 114.947 | 0.38286 |  | 
+Na2CO3 | 碳酸鈉或純鹼(Sodium carbonate or soda ash) | 106.0685 | 0.41492 |  | 
+註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve |  |  |  |  | 
+ |  |  |  |  | 
+（二）水泥產品 |  |  |  |  | 
+產品 | CO2（公噸/公噸熟料） |  |  |  | 
+
+=== Sheet: 附表二_化學製品製造 ===
+Shape: (160, 7)
+二、化學製品製造 |  |  |  |  |  | 
+（一）氨氣生產 |  |  |  |  |  | 
+製程 | 總燃料需求(Total fuel requirement) | 碳含量因子(Carbon content factor) | 碳氧化因子(Carbon oxidation factor) | CO2（公噸/公噸氨氣） |  | 
+現代工廠-歐洲（Modern plants – Europe） |  |  |  |  |  | 
+常規重組-天然氣(Conventional reforming – natural gas) | 30.2 | 15.3 | 1 | 1.694 |  | 
+過量空氣重組-天然氣(Excess air reforming – natural gas) | 29.7 | 15.3 | 1 | 1.666 |  | 
+自發性熱重組-天然氣(Autothermal reforming – natural gas) | 30.2 | 15.3 | 1 | 1.694 |  | 
+部分氧化(Partial oxidation) | 36 | 21 | 1 | 2.772 |  | 
+從特定能源消耗量（現代和傳統工廠混合）的歐洲平均值得出Derived from European average val |  |  |  |  |  | 
+平均值-天然氣(Average value – natural gas) | 37.5 | 15.3 | 1 | 2.104 |  | 
+平均值-部分氧化(Average value – partial oxidation) | 42.5 | 21 | 1 | 3.273 |  | 
+註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve |  |  |  |  |  | 
+ |  |  |  |  |  | 
+（二） 硝酸生產 |  |  |  |  |  | 
+類型 | 操作狀態 | 壓力 （Bar）(Applied Pressure) |  |  |  | 
+
+=== Sheet: 附表二_金屬製品製造 ===
+Shape: (99, 4)
+三、金屬製品製造 |  |  | 
+（一） 鐵、鋼及冶金焦生產 |  |  | 
+1.二氧化碳排放 |  |  | 
+鐵生產過程 | CO2排放係數 |  | 
+一、焦炭製程（Coke production） |  |  | 
+焦炭-使用回收副產品生產者（公噸CO2/公噸焦炭）Coke production using by-product re | 0.51 |  | 
+焦炭-無使用回收副產品生產者（公噸CO2/公噸焦炭）Coke production without by-product | 1.23 |  | 
+二、燒結製程（Sinter production） |  |  | 
+燒結礦生產（公噸CO2/公噸燒結礦）Sinter production(tonne of CO2/tonne of si | 0.21 |  | 
+球結礦生產（公噸CO2/公噸球結礦） Pellet production (tonne CO2/tonne pellet | 0.19 |  | 
+三、鋼鐵製程（Iron and Steel production） |  |  | 
+生鐵生產（公噸CO2/公噸生鐵）Iron production(tonne CO2/tonne of hot metal | 1.43 |  | 
+直接還原鐵（公噸CO2/公噸直接還原鐵）Direct Reduced Iron (DRI) production (to | 0.7 |  | 
+四、煉鋼方法（Steelmaking Method） |  |  | 
+電弧爐（公噸CO2/公噸鋼） 註1Electric Arc Furnace (EAF) (tonne CO2/tonne | 0.18 |  | 
+
+=== Sheet: 附表二_非能源產品使用或生產 ===
+Shape: (8, 1)
+四、非能源產品使用或生產
+（一）潤滑劑使用
+二氧化碳排放係數（公噸/兆焦耳）＝20 （公噸 碳/兆焦耳）(ton C/TJ) x使用中氧化因子（ODU，預設為0.2
+註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve
+
+（二） 石蠟使用
+二氧化碳排放係數（公噸/兆焦耳）＝20 （公噸 碳/兆焦耳）(ton C/TJ) x使用中氧化因子（ODU，預設為0.2
+註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve
+
+=== Sheet: 附表二_電子製品製造 ===
+Shape: (232, 22)
+五、電子製品製造 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+（一） 以氣體消耗為基礎計算 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ | 1.Tier 2a之預設排放係數（半導體、顯示器、PV及MEMS適用） |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 未反應排放量計算公式如下： |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 其中， 表氣體i之排放量（單位：公斤）、 表氣體i之消耗使用量（單位：公斤）、 表氣體i之利用率（單位：%）（預設參數， |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 其中， 表氣體i之製程設備配備適合氣體 i 排放控制技術的排放比例（單位：%）、 表氣體i之製程設備配備適合氣體 i 排 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 其中，nai 表於IPC或 ITC中配備適合控制氣體 i 排放技術之設備數量、mai 表於蝕刻或晶圓清潔製程中配備適合控 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 其中，Tdn 表配備排放控制技術 n 於製程設備中整年度未開啟的總時間（單位：分鐘）、TTn表配備排放控制技術 n 之於 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+ |  | 註1：倘事業無法區分不同尺寸基板間的消耗氣體其使用量時，方得使用Tier 2a方法。 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+
+=== Sheet: 附表三 ===
+Shape: (124, 7)
+一、生活廢水及廢棄污泥 |  |  |  |  |  | 
+ | 甲烷排放係數（公斤 CH4/公斤 BOD或COD）＝Bo ×MCFj |  |  |  |  | 
+ | 其中，Bo表最大甲烷產生量 （公斤甲烷/公斤BOD或COD）（見表1）；MCFj表甲烷修正係數（見下表2）。 |  |  |  |  | 
+ | 註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve |  |  |  |  | 
+ |  |  |  |  |  | 
+ | 表1、最大甲烷產生量 |  |  |  |  | 
+ | 最大甲烷產生量（Bo） |  |  |  |  | 
+ | 0.6 （公斤甲烷/公斤BOD）（kg CH4/kg BOD） |  |  |  |  | 
+ | 0.25 （公斤甲烷/公斤COD）（kg CH4/kg COD） |  |  |  |  | 
+ | 註：資料來源為2006 IPCC Guidelines for National Greenhouse Gas Inve |  |  |  |  | 
+ |  |  |  |  |  | 
+ | 表2、甲烷修正係數 |  |  |  |  | 
+ | 處理系統 | 甲烷修正係數（MCFj） | 範圍 |  |  | 
+ | 未經處理的系統 |  |  |  |  | 
+ | 海洋、河、湖排放 | 0.1 | 0-0.2 |  |  | 
+
+=== Sheet: 附表四 ===
+Shape: (74, 3)
+附表四、溫暖化潛勢（Global Warming Potential, GWP） |  | 
+縮寫/通用名稱/化學名稱 | 化學式 | 溫暖化潛勢 
+二氧化碳（Carbon dioxide） | CO2 | 1
+甲烷（Methane） | CH4 | 28
+石化甲烷（Fossil methane）註1 | CH4 | 30
+氧化亞氮（Nitrous Oxide） | N2O | 265
+氫氟碳化物（Hydrofluorocarbons） |  | 
+三氟甲烷（HFC-23） | CHF3 | 12400
+二氟甲烷（HFC-32） | CH2F2 | 677
+一氟甲烷（HFC-41） | CH3F | 116
+1,1,1,2,2-五氟乙烷（HFC-125） | CHF2CF3 | 3170
+1,1,2,2-四氟乙烷（HFC-134） | CHF2CHF2 | 1120
+1,1,1,2-四氟乙烷（HFC-134a） | CH2FCF3 | 1300
+1,1,2-三氟乙烷（HFC-143） | CH2FCHF2 | 328
+1,1,1-三氟乙烷（HFC-143a） | CH3CF3 | 4800
+

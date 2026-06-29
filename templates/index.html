@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}儀表板{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <header class="dashboard-header">
+    <div>
+      <h1>歡迎回來，{{ account.account if account else '使用者' }} 👋</h1>
+      <p class="subtitle">這是您今日的碳盤查儀表板摘要</p>
+    </div>
+    <div class="dashboard-meta">
+      <span class="badge">
+        <i data-lucide="calendar" style="width:14px;height:14px;margin-right:4px;vertical-align:middle;"></i>
+        {{ now_date }}
+      </span>
+    </div>
+  </header>
+
+  <section class="kpi-grid">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i data-lucide="calendar-days"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-value">{{ year_count }}</div>
+        <div class="kpi-label">盤查年度</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-violet">
+      <div class="kpi-icon"><i data-lucide="factory"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-value">{{ source_count }}</div>
+        <div class="kpi-label">排放源</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-emerald">
+      <div class="kpi-icon"><i data-lucide="settings-2"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-value">{{ device_count }}</div>
+        <div class="kpi-label">排放設備</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-icon"><i data-lucide="file-text"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-value">{{ bill_count }}</div>
+        <div class="kpi-label">單據記錄</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3><i data-lucide="zap" style="width:18px;height:18px;stroke-width:2.5;color:#2563eb;"></i> 快速操作</h3>
+      <div class="quick-actions">
+        <a href="/calculation"
+           hx-get="/calculation"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="calculator"></i>
+          <span>排放計算</span>
+        </a>
+        <a href="/devices/"
+           hx-get="/devices/"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="settings-2"></i>
+          <span>設備管理</span>
+        </a>
+        <a href="/ocr/upload"
+           hx-get="/ocr/upload"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="scan-line"></i>
+          <span>單據辨識</span>
+        </a>
+        <a href="/result"
+           hx-get="/result"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="bar-chart-2"></i>
+          <span>盤查結果</span>
+        </a>
+        <a href="/documents/electricity"
+           hx-get="/documents/electricity"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="zap"></i>
+          <span>電費單</span>
+        </a>
+        <a href="/set"
+           hx-get="/set"
+           hx-target="#main-content"
+           hx-select="#main-content"
+           hx-push-url="true"
+           hx-indicator="#global-loading">
+          <i data-lucide="building-2"></i>
+          <span>基本資料</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <h3><i data-lucide="clock" style="width:18px;height:18px;stroke-width:2.5;color:#2563eb;"></i> 最近活動</h3>
+      <ul class="activity-list">
+        {% if recent_logs %}
+          {% for log in recent_logs %}
+          <li>
+            <span class="activity-dot" style="background:
+              {% if log.action_type == 'CREATE' %}#10b981
+              {% elif log.action_type == 'UPDATE' %}#f59e0b
+              {% elif log.action_type == 'DELETE' %}#f43f5e
+              {% else %}#94a3b8
+              {% endif %};"></span>
+            <div class="activity-content">
+              <div class="activity-title">{{ log.module }} — {{ log.action_type }}</div>
+              <div class="activity-time">{{ log.changed_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            </div>
+          </li>
+          {% endfor %}
+        {% else %}
+          <li class="empty">暫無近期活動記錄</li>
+        {% endif %}
+      </ul>
+    </div>
+  </section>
+</div>
+{% endblock %}

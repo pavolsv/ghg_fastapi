@@ -1,0 +1,995 @@
+{% extends "base.html" %}
+
+{% block title %}加油收據上傳與預覽 - 溫室氣體盤查系統{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .file-input-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .modal-overlay {
+        animation: fadeIn 0.2s ease-out;
+    }
+    
+    .modal-content {
+        animation: scaleIn 0.2s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div>
+<div class="bg-slate-50 p-6 min-h-screen flex flex-col items-center justify-start gap-6">
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl w-full">
+        
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between min-h-[500px]">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-regular fa-image text-slate-500"></i> 加油收據預覽
+                </h2>
+                
+                <div class="relative bg-slate-100 rounded-lg border border-slate-200 h-[380px] overflow-hidden flex items-center justify-center group select-none">
+                    
+                    <div class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm shadow-md rounded-full px-4 py-1.5 flex items-center gap-4 z-10 opacity-90 hover:opacity-100 transition-opacity">
+                        <button id="btn-zoom-in" class="text-slate-600 hover:text-indigo-600 p-1 transition-colors" title="放大">
+                            <i class="fa-solid fa-magnifying-glass-plus text-base"></i>
+                        </button>
+                        <span id="zoom-scale" class="text-xs font-semibold text-slate-500 min-w-[35px] text-center">100%</span>
+                        <button id="btn-zoom-out" class="text-slate-600 hover:text-indigo-600 p-1 transition-colors" title="縮小">
+                            <i class="fa-solid fa-magnifying-glass-minus text-base"></i>
+                        </button>
+                        <div class="w-[1px] h-4 bg-slate-300"></div>
+                        <button id="btn-rotate" class="text-slate-600 hover:text-indigo-600 p-1 transition-colors" title="旋轉">
+                            <i class="fa-solid fa-rotate-right text-base"></i>
+                        </button>
+                    </div>
+
+                    <button id="btn-prev" class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-10 h-10 rounded-full flex items-center justify-center shadow-md z-10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 cursor-pointer">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button id="btn-next" class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 w-10 h-10 rounded-full flex items-center justify-center shadow-md z-10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 cursor-pointer">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+
+                    <div id="image-container" class="cursor-grab active:cursor-grabbing transition-transform duration-100 ease-out flex items-center justify-center w-full h-full">
+                        <img id="preview-img" src="" alt="請先上傳加油收據" class="max-w-full max-h-full object-contain pointer-events-none hidden">
+                        <div id="preview-placeholder" class="text-center text-slate-400">
+                            <i class="fa-regular fa-file-image text-5xl mb-3 block"></i>
+                            <p class="text-sm">請在上傳區添加檔案，系統將在此同步預覽圖片</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-ocr-start" type="button" hx-disable class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm shadow-indigo-100">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI OCR 識別
+            </button>
+        </div>
+
+        <div id="upload-box-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-[500px]">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-paperclip text-slate-500"></i> 上傳檔案
+            </h2>
+
+            <input type="file" id="file-selector" class="file-input-hidden" accept="image/*" multiple>
+
+            <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/30 rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center mb-4 flex-shrink-0">
+                <div class="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 text-indigo-500">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                </div>
+                <p class="text-xs font-medium text-slate-700 mb-0.5">將加油收據圖片拖拽到此處或 <span class="text-indigo-600 font-semibold">點擊上傳</span></p>
+                <p class="text-[11px] text-slate-400">支援 JPG, PNG 格式圖片</p>
+            </div>
+
+            <div class="flex-1 flex flex-col border border-slate-200 rounded-xl p-3 bg-slate-50/50 min-h-0">
+                <p class="text-xs font-semibold text-slate-500 mb-2 flex-shrink-0">已上傳檔案名稱：</p>
+                <div id="file-names-list" class="flex-1 overflow-y-auto space-y-1.5 text-sm text-slate-600 pr-1">
+                    <span class="text-xs text-slate-400 italic">暫無上傳檔案</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 w-full max-w-6xl">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-slate-500"></i> 加油收據明細清單
+            </h2>
+            <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                已處理共 <span id="file-count" class="font-bold text-indigo-600">0</span> 筆資料
+            </span>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+            <table class="w-full text-sm text-center text-slate-600 min-w-[900px]">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-4 py-3.5 font-semibold text-slate-500 w-16">編號</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500 w-64">加油收據明細</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500 w-40">日期</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500 w-28">油品</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500 w-24">用量</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500">備註</th>
+                        <th class="px-6 py-3.5 font-semibold text-slate-500 w-36">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <tr id="empty-list-msg">
+                        <td colspan="7" class="px-6 py-12 text-center text-slate-400 bg-white">
+                            <i class="fa-solid fa-inbox text-4xl mb-2 block text-slate-300"></i>
+                            目前尚未識別任何資料，請在上方點擊「AI OCR 識別」
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 儲存按鈕 -->
+        <div class="mt-4 flex justify-end">
+            <button id="btn-save-to-db" type="button"
+                class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors cursor-pointer shadow-sm">
+                <i class="fa-solid fa-database mr-2"></i>儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 圖片彈出視窗 -->
+<div id="image-modal" class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-regular fa-file-image text-indigo-500"></i>
+                <span id="modal-title">加油收據圖片</span>
+            </h3>
+            <button id="btn-modal-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        
+        <div id="modal-image-wrapper" class="flex-1 overflow-hidden p-6 flex items-center justify-center bg-slate-50 cursor-grab active:cursor-grabbing">
+            <img id="modal-image" src="" alt="加油收據圖片" class="max-w-full max-h-full object-contain rounded-lg shadow-md select-none pointer-events-none">
+        </div>
+        
+        <div class="px-6 py-3 border-t border-slate-200 bg-white flex items-center justify-between">
+            <span id="modal-info" class="text-sm text-slate-500"></span>
+            <div class="flex items-center gap-2">
+                <button id="btn-modal-zoom-in" class="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer" title="放大">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </button>
+                <button id="btn-modal-zoom-out" class="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer" title="縮小">
+                    <i class="fa-solid fa-magnifying-glass-minus"></i>
+                </button>
+                <span id="modal-zoom-scale" class="text-xs font-semibold text-slate-500 min-w-[40px] text-center">100%</span>
+                <button id="btn-modal-rotate" class="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer" title="旋轉">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 編輯視窗 -->
+<div id="edit-modal" class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-indigo-500"></i>
+                編輯加油收據資料
+            </h3>
+            <button id="btn-edit-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        
+        <!-- 附件圖片 -->
+        <div class="px-6 py-3 border-b border-slate-100 bg-slate-50">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500">附件圖片</span>
+                <div class="flex items-center gap-1">
+                    <button id="btn-edit-zoom-in" class="text-slate-400 hover:text-indigo-600 w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer" title="放大">
+                        <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+                    </button>
+                    <button id="btn-edit-zoom-out" class="text-slate-400 hover:text-indigo-600 w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer" title="縮小">
+                        <i class="fa-solid fa-magnifying-glass-minus text-xs"></i>
+                    </button>
+                    <span id="edit-zoom-scale" class="text-xs text-slate-400 min-w-[35px] text-center">100%</span>
+                    <button id="btn-edit-rotate" class="text-slate-400 hover:text-indigo-600 w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer" title="旋轉">
+                        <i class="fa-solid fa-rotate-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="edit-image-wrapper" class="h-72 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing">
+                <img id="edit-image" src="" alt="附件圖片" class="max-w-full max-h-full object-contain select-none pointer-events-none">
+            </div>
+        </div>
+        
+        <!-- 編輯表單 -->
+        <div class="flex-1 overflow-auto p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">日期</label>
+                <input type="text" id="edit-date" class="w-55 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="YYYY-MM-DD">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">油品</label>
+                <input type="text" id="edit-oil-type" class="w-55 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="例如：九二無鉛">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">用量</label>
+                <input type="text" id="edit-amount" class="w-45 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+        </div>
+        
+        <!-- 按鈕列 -->
+        <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+            <button id="btn-edit-cancel" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">取消</button>
+            <button id="btn-edit-save" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer">儲存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 設備選擇彈窗 -->
+<div id="device-select-modal" class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-gas-pump text-amber-500"></i>
+                選擇掛載設備
+            </h3>
+            <button id="btn-device-modal-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <p class="text-sm text-slate-500 mb-4">請選擇要掛載加油單據的設備（僅顯示移動燃燒類型）：</p>
+            <select id="device-select-dropdown" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                <option value="">-- 請選擇設備 --</option>
+            </select>
+            <div id="device-select-loading" class="text-center text-sm text-slate-400 py-4 hidden">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i>載入設備清單中...
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+            <button id="btn-device-cancel" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">取消</button>
+            <button id="btn-device-confirm" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer">確認儲存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================
+    // 狀態管理
+    // ============================================
+    if (!window._gasState) {
+        window._gasState = {
+            localUploadedQueue: [],
+            processedFiles: [],
+            currentIndex: -1,
+            scale: 1,
+            rotation: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            translateX: 0,
+            translateY: 0,
+            modalScale: 1,
+            modalRotation: 0,
+            modalDragging: false,
+            modalStartX: 0,
+            modalStartY: 0,
+            modalTranslateX: 0,
+            modalTranslateY: 0,
+            editScale: 1,
+            editRotation: 0,
+            editDragging: false,
+            editStartX: 0,
+            editStartY: 0,
+            editTranslateX: 0,
+            editTranslateY: 0,
+            editingFileId: null,
+            abortController: null
+        };
+    }
+
+    const state = window._gasState;
+
+    let globalMouseMoveHandler = null;
+    let globalMouseUpHandler = null;
+
+    let dropZone, fileSelector, fileNamesList;
+    let tableBody, emptyListMsg, fileCount;
+    let previewImg, previewPlaceholder, imageContainer, zoomScaleLabel;
+    let btnPrev, btnNext;
+    let imageModal, modalImage, modalTitle, modalInfo, modalZoomScale, modalImageWrapper;
+    let btnModalZoomIn, btnModalZoomOut, btnModalRotate;
+    let editModal, editImage, editImageWrapper, editZoomScale;
+    let btnEditZoomIn, btnEditZoomOut, btnEditRotate;
+    let editDate, editOilType, editAmount;
+
+    // ============================================
+    // 圖片彈出視窗（含拖移）
+    // ============================================
+    function openImageModal(fileId) {
+        const file = state.processedFiles.find(f => f.id === fileId);
+        if (!file || !file.url) return;
+        if (!imageModal || !modalImage) bindModalElements();
+
+        state.modalScale = 1;
+        state.modalRotation = 0;
+        state.modalTranslateX = 0;
+        state.modalTranslateY = 0;
+        updateModalTransform();
+
+        modalImage.src = file.url;
+        modalTitle.textContent = file.name;
+        modalInfo.textContent = `日期: ${file.date} | 油品: ${file.oilType} | 用量: ${file.amount}`;
+
+        imageModal.classList.remove('hidden');
+        imageModal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeImageModal() {
+        if (!imageModal) return;
+        imageModal.classList.add('hidden');
+        imageModal.classList.remove('flex');
+        document.body.style.overflow = '';
+        state.modalScale = 1;
+        state.modalRotation = 0;
+        state.modalTranslateX = 0;
+        state.modalTranslateY = 0;
+    }
+
+    function updateModalTransform() {
+        if (!modalImage || !modalZoomScale) return;
+        modalImage.style.transition = 'none';
+        modalImage.style.transform = `translate(${state.modalTranslateX}px, ${state.modalTranslateY}px) scale(${state.modalScale}) rotate(${state.modalRotation}deg)`;
+        modalZoomScale.textContent = `${Math.round(state.modalScale * 100)}%`;
+    }
+
+    function bindModalElements() {
+        imageModal = document.getElementById('image-modal');
+        modalImage = document.getElementById('modal-image');
+        modalTitle = document.getElementById('modal-title');
+        modalInfo = document.getElementById('modal-info');
+        modalZoomScale = document.getElementById('modal-zoom-scale');
+        modalImageWrapper = document.getElementById('modal-image-wrapper');
+        btnModalZoomIn = document.getElementById('btn-modal-zoom-in');
+        btnModalZoomOut = document.getElementById('btn-modal-zoom-out');
+        btnModalRotate = document.getElementById('btn-modal-rotate');
+
+        const btnModalClose = document.getElementById('btn-modal-close');
+        if (btnModalClose) btnModalClose.onclick = closeImageModal;
+        if (imageModal) {
+            imageModal.onclick = (e) => { if (e.target === imageModal) closeImageModal(); };
+        }
+
+        if (btnModalZoomIn) btnModalZoomIn.onclick = () => { state.modalScale = Math.min(state.modalScale + 0.2, 5); updateModalTransform(); };
+        if (btnModalZoomOut) btnModalZoomOut.onclick = () => { state.modalScale = Math.max(state.modalScale - 0.2, 0.2); updateModalTransform(); };
+        if (btnModalRotate) btnModalRotate.onclick = () => { state.modalRotation = (state.modalRotation + 90) % 360; updateModalTransform(); };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && imageModal && !imageModal.classList.contains('hidden')) closeImageModal();
+        });
+
+        if (modalImageWrapper) {
+            modalImageWrapper.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                state.modalScale = e.deltaY < 0 ? Math.min(state.modalScale + 0.1, 5) : Math.max(state.modalScale - 0.1, 0.2);
+                updateModalTransform();
+            }, { passive: false });
+
+            modalImageWrapper.addEventListener('mousedown', (e) => {
+                state.modalDragging = true;
+                state.modalStartX = e.clientX - state.modalTranslateX;
+                state.modalStartY = e.clientY - state.modalTranslateY;
+            });
+        }
+    }
+
+    // ============================================
+    // 編輯視窗（含圖片拖移）
+    // ============================================
+    function openEditModal(fileId) {
+        const file = state.processedFiles.find(f => f.id === fileId);
+        if (!file) return;
+        if (!editModal || !editImage) bindEditElements();
+
+        state.editingFileId = fileId;
+        state.editScale = 1;
+        state.editRotation = 0;
+        state.editTranslateX = 0;
+        state.editTranslateY = 0;
+        updateEditTransform();
+
+        editImage.src = file.url;
+        editDate.value = file.date !== '---' ? file.date : '';
+        editOilType.value = file.oilType !== '---' ? file.oilType : '';
+        editAmount.value = file.amount !== '---' ? file.amount : '';
+
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditModal() {
+        if (!editModal) return;
+        editModal.classList.add('hidden');
+        editModal.classList.remove('flex');
+        document.body.style.overflow = '';
+        state.editingFileId = null;
+    }
+
+    function saveEdit() {
+        if (!state.editingFileId) return;
+        const file = state.processedFiles.find(f => f.id === state.editingFileId);
+        if (!file) return;
+
+        file.date = editDate.value || '---';
+        file.oilType = editOilType.value || '---';
+        file.amount = editAmount.value || '---';
+        file.note = `<span class="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs font-semibold border border-indigo-100">手動編輯成功</span>`;
+        file.status = 'done';
+
+        renderFileList();
+        closeEditModal();
+    }
+
+    function updateEditTransform() {
+        if (!editImage || !editZoomScale) return;
+        editImage.style.transition = 'none';
+        editImage.style.transform = `translate(${state.editTranslateX}px, ${state.editTranslateY}px) scale(${state.editScale}) rotate(${state.editRotation}deg)`;
+        editZoomScale.textContent = `${Math.round(state.editScale * 100)}%`;
+    }
+
+    function bindEditElements() {
+        editModal = document.getElementById('edit-modal');
+        editImage = document.getElementById('edit-image');
+        editImageWrapper = document.getElementById('edit-image-wrapper');
+        editZoomScale = document.getElementById('edit-zoom-scale');
+        btnEditZoomIn = document.getElementById('btn-edit-zoom-in');
+        btnEditZoomOut = document.getElementById('btn-edit-zoom-out');
+        btnEditRotate = document.getElementById('btn-edit-rotate');
+        editDate = document.getElementById('edit-date');
+        editOilType = document.getElementById('edit-oil-type');
+        editAmount = document.getElementById('edit-amount');
+
+        document.getElementById('btn-edit-close').onclick = closeEditModal;
+        document.getElementById('btn-edit-cancel').onclick = closeEditModal;
+        document.getElementById('btn-edit-save').onclick = saveEdit;
+
+        if (editModal) editModal.onclick = (e) => { if (e.target === editModal) closeEditModal(); };
+        if (btnEditZoomIn) btnEditZoomIn.onclick = () => { state.editScale = Math.min(state.editScale + 0.2, 5); updateEditTransform(); };
+        if (btnEditZoomOut) btnEditZoomOut.onclick = () => { state.editScale = Math.max(state.editScale - 0.2, 0.2); updateEditTransform(); };
+        if (btnEditRotate) btnEditRotate.onclick = () => { state.editRotation = (state.editRotation + 90) % 360; updateEditTransform(); };
+
+        if (editImageWrapper) {
+            editImageWrapper.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                state.editScale = e.deltaY < 0 ? Math.min(state.editScale + 0.1, 5) : Math.max(state.editScale - 0.1, 0.2);
+                updateEditTransform();
+            }, { passive: false });
+
+            editImageWrapper.addEventListener('mousedown', (e) => {
+                state.editDragging = true;
+                state.editStartX = e.clientX - state.editTranslateX;
+                state.editStartY = e.clientY - state.editTranslateY;
+            });
+        }
+    }
+
+    // ============================================
+    // 設備選擇彈窗
+    // ============================================
+    let pendingSaveFiles = [];
+
+    function openDeviceSelectModal(doneFiles) {
+        pendingSaveFiles = doneFiles;
+        const modal = document.getElementById('device-select-modal');
+        const dropdown = document.getElementById('device-select-dropdown');
+        const loading = document.getElementById('device-select-loading');
+        
+        if (!modal || !dropdown) return;
+        
+        // 重置
+        dropdown.innerHTML = '<option value="">-- 請選擇設備 --</option>';
+        dropdown.disabled = true;
+        loading.classList.remove('hidden');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        
+        // 載入設備清單
+        fetch('/devices/api/activities')
+            .then(res => res.json())
+            .then(result => {
+                loading.classList.add('hidden');
+                dropdown.disabled = false;
+                if (result.success && result.data) {
+                    // 只顯示移動燃燒的設備
+                    const fuelDevices = result.data.filter(d => d.emission_type === '移動燃燒');
+                    if (fuelDevices.length === 0) {
+                        dropdown.innerHTML = '<option value="">尚無移動燃燒設備</option>';
+                        return;
+                    }
+                    fuelDevices.forEach(d => {
+                        const option = document.createElement('option');
+                        option.value = d.device_id;
+                        option.textContent = `${d.device_code || ''} - ${d.name}`.trim();
+                        dropdown.appendChild(option);
+                    });
+                } else {
+                    dropdown.innerHTML = '<option value="">無法載入設備清單</option>';
+                }
+            })
+            .catch(() => {
+                loading.classList.add('hidden');
+                dropdown.disabled = false;
+                dropdown.innerHTML = '<option value="">載入失敗，請重新嘗試</option>';
+            });
+    }
+
+    function closeDeviceSelectModal() {
+        const modal = document.getElementById('device-select-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+        pendingSaveFiles = [];
+    }
+
+    function confirmDeviceSelect() {
+    const dropdown = document.getElementById('device-select-dropdown');
+    const deviceId = dropdown ? dropdown.value : '';
+    
+    if (!deviceId) {
+        alert('請選擇一個設備。');
+        return;
+    }
+    
+    // 先取得待儲存檔案（在關閉彈窗前）
+    const filesToSave = [...pendingSaveFiles];
+    
+    // 先關閉彈窗
+    const modal = document.getElementById('device-select-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+    pendingSaveFiles = [];
+    
+    // 執行儲存
+    let savedCount = 0;
+    let errorCount = 0;
+    const total = filesToSave.length;
+    
+    if (total === 0) return;
+    
+    filesToSave.forEach(file => {
+        const formData = new FormData();
+        formData.append('bill_type', 'fuel');
+        formData.append('date', file.date !== '---' ? file.date : '');
+        formData.append('oil_type', file.oilType !== '---' ? file.oilType : '');
+        formData.append('usage_amount', file.amount !== '---' ? file.amount : '0');
+        formData.append('unit', '公升');
+        formData.append('note', '');
+        formData.append('device_id', deviceId);
+        
+        fetch('/documents/create-from-ocr', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) savedCount++;
+            else errorCount++;
+        })
+        .catch(() => { errorCount++; })
+        .finally(() => {
+            if (savedCount + errorCount === total) {
+                alert(`儲存完成！成功：${savedCount} 筆，失敗：${errorCount} 筆`);
+                if (savedCount > 0) {
+                    state.processedFiles = [];
+                    renderFileList();
+                    }
+                }
+            });
+        });
+    }
+
+    function bindDeviceSelectEvents() {
+        const modal = document.getElementById('device-select-modal');
+        if (!modal) return;
+        
+        document.getElementById('btn-device-modal-close').onclick = closeDeviceSelectModal;
+        document.getElementById('btn-device-cancel').onclick = closeDeviceSelectModal;
+        document.getElementById('btn-device-confirm').onclick = confirmDeviceSelect;
+        
+        modal.onclick = (e) => { if (e.target === modal) closeDeviceSelectModal(); };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                closeDeviceSelectModal();
+            }
+        });
+    }
+
+    // ============================================
+    // 檔案上傳與隊列管理
+    // ============================================
+    function handleFiles(files) {
+        const filteredFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        if (filteredFiles.length === 0) return;
+        const startIndex = state.localUploadedQueue.length;
+        filteredFiles.forEach(file => {
+            state.localUploadedQueue.push({
+                id: 'gas_' + Date.now() + Math.random().toString(36).substr(2, 4),
+                name: file.name,
+                url: URL.createObjectURL(file),
+                fileObject: file
+            });
+        });
+        switchImage(startIndex);
+    }
+
+    function renderUploadBoxNames() {
+        if (!fileNamesList) return;
+        if (state.localUploadedQueue.length === 0) {
+            fileNamesList.innerHTML = `<span class="text-xs text-slate-400 italic">暫無上傳檔案</span>`;
+            return;
+        }
+        fileNamesList.innerHTML = '';
+        state.localUploadedQueue.forEach((file, index) => {
+            const item = document.createElement('div');
+            const isCurrent = index === state.currentIndex;
+            item.className = `queue-item flex items-center justify-between p-2 rounded-lg border transition-colors cursor-pointer ${isCurrent ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`;
+            if (isCurrent) item.setAttribute('id', 'active-queue-item');
+            item.innerHTML = `
+                <div class="flex items-center gap-2 truncate flex-1" onclick="window._gasSwitchImage(${index})">
+                    <i class="fa-regular fa-file-image ${isCurrent ? 'text-indigo-500' : 'text-slate-400'} flex-shrink-0"></i>
+                    <span class="truncate block">${file.name}</span>
+                </div>
+                <button onclick="window._gasRemoveFromQueue(event, ${index})" class="text-slate-400 hover:text-rose-500 ml-2 p-0.5 transition-colors cursor-pointer flex-shrink-0" title="移出清單">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            `;
+            fileNamesList.appendChild(item);
+        });
+        const activeItem = document.getElementById('active-queue-item');
+        if (activeItem) activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function switchImage(index) {
+        state.currentIndex = index;
+        resetTransform();
+        renderUploadBoxNames();
+        renderPreview();
+    }
+    window._gasSwitchImage = switchImage;
+
+    function removeFromQueue(event, index) {
+        event.stopPropagation();
+        if (state.localUploadedQueue[index].url.startsWith('blob:')) URL.revokeObjectURL(state.localUploadedQueue[index].url);
+        state.localUploadedQueue.splice(index, 1);
+        if (state.currentIndex >= state.localUploadedQueue.length) state.currentIndex = state.localUploadedQueue.length - 1;
+        resetTransform();
+        renderUploadBoxNames();
+        renderPreview();
+    }
+    window._gasRemoveFromQueue = removeFromQueue;
+
+    // ============================================
+    // AI OCR 辨識處理
+    // ============================================
+    function startOCRIdentification() {
+        if (state.localUploadedQueue.length === 0) { alert('上傳框內目前沒有待辨識的檔案名稱！'); return; }
+        
+        if (state.abortController) {
+            state.abortController.abort();
+        }
+        state.abortController = new AbortController();
+        const signal = state.abortController.signal;
+        
+        const filesToProcess = [...state.localUploadedQueue];
+        state.localUploadedQueue = [];
+        state.currentIndex = -1;
+        filesToProcess.forEach(file => {
+            state.processedFiles.push({
+                id: file.id, name: file.name, url: file.url,
+                status: 'recognizing', date: '---', oilType: '---', amount: '---',
+                note: '<span class="text-indigo-500 bg-indigo-50/50 px-2 py-0.5 rounded text-xs font-medium border border-indigo-100 inline-flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin text-[10px]"></i>連線辨識中...</span>'
+            });
+            executeBackendOCR(file.fileObject, file.id, signal);
+        });
+        renderUploadBoxNames(); renderFileList(); renderPreview();
+    }
+    window._gasStartIdentification = startOCRIdentification;
+
+    function executeBackendOCR(fileObj, itemId, signal) {
+        const formData = new FormData();
+        formData.append('file', fileObj);
+        fetch('/gas/process-single', { 
+            method: 'POST', 
+            body: formData,
+            signal: signal
+        })
+        .then(response => {
+            if (!response.ok) return response.json().then(err => { throw new Error(`伺服器錯誤 (${response.status}): ${err.error || '未知錯誤'}`); });
+            return response.json();
+        })
+        .then(data => {
+            const targetFile = state.processedFiles.find(f => f.id === itemId);
+            if (targetFile) {
+                const remark = data.備註 || '';
+                const remarkHtml = remark.replace(/\n/g, '<br>');
+                if (remark === "辨識成功") {
+                    targetFile.status = 'done';
+                    targetFile.note = `<span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs font-semibold border border-emerald-100">${remarkHtml}</span>`;
+                } else if (remark.includes("失敗") || remark.includes("偏低")) {
+                    targetFile.status = 'done';
+                    targetFile.note = `<span class="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-semibold border border-amber-100">${remarkHtml}</span>`;
+                } else {
+                    targetFile.status = 'error';
+                    targetFile.note = `<span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-xs font-semibold border border-rose-100">${remarkHtml || '辨識失敗'}</span>`;
+                }
+                targetFile.date = data.日期 || '---';
+                targetFile.oilType = data.油品 || '---';
+                targetFile.amount = (data.用量 !== undefined && data.用量 !== null && data.用量 !== '') ? data.用量 : '---';
+                renderFileList();
+            }
+        })
+        .catch(error => {
+            if (error.name === 'AbortError') return;
+            const targetFile = state.processedFiles.find(f => f.id === itemId);
+            if (targetFile) {
+                targetFile.status = 'error';
+                let errorMsg = '網路連線異常';
+                if (error.message.includes('伺服器錯誤')) errorMsg = '辨識服務異常';
+                else if (error.name === 'TypeError') errorMsg = '網路連線中斷，請檢查網路狀態';
+                targetFile.note = `<span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-xs font-semibold border border-rose-100">${errorMsg}</span>`;
+                renderFileList();
+            }
+        });
+    }
+
+    // ============================================
+    // 結果表格渲染
+    // ============================================
+    function renderFileList() {
+        if (!tableBody) return;
+        const rows = tableBody.querySelectorAll('.data-row');
+        rows.forEach(row => row.remove());
+        if (state.processedFiles.length === 0) {
+            if (emptyListMsg) emptyListMsg.classList.remove('hidden');
+            if (fileCount) fileCount.textContent = '0';
+            return;
+        }
+        if (emptyListMsg) emptyListMsg.classList.add('hidden');
+        if (fileCount) fileCount.textContent = state.processedFiles.length;
+
+        state.processedFiles.forEach((file, index) => {
+            const tr = document.createElement('tr');
+            tr.className = "data-row border-b border-slate-200 last:border-0 bg-white hover:bg-slate-50/50 transition-colors text-slate-600";
+
+            let fileNameHtml = '';
+            if (file.status === 'done') {
+                fileNameHtml = `<span class="text-indigo-600 font-medium hover:text-indigo-800 hover:underline cursor-pointer inline-block max-w-[240px]" onclick="window._gasOpenImageModal('${file.id}')">${file.name}</span>`;
+            } else {
+                fileNameHtml = `<span class="text-slate-700 font-medium inline-block max-w-[240px]">${file.name}</span>`;
+            }
+
+            tr.innerHTML = `
+                <td class="px-4 py-4 text-center font-medium text-slate-400 text-xs">${index + 1}</td>
+                <td class="px-6 py-4 text-center">${fileNameHtml}</td>
+                <td class="px-6 py-4 text-center font-medium text-slate-700">${file.date}</td>
+                <td class="px-6 py-4 text-center font-medium text-slate-700">${file.oilType}</td>
+                <td class="px-6 py-4 text-center font-bold text-slate-900">${file.amount}</td>
+                <td class="px-6 py-4 text-center text-xs leading-relaxed">${file.note}</td>
+                <td class="px-6 py-4 text-center space-x-2 text-xs">
+                    <button class="text-indigo-400 hover:text-indigo-600 font-medium transition-colors cursor-pointer" onclick="window._gasOpenEditModal('${file.id}')">編輯</button>
+                    <button class="text-rose-400 hover:text-rose-600 font-medium transition-colors cursor-pointer" onclick="window._gasDeleteProcessedFile(${index})">刪除</button>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    function deleteProcessedFile(index) {
+        state.processedFiles.splice(index, 1);
+        renderFileList();
+    }
+    window._gasDeleteProcessedFile = deleteProcessedFile;
+    window._gasOpenImageModal = (fileId) => openImageModal(fileId);
+    window._gasOpenEditModal = (fileId) => openEditModal(fileId);
+
+    // ============================================
+    // 圖片預覽控制
+    // ============================================
+    function renderPreview() {
+        if (!previewImg || !previewPlaceholder) return;
+        if (state.currentIndex === -1 || state.localUploadedQueue.length === 0) {
+            previewImg.classList.add('hidden');
+            previewPlaceholder.classList.remove('hidden');
+            if (btnPrev) btnPrev.disabled = true;
+            if (btnNext) btnNext.disabled = true;
+            return;
+        }
+        previewPlaceholder.classList.add('hidden');
+        previewImg.classList.remove('hidden');
+        previewImg.src = state.localUploadedQueue[state.currentIndex].url;
+        if (btnPrev) btnPrev.disabled = state.currentIndex === 0;
+        if (btnNext) btnNext.disabled = state.currentIndex === state.localUploadedQueue.length - 1;
+    }
+
+    function updateTransform() {
+        if (!imageContainer || !zoomScaleLabel) return;
+        imageContainer.style.transition = 'none';
+        imageContainer.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale}) rotate(${state.rotation}deg)`;
+        zoomScaleLabel.textContent = `${Math.round(state.scale * 100)}%`;
+    }
+
+    function resetTransform() {
+        if (!imageContainer || !zoomScaleLabel) return;
+        state.scale = 1; state.rotation = 0; state.translateX = 0; state.translateY = 0;
+        imageContainer.style.transition = 'transform 0.2s ease-out';
+        imageContainer.style.transform = `translate(0px, 0px) scale(1) rotate(0deg)`;
+        zoomScaleLabel.textContent = '100%';
+    }
+
+    // ============================================
+    // SPA 生命週期
+    // ============================================
+    function initGasPagePipeline() {
+        dropZone = document.getElementById('drop-zone');
+        fileSelector = document.getElementById('file-selector');
+        fileNamesList = document.getElementById('file-names-list');
+        tableBody = document.getElementById('table-body');
+        emptyListMsg = document.getElementById('empty-list-msg');
+        fileCount = document.getElementById('file-count');
+        previewImg = document.getElementById('preview-img');
+        previewPlaceholder = document.getElementById('preview-placeholder');
+        imageContainer = document.getElementById('image-container');
+        zoomScaleLabel = document.getElementById('zoom-scale');
+        btnPrev = document.getElementById('btn-prev');
+        btnNext = document.getElementById('btn-next');
+
+        if (!dropZone) return;
+
+        bindModalElements();
+        bindEditElements();
+
+        const btnOcr = document.getElementById('btn-ocr-start');
+        if (btnOcr) btnOcr.onclick = (e) => { e.preventDefault(); startOCRIdentification(); };
+
+        dropZone.onclick = () => { fileSelector.value = ''; fileSelector.click(); };
+        fileSelector.onchange = (e) => handleFiles(e.target.files);
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500', 'bg-indigo-50/50'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/50'); });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/50'); handleFiles(e.dataTransfer.files); });
+
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnRotate = document.getElementById('btn-rotate');
+        if (btnZoomIn) btnZoomIn.onclick = () => { state.scale = Math.min(state.scale + 0.2, 5); updateTransform(); };
+        if (btnZoomOut) btnZoomOut.onclick = () => { state.scale = Math.max(state.scale - 0.2, 0.2); updateTransform(); };
+        if (btnRotate) btnRotate.onclick = () => { state.rotation = (state.rotation + 90) % 360; updateTransform(); };
+        if (btnPrev) btnPrev.onclick = () => { if (state.currentIndex > 0) switchImage(state.currentIndex - 1); };
+        if (btnNext) btnNext.onclick = () => { if (state.currentIndex < state.localUploadedQueue.length - 1) switchImage(state.currentIndex + 1); };
+
+        // 儲存至資料庫按鈕
+        const btnSaveDb = document.getElementById('btn-save-to-db');
+        if (btnSaveDb) {
+            btnSaveDb.onclick = function() {
+                const doneFiles = state.processedFiles.filter(f => f.status === 'done');
+                if (doneFiles.length === 0) {
+                    alert('沒有已完成的辨識資料可儲存。');
+                    return;
+                }
+                // 開啟設備選擇彈窗
+                openDeviceSelectModal(doneFiles);
+            };
+        }
+
+        if (imageContainer) {
+            imageContainer.addEventListener('wheel', (e) => {
+                if (state.currentIndex === -1) return;
+                e.preventDefault();
+                state.scale = e.deltaY < 0 ? Math.min(state.scale + 0.1, 5) : Math.max(state.scale - 0.1, 0.2);
+                updateTransform();
+            }, { passive: false });
+            imageContainer.addEventListener('mousedown', (e) => {
+                if (state.currentIndex === -1) return;
+                state.isDragging = true;
+                state.startX = e.clientX - state.translateX;
+                state.startY = e.clientY - state.translateY;
+            });
+        }
+
+        if (globalMouseMoveHandler) window.removeEventListener('mousemove', globalMouseMoveHandler);
+        if (globalMouseUpHandler) window.removeEventListener('mouseup', globalMouseUpHandler);
+
+        globalMouseMoveHandler = (e) => {
+            if (state.isDragging) {
+                state.translateX = e.clientX - state.startX;
+                state.translateY = e.clientY - state.startY;
+                updateTransform();
+            }
+            if (state.modalDragging) {
+                state.modalTranslateX = e.clientX - state.modalStartX;
+                state.modalTranslateY = e.clientY - state.modalStartY;
+                updateModalTransform();
+            }
+            if (state.editDragging) {
+                state.editTranslateX = e.clientX - state.editStartX;
+                state.editTranslateY = e.clientY - state.editStartY;
+                updateEditTransform();
+            }
+        };
+        globalMouseUpHandler = () => { state.isDragging = false; state.modalDragging = false; state.editDragging = false; };
+
+        window.addEventListener('mousemove', globalMouseMoveHandler);
+        window.addEventListener('mouseup', globalMouseUpHandler);
+
+        renderFileList();
+        renderUploadBoxNames();
+        renderPreview();
+
+        function abortOcrRequests() {
+            if (state.abortController) {
+                state.abortController.abort();
+            }
+            state.processedFiles.forEach(file => {
+                if (file.status === 'recognizing') {
+                    file.status = 'error';
+                    file.note = '<span class="text-slate-400 bg-slate-100 px-2 py-0.5 rounded text-xs font-semibold border border-slate-200">已取消</span>';
+                }
+            });
+            renderFileList();
+        }
+        document.body.removeEventListener('htmx:beforeSwap', abortOcrRequests);
+        document.body.addEventListener('htmx:beforeSwap', abortOcrRequests);
+
+        // 手動綁定設備選擇彈窗按鈕
+        const btnDeviceConfirm = document.getElementById('btn-device-confirm');
+        const btnDeviceCancel = document.getElementById('btn-device-cancel');
+        const btnDeviceClose = document.getElementById('btn-device-modal-close');
+        const deviceModal = document.getElementById('device-select-modal');
+
+        if (btnDeviceConfirm) btnDeviceConfirm.onclick = confirmDeviceSelect;
+        if (btnDeviceCancel) btnDeviceCancel.onclick = closeDeviceSelectModal;
+        if (btnDeviceClose) btnDeviceClose.onclick = closeDeviceSelectModal;
+        if (deviceModal) deviceModal.onclick = (e) => { if (e.target === deviceModal) closeDeviceSelectModal(); };
+    }
+
+    document.addEventListener('DOMContentLoaded', initGasPagePipeline);
+    document.body.addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.target.id === 'main-content') {
+            initGasPagePipeline();
+        }
+    });
+</script>
+</div>
+{% endblock %}

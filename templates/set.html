@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}基本資料{% endblock %}
+
+{% block head %}
+<style>
+    .form-container {
+        background: #ffffff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: 32px;
+        margin: 40px auto;
+        max-width: 640px;
+    }
+
+    .form-container h2 {
+        font-size: 1.3rem;
+        margin-top: 0;
+        color: #0f172a;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+
+    .form-container > p {
+        color: #64748b;
+        line-height: 1.8;
+        margin-top: 0;
+        margin-bottom: 28px;
+        font-size: 0.95rem;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+
+    .form-group input {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        padding: 14px 16px;
+        color: #0f172a;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-group input:invalid {
+        border-color: #e11d48;
+    }
+
+    .form-group input:invalid:focus {
+        box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+    }
+
+    .form-group .display-value {
+        display: inline-block;
+        width: 100%;
+        min-height: 48px;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #0f172a;
+        font-weight: 500;
+        box-sizing: border-box;
+        font-size: 0.95rem;
+    }
+
+    .form-group .display-value:hover {
+        border-color: #2563eb;
+        background: #f1f5f9;
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: #2563eb;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        margin-top: 8px;
+    }
+
+    .btn-submit:hover {
+        background: #1d4ed8;
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .back-link {
+        text-align: center;
+        margin-top: 28px;
+    }
+
+    .back-link a {
+        text-decoration: none;
+        color: #2563eb;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .back-link a:hover {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>基本資料設定</h2>
+    <p>管理公司基本資訊，點擊欄位即可編輯內容。<span style="color: #e11d48;">*</span> 為必填欄位</p>
+    <form id="profileForm" action="/set" method="post">
+        <div class="form-group">
+            <label for="companyName">公司名稱</label>
+            {% if user.companyName %}
+            <span id="companyNameText" class="display-value">{{ user.companyName }}</span>
+            <input type="text" id="companyName" name="companyName" value="{{ user.companyName }}" style="display:none;">
+            {% else %}
+            <span id="companyNameText" class="display-value" style="display:none;"></span>
+            <input type="text" id="companyName" name="companyName" value="" placeholder="請輸入公司名稱">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="owner">負責人</label>
+            {% if user.owner %}
+            <span id="ownerText" class="display-value">{{ user.owner }}</span>
+            <input type="text" id="owner" name="owner" value="{{ user.owner }}" style="display:none;">
+            {% else %}
+            <span id="ownerText" class="display-value" style="display:none;"></span>
+            <input type="text" id="owner" name="owner" value="" placeholder="請輸入負責人姓名">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="contact_person">聯絡人</label>
+            {% if user.contact_person %}
+            <span id="contact_personText" class="display-value">{{ user.contact_person }}</span>
+            <input type="text" id="contact_person" name="contact_person" value="{{ user.contact_person }}" style="display:none;">
+            {% else %}
+            <span id="contact_personText" class="display-value" style="display:none;"></span>
+            <input type="text" id="contact_person" name="contact_person" value="" placeholder="請輸入聯絡人">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="telephone">聯絡電話</label>
+            {% if user.telephone %}
+            <span id="telephoneText" class="display-value">{{ user.telephone }}</span>
+            <input type="text" id="telephone" name="telephone" value="{{ user.telephone }}" style="display:none;">
+            {% else %}
+            <span id="telephoneText" class="display-value" style="display:none;"></span>
+            <input type="text" id="telephone" name="telephone" value="" placeholder="請輸入聯絡電話">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="email">電子郵件</label>
+            {% if user.email %}
+            <span id="emailText" class="display-value">{{ user.email }}</span>
+            <input type="text" id="email" name="email" value="{{ user.email }}" style="display:none;">
+            {% else %}
+            <span id="emailText" class="display-value" style="display:none;"></span>
+            <input type="text" id="email" name="email" value="" placeholder="請輸入電子郵件">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="address">地址</label>
+            {% if user.address %}
+            <span id="addressText" class="display-value">{{ user.address }}</span>
+            <input type="text" id="address" name="address" value="{{ user.address }}" style="display:none;">
+            {% else %}
+            <span id="addressText" class="display-value" style="display:none;"></span>
+            <input type="text" id="address" name="address" value="" placeholder="請輸入地址">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="URL">公司網址</label>
+            {% if user.URL %}
+            <span id="URLText" class="display-value">{{ user.URL }}</span>
+            <input type="text" id="URL" name="URL" value="{{ user.URL }}" style="display:none;">
+            {% else %}
+            <span id="URLText" class="display-value" style="display:none;"></span>
+            <input type="text" id="URL" name="URL" value="" placeholder="請輸入公司網址">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="taxId">統一編號 <span style="color: #e11d48;">*</span></label>
+            {% if user.taxId %}
+            <span id="taxIdText" class="display-value">{{ user.taxId }}</span>
+            <input type="text" id="taxId" name="taxId" value="{{ user.taxId }}" pattern="\d{8}" required style="display:none;">
+            {% else %}
+            <span id="taxIdText" class="display-value" style="display:none;"></span>
+            <input type="text" id="taxId" name="taxId" value="" pattern="\d{8}" placeholder="請輸入8位統一編號" required>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn-submit">儲存設定</button>
+    </form>
+
+    <div class="back-link">
+        <a href="/index">返回首頁</a>
+    </div>
+</div>
+
+<script>
+  (function initSetPage() {
+    const fields = ['companyName','taxId','address','owner','contact_person','telephone','email','URL'];
+    fields.forEach(function(field) {
+      const input = document.getElementById(field);
+      const text = document.getElementById(field + 'Text');
+      if (text && input) {
+        text.addEventListener('click', function() {
+          text.style.display = 'none';
+          input.style.display = 'block';
+          input.focus();
+        });
+      }
+    });
+
+    // 表單提交前驗證統編
+    const form = document.getElementById('profileForm');
+    form.addEventListener('submit', function(e) {
+      const taxInput = document.getElementById('taxId');
+      if (!taxInput.value.trim()) {
+        e.preventDefault();
+        alert('請填寫統一編號');
+        if (taxInput.style.display === 'none') {
+          const taxText = document.getElementById('taxIdText');
+          if (taxText) {
+            taxText.style.display = 'none';
+            taxInput.style.display = 'block';
+            taxInput.focus();
+          }
+        } else {
+          taxInput.focus();
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}係數更新工具{% endblock %}
+
+{% block head %}
+<style>
+.etl-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.etl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.etl-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;
+    transition: box-shadow 0.15s;
+}
+.etl-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.etl-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.etl-card-header .icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.etl-card-header .card-title { font-weight: 700; font-size: 1.05rem; color: #1e293b; }
+.etl-stat { font-size: 0.85rem; color: #64748b; margin-bottom: 16px; }
+.etl-stat span { font-weight: 600; color: #334155; }
+.etl-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border: none; border-radius: 8px;
+    font-size: 0.88rem; font-weight: 500; cursor: pointer;
+    background: #6366f1; color: #fff; transition: background 0.12s;
+}
+.etl-btn:hover { background: #4f46e5; }
+.etl-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+.etl-msg {
+    margin-top: 12px; padding: 8px 14px; border-radius: 8px;
+    font-size: 0.85rem; display: none;
+}
+.etl-msg.success { display: block; background: #dcfce7; color: #166534; }
+.etl-msg.error { display: block; background: #fee2e2; color: #dc2626; }
+.etl-msg.loading { display: block; background: #eef2ff; color: #4338ca; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">係數更新工具</h1>
+    </div>
+
+    <div class="etl-wrap">
+        <div class="etl-grid">
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#fee2e2;color:#dc2626;"><i data-lucide="flame" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">燃料係數</span>
+                </div>
+                <div class="etl-stat">目前 <span>{{ stats.fuel.count }}</span> 筆</div>
+                <div class="etl-stat">來源：6.0.4 ODS + 代碼檔 V2</div>
+                <button class="etl-btn" onclick="refresh('fuel')">🔄 重新匯入</button>
+                <div id="msg_fuel" class="etl-msg"></div>
+            </div>
+
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i data-lucide="zap" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">電力係數</span>
+                </div>
+                <div class="etl-stat">目前 <span>{{ stats.electricity.count }}</span> 筆</div>
+                <div class="etl-stat">來源：台電 CSV</div>
+                <button class="etl-btn" onclick="refresh('electricity')">🔄 重新匯入</button>
+                <div id="msg_electricity" class="etl-msg"></div>
+            </div>
+
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#e0f2fe;color:#0891b2;"><i data-lucide="snowflake" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">GWP 溫暖化潛勢</span>
+                </div>
+                <div class="etl-stat">目前 <span>{{ stats.gwp.count }}</span> 筆</div>
+                <div class="etl-stat">來源：6.0.4 ODS + 代碼檔 V2</div>
+                <button class="etl-btn" onclick="refresh('gwp')">🔄 重新匯入</button>
+                <div id="msg_gwp" class="etl-msg"></div>
+            </div>
+
+            <div class="etl-card">
+                <div class="etl-card-header">
+                    <div class="icon-wrap" style="background:#f1f5f9;color:#475569;"><i data-lucide="book-open" style="width:22px;height:22px;"></i></div>
+                    <span class="card-title">代碼檔</span>
+                </div>
+                <div class="etl-stat">目前 <span>{{ stats.codes.count }}</span> 筆</div>
+                <div class="etl-stat">來源：代碼檔 V2 ODS</div>
+                <button class="etl-btn" onclick="refresh('codes')">🔄 重新匯入</button>
+                <div id="msg_codes" class="etl-msg"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function refresh(type) {
+    const btn = event.target;
+    const msg = document.getElementById('msg_' + type);
+    btn.disabled = true;
+    msg.className = 'etl-msg loading';
+    msg.textContent = '處理中...';
+
+    try {
+        const resp = await fetch('/etl/refresh/' + type, { method: 'POST' });
+        const result = await resp.json();
+        if (result.status === 'success') {
+            msg.className = 'etl-msg success';
+            msg.textContent = result.message;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            msg.className = 'etl-msg error';
+            msg.textContent = '失敗：' + result.message;
+        }
+    } catch (e) {
+        msg.className = 'etl-msg error';
+        msg.textContent = '系統錯誤';
+    }
+    btn.disabled = false;
+}
+</script>
+{% endblock %}

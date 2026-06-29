@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<link rel="stylesheet" href="/static/css/logs_modal.css">
+<link rel="stylesheet" href="/static/css/factor_submenu.css">
+<style>
+.data-table th:first-child, .data-table td:first-child { width: 10%; min-width: 80px; }
+.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 50%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+
+    <div class="fm-page-header">
+        <h1 class="fm-title">係數資料管理</h1>
+        <div class="fm-header-actions">
+            {% if is_gwp %}
+            <button type="button" onclick="openGwpCreate()" class="btn-fm-create">＋ 新增 GWP</button>
+            {% endif %}
+            <button type="button" id="openLogModal" class="btn-fm-log">📝 查看日誌</button>
+        </div>
+    </div>
+
+
+    {% if active_category != '能源間接' %}
+    <div class="filter-bar">
+        <form method="get" action="/etl/manage" class="filter-form">
+            {% if active_category %}
+            <input type="hidden" name="category" value="{{ active_category }}">
+            {% endif %}
+            <div class="filter-group">
+                <label for="nameSearch">名稱查詢</label>
+                <input list="name_suggestions" id="nameSearch" name="name"
+                       class="filter-input" placeholder="輸入名稱..."
+                       value="{{ request.query_params.get('name', '') }}">
+                <datalist id="name_suggestions">
+                    {% for n in name_list %}
+                    <option value="{{ n }}"></option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            {% if active_category not in ('固定燃燒', '移動燃燒') %}
+            <div class="filter-group">
+                <label for="gasSelect">{% if is_gwp %}IPCC 版本{% else %}氣體種類{% endif %}</label>
+                <select id="gasSelect" name="gas_type" class="filter-select">
+                    <option value="">{% if is_gwp %}全部版本{% else %}全部氣體{% endif %}</option>
+                    {% for g in gas_list %}
+                    <option value="{{ g }}" {% if request.query_params.get('gas_type') == g %}selected{% endif %}>{{ g }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if not active_category %}
+            <div class="filter-group">
+                <label for="catSelect">排放類型</label>
+                <select id="catSelect" name="category" class="filter-select">
+                    <option value="">全部類型</option>
+                    <option value="固定燃燒" {% if request.query_params.get('category') == '固定燃燒' %}selected{% endif %}>固定燃燒 (燃料)</option>
+                    <option value="能源間接" {% if request.query_params.get('category') == '能源間接' %}selected{% endif %}>能源間接 (電力)</option>
+                    <option value="移動燃燒" {% if request.query_params.get('category') == '移動燃燒' %}selected{% endif %}>移動燃燒</option>
+                    <option value="逸散排放" {% if request.query_params.get('category') == '逸散排放' %}selected{% endif %}>逸散排放</option>
+                </select>
+            </div>
+            {% endif %}
+            <div class="filter-actions">
+                <a href="/etl/manage{% if active_category %}?category={{ active_category }}{% endif %}" class="btn-clear">清除條件</a>
+                <button type="submit" class="btn-filter">🔍 搜尋篩選</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <table class="data-table">
+        <thead>
+        {% if is_gwp %}
+        <tr>
+            <th onclick="sortGwpTable(0)" style="cursor:pointer;text-align:left;">化學式 <span id="sort-formula"></span></th>
+            <th onclick="sortGwpTable(1)" style="cursor:pointer;text-align:left;">中文名稱 <span id="sort-name-zh"></span></th>
+            <th onclick="sortGwpTable(2)" style="cursor:pointer;">GWP 值 <span id="sort-gwp-value"></span></th>
+            <th>版本</th>
+            <th>備註</th>
+        </tr>
+        {% else %}
+        <tr>
+            <th class="center-header">代碼</th>
+            <th class="center-header">名稱</th>
+            <th class="center-header">CO2</th>
+            <th class="center-header">CH4</th>
+            <th class="center-header">N2O</th>
+            <th class="center-header">單位</th>
+            <th class="center-header">備註</th>
+        </tr>
+        {% endif %}
+        </thead>
+        <tbody>
+        {% if is_gwp %}
+        {% if gwp_factors %}
+        {% for r in gwp_factors %}
+        <tr>
+            <td style="text-align:left;"><code>{{ r.formula }}</code></td>
+            <td style="text-align:left;">{{ r.gas_name_zh }}</td>
+            <td>
+                {% if r.note and '停用' in r.note %}
+                <span style="color:#999;">已停用</span>
+                {% elif r.is_qualitative %}
+                &lt; 1
+                {% elif r.gwp_value == 0 %}
+                <span style="color:#999;">僅需定性</span>
+                {% elif r.gwp_value >= 1000 %}
+                {{ '%.0f' % r.gwp_value }}
+                {% elif r.gwp_value >= 1 %}
+                {{ '%.2f' % r.gwp_value }}
+                {% else %}
+                {{ '%.4f' % r.gwp_value }}
+                {% endif %}
+            </td>
+            <td><span class="badge badge-gas">{{ r.version }}</span></td>
+            <td class="td-truncate">
+                {% if r.note and r.note != 'nan' %}{{ r.note }}
+                {% elif r.is_qualitative %}GWP &lt; 1
+                {% elif r.gwp_value == 0 %}僅需定性
+                {% else %}-
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr><td colspan="5" class="td-empty">查無符合條件的 GWP 資料。</td></tr>
+        {% endif %}
+        {% else %}
+        {% if grouped_factors %}
+        {% for g in grouped_factors %}
+        <tr>
+            <td><code>{{ g.code }}</code></td>
+            <td class="td-name">{{ g.name }}</td>
+            <td class="td-value">
+                {% set co2_val = g.gas_values.get('CO2', g.gas_values.get('CO2e', None)) %}
+                {{ '%.6f' % co2_val if co2_val is not none else '-' }}
+            </td>
+            <td class="td-value">{% set v = g.gas_values.get('CH4') %}{{ '%.6f' % v if v is not none else '-' }}</td>
+            <td class="td-value">{% set v = g.gas_values.get('N2O') %}{{ '%.6f' % v if v is not none else '-' }}</td>
+            <td class="td-unit">{{ g.unit }}</td>
+            <td class="td-actions">
+                <span style="color:#999;font-size:0.85em;">{% if g.original_code == 'ELECTRICITY' %}能源署公告電力排碳係數{% else %}6.0.4 公告值{% endif %}</span>
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+            <td colspan="7" class="td-empty">查無符合條件的係數資料，請調整篩選條件。</td>
+        </tr>
+        {% endif %}
+        {% endif %}
+        </tbody>
+    </table>
+
+    <div class="fm-count">共顯示 {% if is_gwp %}{{ gwp_factors|length }}{% else %}{{ grouped_factors|length }}{% endif %} 筆燃料/係數資料</div>
+</div>
+
+<!-- GWP Modal -->
+<div id="gwpModal" class="factor-modal hidden">
+    <div class="factor-modal-content">
+        <div class="factor-modal-header">
+            <h3 id="gwpModalTitle">新增 GWP 參考値</h3>
+            <button type="button" id="gwpModalClose" class="factor-modal-close">×</button>
+        </div>
+        <form id="gwpForm" action="/etl/gwp/create" method="post" class="factor-form">
+            <div class="factor-form-grid">
+                <div class="factor-form-group">
+                    <label>化學式 (formula) *</label>
+                    <input type="text" id="gwp_formula" name="formula" class="factor-input" required placeholder="如 CO2">
+                </div>
+                <div class="factor-form-group">
+                    <label>IPCC 版本 *</label>
+                    <select id="gwp_version" name="version" class="factor-input">
+                        <option value="AR5">AR5</option>
+                        <option value="AR6">AR6</option>
+                        <option value="AR4">AR4</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>中文名稱 *</label>
+                    <input type="text" id="gwp_gas_name_zh" name="gas_name_zh" class="factor-input" required placeholder="如 二氧化碳">
+                </div>
+                <div class="factor-form-group">
+                    <label>GWP 值</label>
+                    <input type="number" step="0.01" id="gwp_value" name="gwp_value" class="factor-input" value="0" placeholder="如 1">
+                </div>
+                <div class="factor-form-group">
+                    <label>質性記錄 (&lt; 1)</label>
+                    <input type="checkbox" id="gwp_is_qualitative" name="is_qualitative" value="true">
+                </div>
+            </div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">儲存</button>
+                <button type="button" id="gwpModalClose2" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/logs_modal.js"></script>
+<script src="/static/js/factor_management.js"></script>
+<script src="/static/js/factor_submenu.js"></script>
+<script>
+function openGwpCreate() {
+    document.getElementById('gwpModalTitle').textContent = '新增 GWP 參考値';
+    document.getElementById('gwpForm').action = '/etl/gwp/create';
+    document.getElementById('gwp_formula').value = '';
+    document.getElementById('gwp_gas_name_zh').value = '';
+    document.getElementById('gwp_value').value = '0';
+    document.getElementById('gwp_version').value = 'AR5';
+    document.getElementById('gwp_is_qualitative').checked = false;
+    document.getElementById('gwpModal').classList.remove('hidden');
+}
+function editGwp(data) {
+    document.getElementById('gwpModalTitle').textContent = '編輯 GWP 參考値';
+    document.getElementById('gwpForm').action = '/etl/gwp/update/' + data.id;
+    document.getElementById('gwp_formula').value = data.formula;
+    document.getElementById('gwp_gas_name_zh').value = data.gas_name_zh;
+    document.getElementById('gwp_value').value = data.gwp_value;
+    document.getElementById('gwp_version').value = data.version;
+    document.getElementById('gwp_is_qualitative').checked = data.is_qualitative;
+    document.getElementById('gwpModal').classList.remove('hidden');
+}
+document.getElementById('gwpModalClose').onclick = function() {
+    document.getElementById('gwpModal').classList.add('hidden');
+};
+document.getElementById('gwpModalClose2').onclick = function() {
+    document.getElementById('gwpModal').classList.add('hidden');
+};
+
+var _gwpSortCol = -1, _gwpSortAsc = true;
+function sortGwpTable(col) {
+    var tbody = document.querySelector('.data-table tbody');
+    if (!tbody) return;
+    var rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.cells.length > 1);
+    if (_gwpSortCol === col) { _gwpSortAsc = !_gwpSortAsc; } else { _gwpSortCol = col; _gwpSortAsc = true; }
+    rows.sort(function(a, b) {
+        var ta = (a.cells[col] ? a.cells[col].textContent.trim() : '');
+        var tb = (b.cells[col] ? b.cells[col].textContent.trim() : '');
+        if (col === 2) {
+            // GWP值: treat < 1 as 0, else parse float
+            var va = ta === '< 1' ? 0 : parseFloat(ta) || 0;
+            var vb = tb === '< 1' ? 0 : parseFloat(tb) || 0;
+            return _gwpSortAsc ? va - vb : vb - va;
+        } else {
+            return _gwpSortAsc ? ta.localeCompare(tb, 'zh-TW') : tb.localeCompare(ta, 'zh-TW');
+        }
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    ['sort-formula','sort-name-zh','sort-gwp-value'].forEach(function(id, i) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = (i === col) ? (_gwpSortAsc ? ' ↑' : ' ↓') : '';
+    });
+}
+</script>
+{% endblock %}

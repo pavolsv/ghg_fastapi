@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<link rel="stylesheet" href="/static/css/device_management.css">
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+    <h1 class="fm-title">排放源管理</h1>
+
+    <div class="device-card device-toolbar">
+        <button type="button" class="btn-add" onclick="openDeviceModal()">＋ 新增排放源</button>
+        <a href="/emission-source/?cat=逸散排放" class="btn-add" style="background: linear-gradient(135deg, #10b981, #059669); text-decoration: none; display: inline-flex; align-items: center;">＋ 新增冷媒設備</a>
+    </div>
+
+    <div class="device-card" style="padding: 0; overflow: hidden;">
+    <table class="device-table">
+        <thead>
+        <tr>
+            <th>編號</th>
+            <th>名稱</th>
+            <th>排放類型</th>
+            <th>燃料 / 冷媒</th>
+            <th>填充量</th>
+            <th>溫室氣體</th>
+            <th>位置</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in devices %}
+        <tr>
+            <td>{{ d.device_number or d.id }}</td>
+            <td><strong>{{ d.name }}</strong></td>
+            <td>
+                {% if d.equipment_category %}
+                    <span class="badge-emission-fugitive">逸散排放</span>
+                {% elif d.emission_type == '移動燃燒' %}
+                    <span class="badge-emission-mobile">移動燃燒</span>
+                {% elif d.emission_type == '能源間接排放' or d.factor_ref_code == 'ELECTRICITY' %}
+                    <span class="badge-emission-indirect">間接排放</span>
+                {% elif d.emission_type == '逸散排放' %}
+                    <span class="badge-emission-fugitive">逸散排放</span>
+                {% else %}
+                    <span class="badge-emission-combustion">固定燃燒</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if d.equipment_category %}
+                    <span class="badge-refrigerant">{{ factor_map.get(d.refrigerant_code, d.refrigerant_code) }}</span>
+                {% else %}
+                    {{ factor_map.get(d.factor_ref_code, '—') }}
+                {% endif %}
+            </td>
+            <td>
+                {% if d.equipment_category and d.fill_amount is not none %}
+                    <div class="fill-amount-display">
+                        <span class="fill-amount-value">{{ d.fill_amount }} 公噸</span><br>
+                        <span class="fill-amount-original">原始：{{ d.fill_amount * 1000 if d.fill_unit == '公斤' else (d.fill_amount * 1000000 if d.fill_unit == '公克' else d.fill_amount) }} {{ d.fill_unit or '—' }}</span>
+                    </div>
+                {% elif d.equipment_category %}
+                    —
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>
+                {% if d.gas_type %}
+                    {% for gas in d.gas_type.split(',') %}
+                        <span class="badge-gas">{{ gas }}</span>
+                    {% endfor %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>{{ d.location or '—' }}</td>
+            <td>
+                <form action="/devices/delete/{{ d.id }}" method="post" style="display:inline;">
+                    <button type="submit" class="btn-delete" onclick="return confirm('確定刪除？')">刪除</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- 新增排放源 Modal -->
+<div id="deviceModal" class="factor-modal hidden">
+    <div class="factor-modal-content">
+        <div class="factor-modal-header">
+            <h3>新增排放源</h3>
+            <button type="button" id="deviceModalClose" class="factor-modal-close">&times;</button>
+        </div>
+        <form action="/devices/create" method="post" class="factor-form" id="deviceForm">
+            <div class="factor-form-grid">
+                <div class="factor-form-group">
+                    <label>設備編號</label>
+                    <input type="text" id="deviceNumber" name="device_number" class="factor-input" placeholder="如：GS01">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備名稱 <span class="required">*</span></label>
+                    <input type="text" id="deviceName" name="name" class="factor-input" placeholder="可輸入自訂名稱" required>
+                </div>
+                <div class="factor-form-group">
+                    <label>選擇附表六設備（帶入名稱與代碼）</label>
+                    <select id="appendixDeviceSelect" class="factor-input">
+                        <option value="">請選擇附表六設備</option>
+                        {% for item in appendix_device_options %}
+                        <option value="{{ item.name }}" data-code="{{ item.code }}">{{ item.code }} - {{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>設備代碼</label>
+                    <input type="text" id="deviceCode" name="device_code" class="factor-input" placeholder="選擇附表六後自動帶入，也可手動輸入">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備位置</label>
+                    <input type="text" name="location" class="factor-input" placeholder="如：A棟廠區">
+                </div>
+                <div class="factor-form-group">
+                    <label>設備數量</label>
+                    <input type="number" id="deviceQuantity" name="quantity" class="factor-input" placeholder="預設 1" min="1" value="1">
+                </div>
+                <div class="factor-form-group factor-form-full">
+                    <label>溫室氣體種類</label>
+                    <div class="gas-checkbox-group">
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="CO2"> CO₂</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="CH4"> CH₄</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="N2O"> N₂O</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="HFCs"> HFCs</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="PFCs"> PFCs</label>
+                        <label class="gas-checkbox"><input type="checkbox" name="gas_type" value="SF6"> SF₆</label>
+                    </div>
+                </div>
+                <div class="factor-form-group">
+                    <label>排放類型 <span class="required">*</span></label>
+                    <select id="emissionTypeSelect" name="emission_type" class="factor-input" required>
+                        <option value="">請選擇排放類型</option>
+                    </select>
+                </div>
+                <div class="factor-form-group">
+                    <label>原(燃)物料 <span class="required">*</span></label>
+                    <select id="factorSelect" name="factor_ref_code" class="factor-input" required>
+                        <option value="">請先選擇排放類型</option>
+                    </select>
+                </div>
+            </div>
+            <div class="factor-form-footer">
+                <button type="submit" class="btn-fm-save">新增</button>
+                <button type="button" id="deviceModalCancel" class="btn-fm-cancel">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const factorOptionsRaw = {{ factor_options_json | tojson | safe }};
+    const factorOptions = Array.isArray(factorOptionsRaw) ? factorOptionsRaw : [];
+    const uniqueEmissionTypes = [...new Set(factorOptions.map(o => o.emission_type))]
+        .filter(t => t !== '逸散排放');
+
+    // ========== 排放源 Modal ==========
+    function updateSubmitState() {
+        const et = document.getElementById('emissionTypeSelect');
+        const fs = document.getElementById('factorSelect');
+        const dn = document.getElementById('deviceName');
+        const btn = document.querySelector('#deviceForm button[type="submit"]');
+        if (!et || !fs || !dn || !btn) return;
+        btn.disabled = !(dn.value.trim() && et.value && fs.value);
+    }
+
+    function populateEmissionTypes() {
+        const sel = document.getElementById('emissionTypeSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">請選擇排放類型</option>';
+        uniqueEmissionTypes.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.text = t;
+            sel.appendChild(opt);
+        });
+    }
+
+    function filterFuelOptions() {
+        const et = document.getElementById('emissionTypeSelect');
+        const fs = document.getElementById('factorSelect');
+        if (!et || !fs) return;
+        const type = (et.value || '').trim();
+        fs.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.text = type ? '請選擇...' : '請先選擇排放類型';
+        fs.appendChild(ph);
+        fs.disabled = !type;
+        if (!type) { updateSubmitState(); return; }
+        const filtered = factorOptions.filter(o => o.emission_type === type);
+        if (!filtered.length) {
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.text = '此排放類型目前無可用選項';
+            empty.disabled = true;
+            fs.appendChild(empty);
+            fs.disabled = true;
+        } else {
+            filtered.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.original_code;
+                opt.text = o.name + '（' + (o.unit || '單位') + '）';
+                fs.appendChild(opt);
+            });
+        }
+        updateSubmitState();
+    }
+
+    function fillFromAppendix() {
+        const sel = document.getElementById('appendixDeviceSelect');
+        const nameInput = document.getElementById('deviceName');
+        const codeInput = document.getElementById('deviceCode');
+        const selected = sel.options[sel.selectedIndex];
+        if (selected && selected.value) {
+            nameInput.value = selected.value;
+            if (selected.dataset.code) codeInput.value = selected.dataset.code;
+            updateSubmitState();
+        }
+    }
+
+    function openDeviceModal() {
+        document.getElementById('deviceModal').classList.remove('hidden');
+        updateSubmitState();
+    }
+    function closeDeviceModal() {
+        document.getElementById('deviceModal').classList.add('hidden');
+    }
+
+    // ========== 事件綁定 ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            populateEmissionTypes();
+
+            const closeBtn = document.getElementById('deviceModalClose');
+            const cancelBtn = document.getElementById('deviceModalCancel');
+            const modal = document.getElementById('deviceModal');
+            const etSel = document.getElementById('emissionTypeSelect');
+            const fsSel = document.getElementById('factorSelect');
+            const appSel = document.getElementById('appendixDeviceSelect');
+            const dn = document.getElementById('deviceName');
+            if (closeBtn) closeBtn.addEventListener('click', closeDeviceModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', closeDeviceModal);
+            if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeDeviceModal(); });
+            if (etSel) etSel.addEventListener('change', filterFuelOptions);
+            if (fsSel) fsSel.addEventListener('change', updateSubmitState);
+            if (appSel) appSel.addEventListener('change', fillFromAppendix);
+            if (dn) dn.addEventListener('input', updateSubmitState);
+            filterFuelOptions();
+            updateSubmitState();
+        } catch (e) {
+            console.error('Init error:', e);
+        }
+    });
+</script>
+{% endblock %}

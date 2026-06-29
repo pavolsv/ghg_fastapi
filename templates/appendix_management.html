@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}代碼管理{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/factor_management.css">
+<style>
+.data-table th:first-child, .data-table td:first-child { width: 30%; min-width: 120px; }
+.data-table th:last-child, .data-table td:last-child { width: 70%; }
+.upload-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    background: #fafafa;
+    margin-bottom: 16px;
+    transition: border-color .2s;
+}
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: #1565c0;
+    background: #f0f7ff;
+}
+.upload-zone input[type="file"] { display: none; }
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+}
+.pagination a, .pagination span {
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.pagination a { background: #f0f0f0; color: #333; }
+.pagination a:hover { background: #e0e0e0; }
+.pagination .active { background: #1565c0; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+
+    <div class="fm-page-header">
+        <h1 class="fm-title">代碼管理</h1>
+    </div>
+
+    <!-- 分類按鈕 -->
+    <div class="fm-category-grid">
+        <a href="/appendix?page=1"
+           class="fm-category-btn {% if not current_type %}active{% endif %}">
+            <span class="fm-cat-label">全部</span>
+        </a>
+        <a href="/appendix?appendix_type=boundary&page=1"
+           class="fm-category-btn {% if current_type == 'boundary' %}active{% endif %}">
+            <span class="fm-cat-label">邊界</span>
+        </a>
+        <a href="/appendix?appendix_type=verification_body&page=1"
+           class="fm-category-btn {% if current_type == 'verification_body' %}active{% endif %}">
+            <span class="fm-cat-label">查驗機構</span>
+        </a>
+        <a href="/appendix?appendix_type=competent_authority&page=1"
+           class="fm-category-btn {% if current_type == 'competent_authority' %}active{% endif %}">
+            <span class="fm-cat-label">主管機關</span>
+        </a>
+        <a href="/appendix?appendix_type=industry&page=1"
+           class="fm-category-btn {% if current_type == 'industry' %}active{% endif %}">
+            <span class="fm-cat-label">行業</span>
+        </a>
+        <a href="/appendix?appendix_type=city&page=1"
+           class="fm-category-btn {% if current_type == 'city' %}active{% endif %}">
+            <span class="fm-cat-label">縣市</span>
+        </a>
+        <a href="/appendix?appendix_type=process&page=1"
+           class="fm-category-btn {% if current_type == 'process' %}active{% endif %}">
+            <span class="fm-cat-label">製程</span>
+        </a>
+        <a href="/appendix?appendix_type=factor_code&page=1"
+           class="fm-category-btn {% if current_type == 'factor_code' %}active{% endif %}">
+            <span class="fm-cat-label">係數代碼</span>
+        </a>
+        <a href="/appendix?appendix_type=device&page=1"
+           class="fm-category-btn {% if current_type == 'device' %}active{% endif %}">
+            <span class="fm-cat-label">設備</span>
+        </a>
+        <a href="/appendix?appendix_type=test_method&page=1"
+           class="fm-category-btn {% if current_type == 'test_method' %}active{% endif %}">
+            <span class="fm-cat-label">檢驗方法</span>
+        </a>
+        <a href="/appendix?appendix_type=material&page=1"
+           class="fm-category-btn {% if current_type == 'material' %}active{% endif %}">
+            <span class="fm-cat-label">物料</span>
+        </a>
+        <a href="/appendix?appendix_type=usage&page=1"
+           class="fm-category-btn {% if current_type == 'usage' %}active{% endif %}">
+            <span class="fm-cat-label">用途</span>
+        </a>
+    </div>
+
+    <!-- 篩選列 -->
+    <div class="filter-bar">
+        <form method="get" action="/appendix" class="filter-form" id="filterForm">
+            {% if current_type %}
+            <input type="hidden" name="appendix_type" value="{{ current_type }}">
+            {% endif %}
+            <div class="filter-group">
+                <label for="qInput">關鍵字</label>
+                <input type="text" id="qInput" name="q" class="filter-input" placeholder="代碼或名稱..."
+                       value="{{ request.query_params.get('q', '') }}">
+            </div>
+            <div class="filter-actions">
+                <a href="/appendix{% if current_type %}?appendix_type={{ current_type }}{% endif %}" class="btn-clear">清除條件</a>
+                <button type="submit" class="btn-filter">🔍 搜尋</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 資料表格 -->
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>代碼</th>
+                <th style="text-align:left;">名稱</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+            {% for r in rows %}
+            <tr>
+                <td><code>{{ r.code }}</code></td>
+                <td style="text-align:left;">{{ r.name }}</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="2" class="td-empty">查無資料。</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- 分頁 -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="/appendix?page={{ page - 1 }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">上一頁</a>
+        {% endif %}
+        {% for p in page_range %}
+            {% if p == page %}
+            <span class="active">{{ p }}</span>
+            {% else %}
+            <a href="/appendix?page={{ p }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="/appendix?page={{ page + 1 }}{% if current_type %}&appendix_type={{ current_type }}{% endif %}{% if q %}&q={{ q | urlencode }}{% endif %}">下一頁</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="fm-count">共 {{ total }} 筆資料，目前顯示第 {{ page }} / {{ total_pages }} 頁</div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>燃油用量計算</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .input-controls button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .input-controls button:hover {
+            background-color: #2980b9;
+        }
+        .input-controls button.delete-mode-btn {
+            background-color: #f39c12;
+        }
+        .input-controls button.delete-mode-btn:hover {
+            background-color: #e67e22;
+        }
+        	.input-controls button.Upload-pictures {
+            background-color: #e6e022;
+        }
+        .input-controls button.Upload-pictures:hover {
+            background-color: #e6d022;
+        }
+        .input-controls button[type="submit"] {
+            background-color: #2ecc71;
+        }
+        .input-controls button[type="submit"]:hover {
+            background-color: #27ae60;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #eaf1f5;
+            color: #333;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        input[type="date"], input[type="number"] {
+            width: 90%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        .fuel-type-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            padding-left: 10px;
+        }
+        .fuel-type-group label {
+            font-size: 14px;
+        }
+        .remove-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 28px;
+            padding: 0;
+            transition: background-color 0.3s ease;
+        }
+        .remove-btn:hover {
+            background-color: #c0392b;
+        }
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #eaf1f5;
+            border: 1px solid #d1e2e8;
+            border-radius: 12px;
+        }
+        .output-section h2 {
+            color: #34495e;
+            margin-top: 0;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .output-section p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .output-section .summary-total {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .output-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .output-table th, .output-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .output-table th {
+            background-color: #d1e2e8;
+        }
+        .output-table tfoot td {
+            font-weight: bold;
+            background-color: #eaf1f5;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-link a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>燃油數據計算</h1>
+        <form onsubmit="sumValues(event)">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>編號</th>
+                        <th>日期</th>
+                        <th>公升</th>
+                        <th>類型</th>
+                    </tr>
+                </thead>
+                <tbody id="gas-table">
+                </tbody>
+            </table>
+            <div class="input-controls">
+                <button type="button" onclick="addRow()">新增記錄</button>
+                <button type="button" id="uploadButton" class="Upload-pictures">上傳圖片</button>
+                <input type="file" id="fileInput" style="display:none;" accept="image/*">
+                <button type="button" id="removeModeBtn" class="delete-mode-btn" onclick="toggleRemoveMode()">刪除/編輯</button>
+                <button type="submit">計算總計</button>
+            </div>
+        </form>
+        <div id="output-section" class="output-section" style="display: none;">
+            <h2>計算結果</h2>
+            <div id="data-output"></div>
+        </div>
+
+        <div class="save-section" style="margin-top: 30px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h2 style="margin-top:0;">儲存加油紀錄到設備</h2>
+            <p style="color:#6b7280; font-size:14px;">輸入加油資訊並選擇設備，系統會自動把公升數加總到該設備的活動數據。</p>
+            <form id="saveGasForm" onsubmit="return saveGasRecord(event)">
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">加油日期</label>
+                        <input type="date" name="record_date" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">燃料類型</label>
+                        <select name="fuel_type" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                            <option value="">請選擇...</option>
+                            <option value="汽油">汽油</option>
+                            <option value="柴油">柴油</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">公升數</label>
+                        <input type="number" name="liters" step="0.01" min="0.01" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:13px; color:#374151;">掛載設備</label>
+                        <select name="device_id" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                            <option value="">請選擇設備...</option>
+                            {% for d in device_options %}
+                            <option value="{{ d.id }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-size:13px; color:#374151;">備註（可選）</label>
+                    <input type="text" name="note" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;" placeholder="可留空">
+                </div>
+                <button type="submit" style="background:#2563eb; color:#fff; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">＋ 儲存並加總到設備</button>
+                <span id="saveGasResult" style="margin-left: 12px; font-size: 14px;"></span>
+            </form>
+
+            {% if recent_records %}
+            <h3 style="margin-top: 20px;">最近的加油紀錄</h3>
+            <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+                <thead style="background:#f8f9fa;">
+                    <tr>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">日期</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">燃料</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">公升</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb;">備註</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; width: 160px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in recent_records %}
+                <tr id="gasRow_{{ r.id }}"
+                    data-id="{{ r.id }}"
+                    data-fuel-type="{{ r.fuel_type }}"
+                    data-liters="{{ r.liters }}"
+                    data-record-date="{{ r.record_date }}"
+                    data-device-id="{{ r.device_id }}"
+                    data-note="{{ r.note or '' }}">
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.record_date }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.fuel_type }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.liters }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">{{ r.note or '—' }}</td>
+                    <td style="padding: 8px; border: 1px solid #e5e7eb;">
+                        <button type="button" class="gas-edit-btn" data-id="{{ r.id }}"
+                                onclick="openGasEditModal({{ r.id }})"
+                                style="background:#2563eb; color:#fff; border:none; border-radius:4px; padding:4px 10px; margin-right:4px; cursor:pointer;">編輯</button>
+                        <button type="button" class="gas-del-btn" data-id="{{ r.id }}"
+                                onclick="deleteGasRecord({{ r.id }})"
+                                style="background:#dc2626; color:#fff; border:none; border-radius:4px; padding:4px 10px; cursor:pointer;">刪除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+
+        <div id="gasEditModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000;">
+            <div class="modal-content" style="background:#fff; max-width: 560px; margin: 60px auto; padding: 20px; border-radius: 8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                    <h3 style="margin:0;">編輯加油紀錄</h3>
+                    <button type="button" onclick="closeGasEditModal()" style="background:none; border:none; font-size:22px; cursor:pointer;">&times;</button>
+                </div>
+                <form id="gasEditForm" onsubmit="return submitGasEdit(event)">
+                    <input type="hidden" id="gasEditId" value="">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="display:block; font-size:13px; color:#374151;">加油日期</label>
+                            <input type="date" id="gasEditDate" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:13px; color:#374151;">燃料類型</label>
+                            <select id="gasEditFuel" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                                <option value="汽油">汽油</option>
+                                <option value="柴油">柴油</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:13px; color:#374151;">公升數</label>
+                            <input type="number" id="gasEditLiters" step="0.01" min="0.01" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:13px; color:#374151;">掛載設備</label>
+                            <select id="gasEditDevice" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                                <option value="">請選擇設備...</option>
+                                {% for d in device_options %}
+                                <option value="{{ d.id }}">{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display:block; font-size:13px; color:#374151;">備註（可選）</label>
+                        <input type="text" id="gasEditNote" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;" placeholder="可留空">
+                    </div>
+                    <div style="display:flex; gap: 8px; align-items: center;">
+                        <button type="submit" id="gasEditSaveBtn" style="background:#10b981; color:#fff; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">💾 儲存修改</button>
+                        <button type="button" onclick="closeGasEditModal()" style="background:#6b7280; color:#fff; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">取消</button>
+                        <span id="gasEditResult" style="margin-left: 8px; font-size: 14px;"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/index">返回首頁</a>
+        </div>
+    </div>
+    <script>
+        let removeMode = false;
+        function addRow() {
+            const table = document.getElementById('gas-table');
+            const rowCount = table.rows.length;
+            const row = table.insertRow(-1);
+            
+            const cellRemove = row.insertCell(0);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.innerText = 'x';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = function() { removeRow(this); };
+            removeBtn.style.display = removeMode ? '' : 'none';
+            cellRemove.appendChild(removeBtn);
+
+            const cellIndex = row.insertCell(1);
+            cellIndex.innerText = rowCount + 1;
+
+            const cellDate = row.insertCell(2);
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.name = 'date';
+            dateInput.required = true;
+            cellDate.appendChild(dateInput);
+
+            const cellValue = row.insertCell(3);
+            const valueInput = document.createElement('input');
+            valueInput.type = 'number';
+            valueInput.name = 'fuel_value';
+            valueInput.step = 'any';
+            valueInput.placeholder = '公升數';
+            valueInput.required = true;
+            cellValue.appendChild(valueInput);
+
+            const cellFuel = row.insertCell(4);
+            const radioName = `fuel-${rowCount}`;
+            const fuelTypeGroup = document.createElement('div');
+            fuelTypeGroup.className = 'fuel-type-group';
+
+            const gasolineInput = createRadio('汽油', radioName, true);
+            const dieselInput = createRadio('柴油', radioName, false);
+            
+            fuelTypeGroup.appendChild(gasolineInput.radio);
+            fuelTypeGroup.appendChild(gasolineInput.label);
+            fuelTypeGroup.appendChild(dieselInput.radio);
+            fuelTypeGroup.appendChild(dieselInput.label);
+
+            cellFuel.appendChild(fuelTypeGroup);
+            updateIndexes();
+        }
+
+        function createRadio(value, name, isChecked) {
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = `${value}-${name}`;
+            radio.name = name;
+            radio.value = value;
+            if (isChecked) radio.checked = true;
+
+            const label = document.createElement('label');
+            label.htmlFor = `${value}-${name}`;
+            label.innerText = value;
+            
+            return { radio, label };
+        }
+
+        function removeRow(btn) {
+            const row = btn.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+            updateIndexes();
+        }
+
+        function updateIndexes() {
+            const table = document.getElementById('gas-table');
+            for (let i = 0; i < table.rows.length; i++) {
+                table.rows[i].cells[1].innerText = i + 1;
+            }
+        }
+
+        function sumValues(event) {
+            event.preventDefault();
+
+            const table = document.getElementById('gas-table');
+            const allData = [];
+
+            for (let i = 0; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const dateInput = row.cells[2].querySelector('input[type="date"]');
+                const valueInput = row.cells[3].querySelector('input[type="number"]');
+                const fuelRadio = row.cells[4].querySelector('input[type="radio"]:checked');
+
+                const value = parseFloat(valueInput.value) || 0;
+                const fuelType = fuelRadio ? fuelRadio.value : '';
+
+                allData.push({
+                    date: dateInput ? dateInput.value : '',
+                    liters: value,
+                    fuel_type: fuelType,
+                });
+            }
+
+            showAllData(allData);
+        }
+
+        function _fmtKg(value) {
+            if (value === null || value === undefined || isNaN(value)) return '-';
+            if (value === 0) return '0';
+            if (value < 0.0001) return value.toExponential(3);
+            if (value < 1) return value.toFixed(6);
+            return value.toFixed(4);
+        }
+
+        function _buildFuelBlock(label, block) {
+            if (!block) return '';
+            const sup = block.supported
+                ? '已乘 GWP（CO₂×1 + CH₄×28 + N₂O×265）'
+                : '<span style="color:#b91c1c;">不支援的燃油類型或缺少排放係數</span>';
+            return `
+                <div style="margin: 12px 0; padding: 10px; background:#fff; border-radius:8px;">
+                    <p><b>${label}</b>（${block.liters.toFixed(4)} 公升）</p>
+                    <p>CO₂：${_fmtKg(block.CO2)} kg</p>
+                    <p>CH₄：${_fmtKg(block.CH4)} kg</p>
+                    <p>N₂O：${_fmtKg(block.N2O)} kg</p>
+                    <p><b>${label} CO₂e：${_fmtKg(block.CO2e)} kg</b></p>
+                    <p style="font-size:0.9em; color:#555;">${sup}</p>
+                </div>
+            `;
+        }
+
+        async function showAllData(data) {
+            const outputDiv = document.getElementById('data-output');
+            outputDiv.innerHTML = '';
+            document.getElementById('output-section').style.display = 'block';
+
+            if (data.length === 0) {
+                outputDiv.innerHTML = '<p>沒有數據可以顯示。</p>';
+                return;
+            }
+
+            // 先在畫面上列出輸入資料
+            const outputTable = document.createElement('table');
+            outputTable.className = 'output-table';
+            outputTable.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>類型</th>
+                        <th>公升數</th>
+                    </tr>
+                </thead>
+            `;
+            const tableBody = document.createElement('tbody');
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.date || ''}</td>
+                    <td>${item.fuel_type || ''}</td>
+                    <td>${item.liters.toFixed(3)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            outputTable.appendChild(tableBody);
+
+            const tableFooter = document.createElement('tfoot');
+            const gasolineSum = data.filter(d => d.fuel_type === '汽油').reduce((a, b) => a + b.liters, 0);
+            const dieselSum = data.filter(d => d.fuel_type === '柴油').reduce((a, b) => a + b.liters, 0);
+            if (gasolineSum > 0) {
+                const r = document.createElement('tr');
+                r.innerHTML = `<td colspan="2" style="text-align: right;">汽油總計</td><td>${gasolineSum.toFixed(3)}</td>`;
+                tableFooter.appendChild(r);
+            }
+            if (dieselSum > 0) {
+                const r = document.createElement('tr');
+                r.innerHTML = `<td colspan="2" style="text-align: right;">柴油總計</td><td>${dieselSum.toFixed(3)}</td>`;
+                tableFooter.appendChild(r);
+            }
+            outputTable.appendChild(tableFooter);
+            outputDiv.appendChild(outputTable);
+
+            // 呼叫後端統一計算服務
+            const emissionDiv = document.createElement('div');
+            emissionDiv.style.marginTop = '20px';
+            emissionDiv.innerHTML = '<p>計算中...</p>';
+            outputDiv.appendChild(emissionDiv);
+
+            try {
+                const resp = await fetch('/gasoline/api/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rows: data }),
+                });
+                const json = await resp.json();
+                if (!resp.ok || !json.success) {
+                    emissionDiv.innerHTML = `<p style="color:#b91c1c;">計算失敗：${(json && (json.detail || json.message)) || resp.statusText}</p>`;
+                    return;
+                }
+                const d = json.data;
+                emissionDiv.innerHTML = `
+                    <p><b>溫室氣體排放計算 (總計: ${d.total_liters.toFixed(3)} 公升)</b></p>
+                    ${_buildFuelBlock('汽油', d.gasoline)}
+                    ${_buildFuelBlock('柴油', d.diesel)}
+                    <p class="summary-total">總 CO₂e：${_fmtKg(d.total_co2e)} kg（由服務以各氣體 × GWP 加總）</p>
+                `;
+            } catch (err) {
+                emissionDiv.innerHTML = `<p style="color:#b91c1c;">計算失敗：${err.message}</p>`;
+            }
+        }
+
+        function toggleRemoveMode() {
+            removeMode = !removeMode;
+            const btns = document.getElementsByClassName('remove-btn');
+            for (let btn of btns) {
+                btn.style.display = removeMode ? '' : 'none';
+            }
+            document.getElementById('removeModeBtn').innerText = removeMode ? '隱藏刪除' : '刪除/編輯';
+        }
+        	// 取得新增加的 HTML 元素
+const fileInput = document.getElementById('fileInput');
+const uploadButton = document.getElementById('uploadButton');
+
+// 監聽「上傳檔案」按鈕的點擊事件
+uploadButton.addEventListener('click', () => {
+    // 點擊按鈕時，觸發隱藏的檔案輸入欄位
+    fileInput.click();
+});
+
+// 監聽檔案輸入欄位的變動事件，當使用者選擇檔案後觸發
+fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+
+    if (!file) {
+        alert('沒有選擇任何檔案。');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('imageFile', file); // 'uploadedFile' 是給後端用的名稱
+
+    try {
+        // 使用 fetch API 將檔案發送到後端
+        // 請將 'http://127.0.0.1:8000/upload' 替換為你的後端上傳 API 網址
+        const response = await fetch('http://127.0.0.1:8000/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`上傳失敗: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert('檔案上傳成功！\n伺服器回應: ' + JSON.stringify(result, null, 2));
+        if (result.ocr_result) {
+            // 1. 先新增一個空的表格行
+            addRow();
+           
+            // 2. 取得剛剛新增的最新表格行
+            const table = document.getElementById('gas-table');
+            const lastRow = table.rows[table.rows.length - 1];
+
+            // 3. 提取 OCR 辨識出的資料
+            const ocrData = result.ocr_result;
+            const ocrDate = ocrData.日期;
+            const ocrLiter = ocrData.公升;
+            const ocrType = ocrData.類型;
+
+            // 4. 找到對應的輸入欄位並填入資料
+            const dateInput = lastRow.cells[2].querySelector('input[type="date"]');
+            const literInput = lastRow.cells[3].querySelector('input[type="number"]');
+           
+            // 5. 填入日期和公升數
+            if (ocrDate && dateInput) {
+                dateInput.value = ocrDate;
+            }
+            if (ocrLiter && literInput) {
+                // 確保數值是有效的
+                literInput.value = parseFloat(ocrLiter);
+            }
+
+            // 6. 處理類型（單選按鈕）
+            if (ocrType) {
+                const radios = lastRow.cells[4].querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    if (radio.value === ocrType) {
+                        radio.checked = true;
+                    }
+                });
+            }
+           
+            // 提示使用者，資料已自動填入
+            alert('檔案上傳成功！OCR結果已自動填入表格。');
+
+        } else {
+            // 如果沒有 OCR 結果
+            alert('檔案上傳成功，但沒有辨識到有效的資料。');
+        }
+
+    } catch (error) {
+        alert('檔案上傳過程中發生錯誤：' + error.message);
+        console.error('上傳錯誤:', error);
+    }
+});
+
+
+        window.onload = function() {
+            addRow();
+        }
+
+        async function saveGasRecord(event) {
+            event.preventDefault();
+            const form = document.getElementById('saveGasForm');
+            const formData = new FormData(form);
+            const resultSpan = document.getElementById('saveGasResult');
+            resultSpan.textContent = '儲存中…';
+            resultSpan.style.color = '#6b7280';
+
+            try {
+                const response = await fetch('/gasoline/records/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    resultSpan.textContent = '✓ ' + data.message;
+                    resultSpan.style.color = '#059669';
+                    // 重置表單，1.5 秒後重新整理頁面
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    resultSpan.textContent = '✗ ' + (data.message || '儲存失敗');
+                    resultSpan.style.color = '#dc2626';
+                }
+            } catch (error) {
+                resultSpan.textContent = '✗ 網路錯誤：' + error.message;
+                resultSpan.style.color = '#dc2626';
+            }
+            return false;
+        }
+
+        function openGasEditModal(id) {
+            const row = document.getElementById('gasRow_' + id);
+            if (!row) return;
+            document.getElementById('gasEditId').value = id;
+            document.getElementById('gasEditDate').value = row.dataset.recordDate || '';
+            document.getElementById('gasEditFuel').value = row.dataset.fuelType || '汽油';
+            document.getElementById('gasEditLiters').value = row.dataset.liters || '';
+            document.getElementById('gasEditDevice').value = row.dataset.deviceId || '';
+            document.getElementById('gasEditNote').value = row.dataset.note || '';
+            const resultSpan = document.getElementById('gasEditResult');
+            resultSpan.textContent = '';
+            const saveBtn = document.getElementById('gasEditSaveBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 儲存修改';
+            document.getElementById('gasEditModal').style.display = 'block';
+        }
+
+        function closeGasEditModal() {
+            document.getElementById('gasEditModal').style.display = 'none';
+        }
+
+        async function submitGasEdit(event) {
+            event.preventDefault();
+            const id = document.getElementById('gasEditId').value;
+            const fuel_type = document.getElementById('gasEditFuel').value;
+            const liters = document.getElementById('gasEditLiters').value;
+            const record_date = document.getElementById('gasEditDate').value;
+            const device_id = document.getElementById('gasEditDevice').value;
+            const note = document.getElementById('gasEditNote').value;
+
+            if (!id || !fuel_type || !liters || !record_date || !device_id) {
+                alert('請填寫所有必填欄位');
+                return false;
+            }
+
+            const resultSpan = document.getElementById('gasEditResult');
+            const saveBtn = document.getElementById('gasEditSaveBtn');
+            resultSpan.textContent = '儲存中…';
+            resultSpan.style.color = '#6b7280';
+            saveBtn.disabled = true;
+            saveBtn.textContent = '儲存中…';
+
+            const formData = new FormData();
+            formData.append('fuel_type', fuel_type);
+            formData.append('liters', liters);
+            formData.append('record_date', record_date);
+            formData.append('device_id', device_id);
+            formData.append('note', note);
+
+            try {
+                const resp = await fetch('/gasoline/records/update/' + id, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    resultSpan.textContent = '✓ ' + (data.message || '已儲存');
+                    resultSpan.style.color = '#059669';
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    resultSpan.textContent = '✗ ' + (data.message || '儲存失敗');
+                    resultSpan.style.color = '#dc2626';
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 儲存修改';
+                }
+            } catch (e) {
+                resultSpan.textContent = '✗ 網路錯誤：' + e.message;
+                resultSpan.style.color = '#dc2626';
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 儲存修改';
+            }
+            return false;
+        }
+
+        async function deleteGasRecord(id) {
+            if (!confirm('確定刪除此加油紀錄？')) return;
+            try {
+                const resp = await fetch('/gasoline/records/delete/' + id, { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || '刪除失敗');
+                }
+            } catch (e) {
+                alert('刪除失敗：' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block title %}排放源管理{% endblock %}
+
+{% block head %}
+<style>
+.es-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.es-category {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.es-category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+.es-category-header:hover { background: #f8fafc; }
+.es-category-header .icon-wrap {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.es-category-header .cat-label { flex: 1; font-weight: 600; font-size: 1.05rem; color: #1e293b; }
+.es-category-header .cat-count { font-size: 0.85rem; color: #64748b; margin-right: 8px; }
+.es-category-header .chevron { color: #94a3b8; }
+.es-category-body { display: block; border-top: 1px solid #e2e8f0; padding: 16px 20px; }
+
+/* Add row */
+.es-name-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.es-name-row input[type="text"] {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+.es-name-row input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.es-trigger-btn {
+    padding: 10px 20px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: border-color 0.15s;
+}
+.es-trigger-btn:hover { border-color: #6366f1; background: #f8faff; }
+.es-type-select { min-width: 140px; }
+.es-search-wrap { position: relative; flex: 1; min-width: 180px; }
+.es-search-input {
+    width: 100%; box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+}
+.es-search-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.es-ref-list {
+    display: none;
+    position: absolute; z-index: 100; top: 100%; left: 0; right: 0;
+    max-height: 480px; overflow-y: auto;
+    background: #fff; border: 1px solid #cbd5e1; border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+}
+.es-ref-list.open { display: block; }
+.es-ref-item {
+    padding: 8px 14px; font-size: 0.95rem; cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+}
+.es-ref-item:hover { background: #eef2ff; }
+.es-ref-item:last-child { border-bottom: none; }
+
+/* Fuel dropdown */
+.es-dropdown { display: none; margin-bottom: 12px; }
+.es-dropdown.open { display: block; }
+.es-fuel-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.es-fuel-btn {
+    padding: 10px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.88rem;
+    text-align: center;
+    transition: all 0.12s;
+}
+.es-fuel-btn:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+    transform: translateY(-1px);
+}
+.es-fuel-btn:active {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+}
+
+/* Device list */
+.es-device-list {
+    margin-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+}
+.es-device-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+}
+.es-device-row .dev-name { flex: 1; color: #1e293b; font-weight: 500; }
+.es-device-row .dev-code-prefix { color: #0f172a; font-size: 0.82rem; font-weight: 600; width: 70px; flex-shrink: 0; }
+.es-device-row .dev-code { color: #64748b; font-size: 0.82rem; width: 80px; }
+.es-device-row .dev-fuel { color: #6366f1; font-size: 0.82rem; width: 80px; }
+.es-device-row .dev-activity { color: #475569; font-size: 0.82rem; width: 100px; text-align: right; }
+.es-device-del {
+    width: 24px; height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 24px;
+    text-align: center;
+    padding: 0;
+    transition: all 0.12s;
+}
+.es-device-del:hover { background: #fee2e2; color: #dc2626; }
+.es-selected-fuel {
+    font-size: 0.9rem;
+    color: #6366f1;
+    font-weight: 500;
+    min-width: 80px;
+}
+.es-device-add {
+    width: 36px; height: 36px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    background: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 22px;
+    font-weight: 300;
+    line-height: 32px;
+    text-align: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.es-device-add:hover { border-color: #6366f1; color: #6366f1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">排放源管理</h1>
+    </div>
+
+    <div class="es-wrap">
+        {% for key, cat in categories.items() %}
+        {% set fuels = category_fuels.get(key, []) %}
+        {% set colors = {'固定燃燒':('#fee2e2','#dc2626'),'移動燃燒':('#dbeafe','#2563eb'),'逸散排放':('#e0f2fe','#0891b2'),'能源間接排放':('#fef3c7','#d97706')} %}
+        {% set bg, fg = colors.get(key, ('#f1f5f9','#475569')) %}
+
+        <div class="es-category" data-category="{{ key }}">
+            <div class="es-category-header">
+                <div class="icon-wrap" style="background:{{ bg }}; color:{{ fg }};">
+                    <i data-lucide="{{ cat.icon }}" style="width:18px;height:18px;"></i>
+                </div>
+                <span class="cat-label">{{ cat.label }}</span>
+                <span class="cat-count">{{ fuels|length }} 項</span>
+                <span class="chevron" data-lucide="chevron-down" style="width:18px;height:18px;"></span>
+            </div>
+
+            <div class="es-category-body">
+                <div class="es-name-row">
+                    <input type="text" id="name_{{ key }}" placeholder="輸入設備名稱，如 1號鍋爐">
+                    {% if key == "逸散排放" %}
+                    <select class="es-trigger-btn es-type-select" id="equip_{{ key }}">
+                        <option value="">選擇類型</option>
+                        {% for et in equipment_types %}
+                        <option value="{{ et.code }}">{{ et.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="es-search-wrap">
+                        <input type="text" class="es-search-input" id="search_{{ key }}"
+                               placeholder="搜尋冷媒..." autocomplete="off"
+                               oninput="filterRefrigerant('{{ key }}')" onfocus="openRefrigerantList('{{ key }}')" onblur="setTimeout(function(){closeRefrigerantList('{{ key }}')},200)">
+                        <div class="es-ref-list" id="reflist_{{ key }}">
+                            {% for f in fuels %}
+                            <div class="es-ref-item" data-code="{{ f.code }}" data-name="{{ f.name }}"
+                                 onmousedown="selectRefrigerant('{{ key }}', '{{ f.code }}', '{{ f.name | replace("'", "\\'") }}')">
+                                {{ f.name }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <button type="button" class="es-trigger-btn" onclick="toggleDropdown('{{ key }}')">
+                        <i data-lucide="chevron-down" style="width:16px;height:16px;"></i> 選擇燃料
+                    </button>
+                    {% endif %}
+                    <span class="es-selected-fuel" id="selected_{{ key }}"></span>
+                    <button type="button" class="es-device-add" id="addBtn_{{ key }}"
+                            onclick="submitDevice('{{ key }}')" title="新增設備">+</button>
+                </div>
+
+                <div class="es-dropdown" id="dropdown_{{ key }}">
+                    <div class="es-fuel-grid">
+                        {% for f in fuels %}
+                        <button type="button" class="es-fuel-btn"
+                                onclick="selectFuel('{{ key }}', '{{ f.code }}', '{{ f.name }}')">
+                            {{ f.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="es-device-list">
+                    {% for d in device_groups.get(key, []) %}
+                    {% set act = device_activity.get(d.id) %}
+                    <div class="es-device-row">
+                        <span class="dev-name">{{ d.name }}</span>
+                        <span class="dev-code-prefix" title="設備代碼">{{ device_code_map.get(d.id, '—') }}</span>
+                        {% if key == "逸散排放" %}
+                        <span class="dev-code">{{ d.equipment_category or '' }}</span>
+                        <span class="dev-fuel">{{ d.refrigerant_code }}</span>
+                        {% else %}
+                        <span class="dev-code">{{ d.factor_ref_code }}</span>
+                        {% endif %}
+                        <span class="dev-activity">{{ "%.4f"|format(act[0]) if act else '-' }} {% if act %}{{ act[1] }}{% endif %}</span>
+                        <button class="es-device-del" onclick="deleteDevice({{ d.id }})" title="刪除">✕</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const openCat = params.get('cat');
+    if (openCat) {
+        const el = document.querySelector('.es-category[data-category="' + openCat + '"]');
+        if (el) setTimeout(function() { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+    }
+});
+
+function toggleDropdown(cat) {
+    if (cat === '逸散排放') return; // 冷媒用搜尋下拉
+    const dd = document.getElementById('dropdown_' + cat);
+    dd.classList.toggle('open');
+}
+
+function filterRefrigerant(category) {
+    const input = document.getElementById('search_' + category);
+    const list = document.getElementById('reflist_' + category);
+    const val = input.value.toLowerCase();
+    const items = list.querySelectorAll('.es-ref-item');
+    let visible = 0;
+    items.forEach(function(item) {
+        const name = item.getAttribute('data-name').toLowerCase();
+        const code = item.getAttribute('data-code').toLowerCase();
+        if (name.includes(val) || code.includes(val)) {
+            item.style.display = '';
+            visible++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    list.classList.add('open');
+}
+
+function openRefrigerantList(category) {
+    document.getElementById('reflist_' + category).classList.add('open');
+}
+
+function closeRefrigerantList(category) {
+    document.getElementById('reflist_' + category).classList.remove('open');
+}
+
+function selectRefrigerant(category, code, name) {
+    document.getElementById('search_' + category).value = name || code;
+    document.getElementById('selected_' + category).textContent = name || code;
+    document.getElementById('selected_' + category).dataset.code = code;
+    closeRefrigerantList(category);
+}
+
+function selectFuel(category, code, name) {
+    // 記錄選中的燃料
+    document.getElementById('selected_' + category).textContent = name;
+    document.getElementById('selected_' + category).dataset.code = code;
+    // 關閉下拉
+    document.getElementById('dropdown_' + category).classList.remove('open');
+}
+
+async function submitDevice(category) {
+    const name = document.getElementById('name_' + category).value.trim();
+    const code = document.getElementById('selected_' + category).dataset.code;
+
+    if (!name) {
+        alert('請先輸入設備名稱');
+        document.getElementById('name_' + category).focus();
+        return;
+    }
+    if (!code) {
+        alert('請先選擇燃料' + (category === '逸散排放' ? '/冷媒' : ''));
+        return;
+    }
+
+    let equipValue = '';
+    if (category === '逸散排放') {
+        const equip = document.getElementById('equip_' + category);
+        equipValue = equip ? equip.value : '';
+        if (!equipValue) {
+            alert('請選擇設備類型');
+            if (equip) equip.focus();
+            return;
+        }
+    }
+
+    const formData = new FormData();
+    formData.append('emission_type', category);
+    formData.append('factor_ref_code', code);
+    formData.append('name', name);
+    formData.append('quantity', 1);
+
+    if (category === '逸散排放') {
+        formData.append('equipment_category', equipValue);
+    }
+
+    try {
+        const resp = await fetch('/emission-source/create', { method: 'POST', body: formData });
+        if (resp.redirected) {
+            window.location.href = resp.url;
+        } else {
+            alert('新增成功');
+            location.reload();
+        }
+    } catch (e) {
+        alert('新增失敗');
+    }
+}
+
+async function deleteDevice(id) {
+    if (!confirm('確定刪除此排放源？')) return;
+    try {
+        const resp = await fetch('/emission-source/delete/' + id, { method: 'POST' });
+        if (resp.redirected || resp.ok) {
+            location.reload();
+        }
+    } catch (e) {
+        alert('刪除失敗');
+    }
+}
+</script>
+{% endblock %}

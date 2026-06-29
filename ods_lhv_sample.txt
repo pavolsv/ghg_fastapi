@@ -1,0 +1,80 @@
+Row 8:
+  Col0-3: 原油 |  | Crude Oil | 
+  CO2 kg/TJ: 73300, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00030689244000000005, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 9:
+  Col0-3: 奧里油 |  | Orimulsion | 
+  CO2 kg/TJ: 77000, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.0003223836, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 10:
+  Col0-3: 液化天然氣 |  | Natural Gas Liquids (NGLs) | 
+  CO2 kg/TJ: 64200, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00026879256000000005, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 11:
+  Col0-3: 汽油 | 車用汽油 | Gasoline | Motor Gasoline
+  CO2 kg/TJ: 69300, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00029014524, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 12:
+  Col0-3:  | 航空汽油 |  | Aviation Gasoline
+  CO2 kg/TJ: 70000, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.000293076, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 13:
+  Col0-3:  | 航空燃油-汽油型 |  | Jet Gasoline
+  CO2 kg/TJ: 70000, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.000293076, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 14:
+  Col0-3: 航空燃油-煤油型 |  | Jet Kerosene | 
+  CO2 kg/TJ: 71500, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00029935620000000004, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 15:
+  Col0-3: 其他煤油 |  | Other Kerosene | 
+  CO2 kg/TJ: 71900, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00030103092000000005, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 16:
+  Col0-3: 頁岩油 |  | Shale Oil | 
+  CO2 kg/TJ: 73300, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00030689244000000005, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+
+Row 17:
+  Col0-3: 柴油 |  | Gas/Diesel Oil | 
+  CO2 kg/TJ: 74100, CH4: 3, N2O: 0.6
+  CO2 kg/Kcal: 0.00031024188000000006, CH4: 1.2560400000000001e-08, N2O: 2.5120800000000003e-09
+  LHV unit: , LHV val: 
+  Final CO2: , CH4: , N2O: 
+  Final unit: 
+

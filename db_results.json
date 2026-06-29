@@ -1,0 +1,294 @@
+{
+  "emissionfactor_count": 216,
+  "emission_types": [
+    "固定燃燒",
+    "移動燃燒",
+    "能源間接排放"
+  ],
+  "years": [
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "ef_units": [
+    "公斤/兆焦耳",
+    "公斤/度"
+  ],
+  "samples_170006_050002": [
+    {
+      "code": "F050002-25",
+      "name": "天然氣",
+      "original_code": "050002",
+      "gas_type": "CH4",
+      "factor_value": 1.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "M050002-25",
+      "name": "天然氣",
+      "original_code": "050002",
+      "gas_type": "CH4",
+      "factor_value": 92.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "移動燃燒"
+    },
+    {
+      "code": "F050002-25",
+      "name": "天然氣",
+      "original_code": "050002",
+      "gas_type": "CO2",
+      "factor_value": 56100.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "F050002-25",
+      "name": "天然氣",
+      "original_code": "050002",
+      "gas_type": "N2O",
+      "factor_value": 0.1,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "M050002-25",
+      "name": "天然氣",
+      "original_code": "050002",
+      "gas_type": "N2O",
+      "factor_value": 3.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "移動燃燒"
+    },
+    {
+      "code": "F170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "CH4",
+      "factor_value": 3.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "M170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "CH4",
+      "factor_value": 3.9,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "移動燃燒"
+    },
+    {
+      "code": "F170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "CO2",
+      "factor_value": 74100.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "M170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "CO2",
+      "factor_value": 74100.0,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "移動燃燒"
+    },
+    {
+      "code": "F170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "N2O",
+      "factor_value": 0.6,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "固定燃燒"
+    },
+    {
+      "code": "M170006-25",
+      "name": "柴油",
+      "original_code": "170006",
+      "gas_type": "N2O",
+      "factor_value": 3.9,
+      "unit": "公斤/兆焦耳",
+      "year": 2025,
+      "emission_type": "移動燃燒"
+    }
+  ],
+  "gwp_count": 65,
+  "gwp_samples": [
+    {
+      "id": 1,
+      "gas_name_zh": "二氧化碳",
+      "gas_name_en": "Carbon dioxide",
+      "formula": "CO2",
+      "gwp_value": 1.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 2,
+      "gas_name_zh": "甲烷",
+      "gas_name_en": "Methane",
+      "formula": "CH4",
+      "gwp_value": 28.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 3,
+      "gas_name_zh": "氧化亞氮",
+      "gas_name_en": "Nitrous Oxide",
+      "formula": "N2O",
+      "gwp_value": 265.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 4,
+      "gas_name_zh": "三氟甲烷",
+      "gas_name_en": "HFC-23",
+      "formula": "CHF3",
+      "gwp_value": 12400.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 5,
+      "gas_name_zh": "二氟甲烷",
+      "gas_name_en": "HFC-32",
+      "formula": "CH2F2",
+      "gwp_value": 677.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 6,
+      "gas_name_zh": "一氟甲烷",
+      "gas_name_en": "HFC-41",
+      "formula": "CH3F",
+      "gwp_value": 116.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 7,
+      "gas_name_zh": "1,1,1,2,2-五氟乙烷",
+      "gas_name_en": "HFC-125",
+      "formula": "CHF2CF3",
+      "gwp_value": 3170.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 8,
+      "gas_name_zh": "1,1,2,2-四氟乙烷",
+      "gas_name_en": "HFC-134",
+      "formula": "CHF2CHF2",
+      "gwp_value": 1120.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 9,
+      "gas_name_zh": "1,1,1,2-四氟乙烷",
+      "gas_name_en": "HFC-134a",
+      "formula": "CH2FCF3",
+      "gwp_value": 1300.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    },
+    {
+      "id": 10,
+      "gas_name_zh": "1,1,2-三氟乙烷",
+      "gas_name_en": "HFC-143",
+      "formula": "CH2FCHF2",
+      "gwp_value": 328.0,
+      "version": "AR5",
+      "is_qualitative": 0,
+      "note": null
+    }
+  ],
+  "device_count": 3,
+  "device_units": [
+    "公升",
+    "度"
+  ],
+  "device_samples": [
+    {
+      "id": 1,
+      "name": "電費單",
+      "category": "能源間接排放",
+      "emission_type": "能源間接排放",
+      "location": "-",
+      "factor_ref_code": "ELECTRICITY",
+      "gas_type": "CO2e",
+      "unit": "度"
+    },
+    {
+      "id": 2,
+      "name": "車用汽油",
+      "category": "移動燃燒",
+      "emission_type": "移動燃燒",
+      "location": "-",
+      "factor_ref_code": "170001",
+      "gas_type": "CO2e",
+      "unit": "公升"
+    },
+    {
+      "id": 3,
+      "name": "柴油",
+      "category": "移動燃燒",
+      "emission_type": "移動燃燒",
+      "location": "-",
+      "factor_ref_code": "170006",
+      "gas_type": "CO2e",
+      "unit": "公升"
+    }
+  ],
+  "activity_count": 1,
+  "activity_units": [
+    "公升"
+  ],
+  "activity_samples": [
+    {
+      "data_id": 1,
+      "year_value": 0.0,
+      "unit": "公升",
+      "source_id": 2,
+      "account_id": 1,
+      "year_id": 1,
+      "boundary_id": 1,
+      "remark": "",
+      "data_source": "manual",
+      "created_at": "2026-03-23 17:15:38.597170",
+      "updated_at": "2026-03-23 17:15:45.063713"
+    }
+  ]
+}

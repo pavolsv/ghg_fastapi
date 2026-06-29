@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% block title %}組織架構{% endblock %}
+{% block head %}
+<style>
+    .org-header {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 32px;
+    }
+    .org-header h1 {
+        margin: 0;
+        font-size: 2.2rem;
+        color: #0f172a;
+        font-weight: 800;
+    }
+    .org-description {
+        margin: 0;
+        color: #64748b;
+        max-width: 700px;
+        line-height: 1.8;
+        font-size: 1rem;
+    }
+    .org-layout {
+        display: grid;
+        grid-template-columns: 1fr 1.8fr;
+        gap: 32px;
+        align-items: start;
+        min-width: 0;
+    }
+    .org-layout > section:last-child {
+        min-width: 0;
+        overflow-x: auto;
+    }
+    .org-card {
+        background: #ffffff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: 32px;
+        min-width: 0;
+    }
+    .org-card h2 {
+        font-size: 1.3rem;
+        margin-top: 0;
+        color: #0f172a;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+    .org-card > p:first-of-type {
+        color: #64748b;
+        line-height: 1.8;
+        margin-top: 0;
+        margin-bottom: 28px;
+    }
+    .org-section {
+        margin-bottom: 32px;
+    }
+    .org-section h3 {
+        font-size: 1.1rem;
+        margin-top: 0;
+        margin-bottom: 16px;
+        color: #0f172a;
+        font-weight: 700;
+    }
+    .form-group {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        padding: 14px 16px;
+        color: #0f172a;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        margin-top: 24px;
+    }
+    .dashboard-btn.action {
+        width: auto;
+        min-width: 140px;
+        justify-content: center;
+        font-weight: 600;
+        background: #2563eb;
+        color: #ffffff !important;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+    }
+    .dashboard-btn.action:hover {
+        background: #1d4ed8;
+    }
+    .dashboard-btn.ghost {
+        border-left-color: transparent;
+        background: #f8fafc;
+        color: #334155 !important;
+        font-weight: 500;
+    }
+    .dashboard-btn.ghost:hover {
+        background: #f1f5f9;
+    }
+    .dashboard-btn.danger {
+        background: #fee2e2;
+        color: #b91c1c !important;
+        font-weight: 500;
+    }
+    .dashboard-btn.danger:hover {
+        background: #fecaca;
+    }
+    .chart-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .chart-list li {
+        padding: 20px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    .chart-list li:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .chart-item-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+    .chart-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+    }
+    .chart-meta {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        margin-top: 4px;
+    }
+    .chart-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .chart-actions form {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .chart-actions input[type="text"] {
+        flex: 1;
+        min-width: 160px;
+    }
+    .empty-state {
+        color: #64748b;
+        padding: 28px;
+        border-radius: 16px;
+        background: #f0f9ff;
+        border: 1px dashed #bfdbfe;
+        text-align: center;
+    }
+    .node-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+        overflow: hidden;
+        border-radius: 12px;
+    }
+    .node-table th,
+    .node-table td {
+        padding: 16px 18px;
+        border: 1px solid #e2e8f0;
+        text-align: left;
+        vertical-align: top;
+    }
+    .node-table th {
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+    .node-table tbody tr {
+        transition: background 0.15s ease;
+    }
+    .node-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    .node-name {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 1rem;
+    }
+    .node-duty {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin-top: 4px;
+        line-height: 1.6;
+        max-width: 300px;
+        white-space: normal;
+    }
+    .node-duty-empty {
+        color: #cbd5e1;
+        font-style: italic;
+    }
+    .org-preview {
+        margin-top: 32px;
+        background: #f8fafc;
+        padding: 28px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    .org-preview h3 {
+        margin: 0 0 20px;
+        font-size: 1.1rem;
+        color: #0f172a;
+        font-weight: 700;
+    }
+    .org-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .org-stat-card {
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 18px;
+        border: 1px solid #e2e8f0;
+    }
+    .org-stat-card span {
+        display: block;
+        margin-bottom: 8px;
+        color: #64748b;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .org-stat-card strong {
+        font-size: 1.6rem;
+        color: #2563eb;
+        font-weight: 800;
+    }
+    #org-chart-visualization {
+        width: 100%;
+        min-height: 380px;
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 20px;
+        box-sizing: border-box;
+        border: 1px solid #e2e8f0;
+        overflow-x: auto;
+    }
+    .node-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+    .node-actions form {
+        margin: 0;
+    }
+    .divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 24px 0;
+    }
+    @media (max-width: 1200px) {
+        .org-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="org-header">
+    <div>
+        <h1>組織架構管理</h1>
+        <p class="org-description">在此建立公司專屬的組織架構。可新增、編輯、刪除架構與節點，並設定節點上下層關係，讓公司組織圖維持清晰一致。</p>
+    </div>
+</div>
+
+<div class="org-layout">
+    <!-- 左側：架構列表 -->
+    <section class="org-card">
+        <h2>組織架構列表</h2>
+        <p>建立並管理您的組織架構。點擊「檢視」來編輯節點。</p>
+        
+        <div class="org-section">
+            <h3>新增架構</h3>
+            <form action="/org_chart/chart" method="post">
+                <div class="form-group">
+                    <label for="new_chart_name">架構名稱</label>
+                    <input id="new_chart_name" name="name" type="text" placeholder="例：公司組織結構" required>
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="dashboard-btn action"><i data-lucide="plus-circle"></i>建立新架構</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="org-section">
+            <h3>現有架構</h3>
+            <ul class="chart-list">
+                {% for chart in charts %}
+                <li>
+                    <div class="chart-item-top">
+                        <div>
+                            <p class="chart-title">{{ chart.name }}</p>
+                        </div>
+                        <a href="/org_chart/?selected_chart_id={{ chart.id }}" class="dashboard-btn ghost action"><i data-lucide="eye"></i>檢視</a>
+                    </div>
+                    <div class="chart-actions">
+                        <form action="/org_chart/chart" method="post">
+                            <input type="hidden" name="chart_id" value="{{ chart.id }}">
+                            <input type="text" name="name" value="{{ chart.name }}" placeholder="更新名稱" required>
+                            <button type="submit" class="dashboard-btn ghost action"><i data-lucide="edit-2"></i>更新</button>
+                        </form>
+                        <form action="/org_chart/delete_chart" method="post" onsubmit="return confirm('確定要刪除此架構與所有節點？');">
+                            <input type="hidden" name="chart_id" value="{{ chart.id }}">
+                            <button type="submit" class="dashboard-btn ghost danger"><i data-lucide="trash-2"></i>刪除</button>
+                        </form>
+                    </div>
+                </li>
+                {% else %}
+                <li class="empty-state">
+                    <p>尚未建立任何架構。請先建立一個新架構。</p>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+
+    <!-- 右側：節點編輯與預覽 -->
+    <section class="org-card">
+        {% if selected_chart %}
+        <h2>{{ selected_chart.name }}</h2>
+        <p>編輯此架構中的節點與階層關係。</p>
+
+        <!-- 統計資訊 -->
+        <div class="org-stats">
+            <div class="org-stat-card">
+                <span>節點總數</span>
+                <strong>{{ nodes | length }}</strong>
+            </div>
+            <div class="org-stat-card">
+                <span>已設上層</span>
+                <strong>{{ nodes | selectattr('parent_id') | list | length }}</strong>
+            </div>
+        </div>
+
+        <!-- 節點列表 -->
+        {% if nodes %}
+        <div class="org-section">
+            <h3>現有節點</h3>
+            <table class="node-table">
+                <thead>
+                    <tr>
+                        <th>節點名稱</th>
+                        <th>職務 / 責任</th>
+                        <th>上層節點</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for node in nodes %}
+                    <tr>
+                        <td>
+                            <div class="node-name">{{ node.name }}</div>
+                        </td>
+                        <td>
+                            {% if node.duty %}
+                            <div class="node-duty">{{ node.duty }}</div>
+                            {% else %}
+                            <div class="node-duty node-duty-empty">無</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if node.parent_id %}
+                            <span>{{ parent_map.get(node.parent_id, '已刪除') }}</span>
+                            {% else %}
+                            <span style="color: #cbd5e1;">根節點</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="node-actions">
+                                <a href="/org_chart/?selected_chart_id={{ selected_chart.id }}&edit_node_id={{ node.id }}" class="dashboard-btn ghost action"><i data-lucide="edit"></i>編輯</a>
+                                <form action="/org_chart/node/delete" method="post" onsubmit="return confirm('確定刪除此節點？');">
+                                    <input type="hidden" name="chart_id" value="{{ selected_chart.id }}">
+                                    <input type="hidden" name="node_id" value="{{ node.id }}">
+                                    <button type="submit" class="dashboard-btn ghost danger"><i data-lucide="trash-2"></i>刪除</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="org-section empty-state">
+            此架構尚未有任何節點。請使用下方表單新增第一個節點。
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <!-- 新增/編輯節點表單 -->
+        <div class="org-section">
+            <h3>{% if edit_node %}編輯節點{% else %}新增節點{% endif %}</h3>
+            <form action="/org_chart/node" method="post">
+                <input type="hidden" name="chart_id" value="{{ selected_chart.id }}">
+                {% if edit_node %}
+                <input type="hidden" name="node_id" value="{{ edit_node.id }}">
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="node_name">節點名稱 <span style="color: #e11d48;">*</span></label>
+                    <input id="node_name" name="name" type="text" placeholder="例：執行長、營運部經理" value="{{ edit_node.name if edit_node else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="node_duty">職務 / 負責事項</label>
+                    <textarea id="node_duty" name="duty" placeholder="例：負責公司整體運營和戰略決策&#10;管理日常營運和團隊協調">{{ edit_node.duty if edit_node else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="parent_id">上層節點</label>
+                    <select id="parent_id" name="parent_id">
+                        <option value="">-- 無上層 (根節點) --</option>
+                        {% for option in parent_options %}
+                        <option value="{{ option.id }}" {% if edit_node and edit_node.parent_id == option.id %}selected{% endif %}>{{ option.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="button-row" style="align-items: flex-start;">
+                    <button type="submit" class="dashboard-btn action"><i data-lucide="save"></i>{% if edit_node %}儲存變更{% else %}新增節點{% endif %}</button>
+                    {% if nodes %}
+                    <button type="submit" form="clear-node-form" class="dashboard-btn ghost danger"><i data-lucide="trash"></i>清空全部節點</button>
+                    {% endif %}
+                </div>
+            </form>
+            <form id="clear-node-form" action="/org_chart/node/clear" method="post" style="display: none;" onsubmit="return confirm('確定清空此架構的所有節點？此操作無法恢復。');">
+                <input type="hidden" name="chart_id" value="{{ selected_chart.id }}">
+            </form>
+        </div>
+
+        <!-- 組織圖預覽 -->
+        <div class="org-preview">
+            <h3>組織圖預覽</h3>
+            <div id="org-chart-visualization">
+                {% if nodes %}
+                正在載入組織圖…
+                {% else %}
+                <p style="color:#94a3b8; text-align:center; padding:40px 0;">新增節點後，組織圖將在此顯示。</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% else %}
+        <div class="empty-state">
+            <p>請先建立並選擇一個組織架構，才能管理節點。</p>
+            <p style="font-size: 0.9rem; color: #64748b;">從左側清單中點擊「檢視」來開始編輯。</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+    const chartsData = {{ charts_data | tojson | safe }};
+    const nodesData = {{ nodes_data | tojson | safe }};
+
+    function drawOrgChart() {
+        if (!nodesData || nodesData.length === 0) {
+            document.getElementById('org-chart-visualization').innerHTML = '<p style="color:#94a3b8; text-align:center; padding:40px 0;">新增節點後，組織圖將在此顯示。</p>';
+            return;
+        }
+
+        google.charts.load('current', {packages:['orgchart']});
+        google.charts.setOnLoadCallback(function () {
+            const data = new google.visualization.DataTable();
+            data.addColumn('string', 'Name');
+            data.addColumn('string', 'Manager');
+            data.addColumn('string', 'ToolTip');
+
+            const rows = nodesData.map(item => {
+                const displayName = item.name;
+                const tooltip = item.duty ? (item.name + '\n\n職務：' + item.duty) : item.name;
+                const html = '<div style="padding:14px 16px; border-radius:12px; background:#eff6ff; color:#0f172a; font-weight:700; text-align:center; font-size:0.95rem; min-width:140px;">' + displayName + '</div>';
+                return [{v: item.id.toString(), f: html}, item.parent_id ? item.parent_id.toString() : '', tooltip];
+            });
+            data.addRows(rows);
+
+            const chart = new google.visualization.OrgChart(document.getElementById('org-chart-visualization'));
+            chart.draw(data, {
+                allowHtml: true,
+                color: '#2563eb',
+                size: 'medium',
+                nodeClass: 'org-node'
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', drawOrgChart);
+</script>
+{% endblock %}

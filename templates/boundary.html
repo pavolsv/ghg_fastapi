@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}組織邊界設定{% endblock %}
+
+{% block head %}
+<style>
+    .boundary-container {
+        max-width: 720px;
+        margin: 40px auto;
+    }
+
+    .boundary-card {
+        background: #ffffff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: 32px;
+        margin-bottom: 24px;
+    }
+
+    .boundary-card h2 {
+        font-size: 1.3rem;
+        margin-top: 0;
+        color: #0f172a;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+
+    .boundary-card > p {
+        color: #64748b;
+        line-height: 1.8;
+        margin-top: 0;
+        margin-bottom: 24px;
+        font-size: 0.95rem;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+
+    .form-group input {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        padding: 14px 16px;
+        color: #0f172a;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-submit:hover {
+        background: linear-gradient(135deg, #1d4ed8, #1e40af);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .boundary-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .boundary-list li {
+        padding: 20px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .boundary-list li:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+
+    .boundary-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .boundary-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 4px 0;
+    }
+
+    .boundary-address {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .boundary-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .btn-ghost {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .btn-ghost:hover {
+        background: #f1f5f9;
+    }
+
+    .btn-danger {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .btn-danger:hover {
+        background: #fecaca;
+    }
+
+    .divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 28px 0;
+    }
+
+    .empty-state {
+        color: #64748b;
+        padding: 28px;
+        border-radius: 16px;
+        background: #f0f9ff;
+        border: 1px dashed #bfdbfe;
+        text-align: center;
+    }
+
+    .inline-form {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .inline-form input {
+        flex: 1;
+        min-width: 160px;
+        min-height: 40px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        box-sizing: border-box;
+    }
+
+    .inline-form input:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="boundary-container">
+    <div style="margin-bottom: 32px;">
+        <h1 style="font-size: 2.2rem; color: #0f172a; font-weight: 800; margin: 0 0 8px 0;">組織邊界設定</h1>
+        <p style="color: #64748b; line-height: 1.8; margin: 0;">設定組織盤查邊界，包含邊界名稱與地址，後續可將排放源歸屬至對應邊界。</p>
+    </div>
+
+    <!-- 新增邊界 -->
+    <div class="boundary-card">
+        <h2>新增組織邊界</h2>
+        <p>建立新的組織邊界，例如：廠區、辦公室或營運據點。</p>
+        <form action="/boundary/create" method="post">
+            <div class="form-group">
+                <label for="boundary_name">邊界名稱</label>
+                <input type="text" id="boundary_name" name="name" placeholder="例：台北總部、台中廠區" required>
+            </div>
+            <div class="form-group">
+                <label for="boundary_address">地址</label>
+                <input type="text" id="boundary_address" name="address" placeholder="例：台北市信義區信義路五段7號" required>
+            </div>
+            <button type="submit" class="btn-submit">
+                <i class="fa-solid fa-plus-circle mr-2"></i>建立邊界
+            </button>
+        </form>
+    </div>
+
+    <!-- 現有邊界列表 -->
+    <div class="boundary-card">
+        <h2>現有組織邊界</h2>
+        <p>管理已建立的組織邊界。</p>
+        
+        {% if boundaries %}
+        <ul class="boundary-list">
+            {% for boundary in boundaries %}
+            <li>
+                <div class="boundary-info">
+                    <p class="boundary-name">{{ boundary.name }}</p>
+                    <p class="boundary-address"><i class="fa-solid fa-location-dot mr-1 text-slate-400"></i>{{ boundary.address }}</p>
+                </div>
+                <div class="boundary-actions">
+                    <button onclick="toggleEditForm({{ boundary.id }})" class="btn-ghost">
+                        <i class="fa-solid fa-edit-2 mr-1"></i>編輯
+                    </button>
+                    <form action="/boundary/delete/{{ boundary.id }}" method="post" onsubmit="return confirm('確定要刪除此組織邊界？');" style="display: inline;">
+                        <button type="submit" class="btn-ghost btn-danger">
+                            <i class="fa-solid fa-trash-2 mr-1"></i>刪除
+                        </button>
+                    </form>
+                </div>
+                <!-- 編輯表單（預設隱藏） -->
+                <div id="edit-form-{{ boundary.id }}" class="inline-form" style="display: none; margin-top: 12px;">
+                    <form action="/boundary/update/{{ boundary.id }}" method="post" style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+                        <input type="text" name="name" value="{{ boundary.name }}" placeholder="邊界名稱" required>
+                        <input type="text" name="address" value="{{ boundary.address }}" placeholder="地址" required>
+                        <button type="submit" class="btn-ghost" style="background: #2563eb; color: #ffffff;">
+                            <i class="fa-solid fa-check mr-1"></i>儲存
+                        </button>
+                        <button type="button" onclick="toggleEditForm({{ boundary.id }})" class="btn-ghost">取消</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-regular fa-map text-4xl mb-3 block text-slate-300"></i>
+            <p>尚未建立任何組織邊界，請使用上方表單新增。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function toggleEditForm(boundaryId) {
+        const form = document.getElementById('edit-form-' + boundaryId);
+        if (form) {
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+        }
+    }
+</script>
+{% endblock %}

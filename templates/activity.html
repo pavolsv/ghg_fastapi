@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}活動數據{% endblock %}
+
+{% block head %}
+<style>
+.ac-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+.ac-category {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.ac-category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+}
+.ac-category-header .icon-wrap {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.ac-category-header .cat-label { flex: 1; font-weight: 600; font-size: 1.05rem; color: #1e293b; }
+.ac-category-header .cat-count { font-size: 0.85rem; color: #64748b; }
+.ac-category-body { padding: 8px 20px 16px; }
+.ac-summary {
+    display: flex; gap: 16px; align-items: center;
+    padding: 12px 20px; margin-bottom: 16px;
+    background: #f8fafc; border-radius: 10px;
+    font-size: 0.9rem; color: #475569;
+}
+.ac-summary span { font-weight: 500; }
+.ac-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+.ac-row:hover { background: #fafafa; }
+.ac-row:last-child { border-bottom: none; }
+.ac-code { color: #64748b; font-size: 0.82rem; width: 60px; flex-shrink: 0; }
+.ac-name { flex: 1; color: #1e293b; font-weight: 500; min-width: 100px; }
+.ac-fuel { color: #64748b; font-size: 0.85rem; width: 90px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-unit { color: #64748b; font-size: 0.82rem; width: 50px; flex-shrink: 0; }
+.ac-input {
+    width: 140px; padding: 6px 10px;
+    border: 1.5px solid #e2e8f0; border-radius: 6px;
+    font-size: 0.9rem;
+}
+.ac-input:focus { outline: none; border-color: #6366f1; }
+.ac-unit-display {
+    display: inline-block; width: 90px; padding: 6px 10px;
+    border-radius: 6px; font-size: 0.9rem;
+    background: #f1f5f9; color: #475569; text-align: center;
+}
+.ac-btn {
+    padding: 6px 16px;
+    border: none; border-radius: 6px;
+    background: #6366f1; color: #fff;
+    cursor: pointer; font-size: 0.85rem; font-weight: 500;
+    white-space: nowrap;
+}
+.ac-btn:hover { background: #4f46e5; }
+.ac-btn.done { background: #10b981; }
+.ac-btn.done:hover { background: #059669; }
+.ac-empty {
+    text-align: center; color: #94a3b8; padding: 40px;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fm-page-wrap">
+    <div class="fm-page-header">
+        <h1 class="fm-title">活動數據</h1>
+    </div>
+
+    <div class="ac-wrap">
+        {% set colors = {'固定燃燒':('#fee2e2','#dc2626','flame'),'移動燃燒':('#dbeafe','#2563eb','car'),'逸散排放':('#e0f2fe','#0891b2','snowflake'),'能源間接排放':('#fef3c7','#d97706','zap')} %}
+
+        {% if groups %}
+        {% set ns = namespace(total_devices=0) %}
+        {% for cat, devices in groups.items() %}
+        {% set ns.total_devices = ns.total_devices + devices|length %}
+        {% endfor %}
+
+        <div class="ac-summary">
+            <span>{{ groups|length }} 類別</span>
+            <span>｜</span>
+            <span>{{ ns.total_devices }} 設備</span>
+        </div>
+        {% endif %}
+
+        {% for cat, devices in groups.items() %}
+        {% set bg, fg, icon = colors.get(cat, ('#f1f5f9','#475569','circle')) %}
+
+        <div class="ac-category">
+            <div class="ac-category-header">
+                <div class="icon-wrap" style="background:{{ bg }}; color:{{ fg }};">
+                    <i data-lucide="{{ icon }}" style="width:18px;height:18px;"></i>
+                </div>
+                <span class="cat-label">{{ cat }}</span>
+                <span class="cat-count">{{ devices|length }} 設備</span>
+            </div>
+
+            <div class="ac-category-body">
+                {% for d in devices %}
+                {% set fuel_name = factor_map.get(d.factor_ref_code, d.factor_ref_code) %}
+                <div class="ac-row" id="row_{{ d.id }}">
+                    <span class="ac-code">{{ d.device_code or '' }}</span>
+                    <span class="ac-name">{{ d.name }}</span>
+                    <span class="ac-fuel">{{ fuel_name }}</span>
+                    <input type="number" step="0.0001" class="ac-input" id="val_{{ d.id }}"
+                           value="{{ d.activity_data or '' }}" placeholder="輸入">
+                    {% if cat == "逸散排放" %}
+                    <select class="ac-input" id="unit_{{ d.id }}" style="width:90px;">
+                        <option value="公斤" {% if d.unit == "公斤" %}selected{% endif %}>公斤 (kg)</option>
+                        <option value="公克" {% if d.unit == "公克" %}selected{% endif %}>公克 (g)</option>
+                    </select>
+                    {% elif d.unit and d.unit != '待確認' and d.unit != '單位' %}
+                    <span class="ac-unit-display">{{ d.unit }}</span>
+                    <input type="hidden" id="unit_{{ d.id }}" value="{{ d.unit }}">
+                    {% else %}
+                    <select class="ac-input" id="unit_{{ d.id }}" style="width:90px;">
+                        <option value="公升">公升</option>
+                        <option value="公斤">公斤</option>
+                        <option value="立方公尺">立方公尺</option>
+                        <option value="度">度</option>
+                        <option value="公噸">公噸</option>
+                    </select>
+                    {% endif %}
+                    <button class="ac-btn{% if d.has_data %} done{% endif %}" id="btn_{{ d.id }}"
+                            onclick="saveData({{ d.id }})">{% if d.has_data %}已儲存{% else %}儲存{% endif %}</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="ac-empty">尚無排放源設備，請先至排放源管理新增。</div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function resetSaveBtn(deviceId) {
+    const btn = document.getElementById('btn_' + deviceId);
+    btn.textContent = '儲存';
+    btn.classList.remove('done');
+}
+
+async function saveData(deviceId) {
+    const valEl = document.getElementById('val_' + deviceId);
+    const unitEl = document.getElementById('unit_' + deviceId);
+    const btn = document.getElementById('btn_' + deviceId);
+    const activityData = parseFloat(valEl.value) || 0;
+    const unit = unitEl ? unitEl.value : '';
+
+    try {
+        const resp = await fetch('/devices/api/activities/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                device_id: deviceId,
+                activity_data: activityData,
+                unit: unit,
+                data_source: 'manual',
+            })
+        });
+        const result = await resp.json();
+        if (result.success) {
+            btn.textContent = '已儲存';
+            btn.classList.add('done');
+        } else {
+            alert(result.message || '儲存失敗');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('系統錯誤');
+    }
+}
+</script>
+{% endblock %}

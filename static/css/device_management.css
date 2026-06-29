@@ -1,0 +1,253 @@
+.device-card {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+    margin-bottom: 24px;
+}
+
+.device-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 18px;
+    align-items: flex-end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.85em;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
+}
+
+.ui-input, .ui-select {
+    padding: 10px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background-color: #ffffff;
+    font-size: 0.92em;
+    height: 44px;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.ui-input:focus, .ui-select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.btn-add {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    height: 44px;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    transition: all 0.2s ease;
+}
+
+.btn-add:hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-edit {
+    color: #059669;
+    border: none;
+    background: #ecfdf5;
+    cursor: pointer;
+    margin-right: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-edit:hover {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.btn-delete {
+    color: #ef4444;
+    border: none;
+    background: #fef2f2;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-delete:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-gas {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    color: #065f46;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    margin: 0 3px;
+    display: inline-block;
+    font-weight: 500;
+    border: 1px solid #a7f3d0;
+}
+
+.device-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.device-table th, .device-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.device-table th {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+.device-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.device-table tbody tr:hover {
+    background: #f0fdf4;
+}
+
+.device-table tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+.device-table tbody tr:nth-child(even):hover {
+    background: #f0fdf4;
+}
+
+.gas-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.gas-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: all 0.2s;
+    user-select: none;
+    background: #fafbfc;
+}
+
+.gas-checkbox:hover {
+    border-color: #10b981;
+    background: #ecfdf5;
+}
+
+.gas-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #059669;
+}
+
+.gas-checkbox input[type="checkbox"]:checked + span,
+.gas-checkbox:has(input:checked) {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #065f46;
+    font-weight: 600;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+.badge-emission-fugitive {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    font-weight: 600;
+}
+
+.badge-emission-mobile {
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    color: #5b21b6;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    font-weight: 600;
+}
+
+.badge-emission-indirect {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #1e40af;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    font-weight: 600;
+}
+
+.badge-emission-combustion {
+    background: linear-gradient(135deg, #ffedd5, #fed7aa);
+    color: #9a3412;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.82em;
+    font-weight: 600;
+}
+
+.badge-refrigerant {
+    color: #059669;
+    font-weight: 600;
+}
+
+.fill-amount-display {
+    line-height: 1.5;
+}
+
+.fill-amount-value {
+    color: #059669;
+    font-weight: 600;
+}
+
+.fill-amount-original {
+    font-size: 12px;
+    color: #64748b;
+}
