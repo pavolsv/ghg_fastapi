@@ -243,9 +243,12 @@ _DEFAULT_CHAPTER_TEMPLATES: dict[int, str] = {
 }
 
 
-def _collect_company_data(session: Session) -> dict[str, Any]:
+def _collect_company_data(session: Session, account_id: int | None = None) -> dict[str, Any]:
     """收集單一公司基本資料（優先使用資料較完整的公司）。"""
-    companies = session.exec(select(CompanyInfo)).all()
+    stmt = select(CompanyInfo)
+    if account_id is not None:
+        stmt = stmt.where(CompanyInfo.account_id == account_id)
+    companies = session.exec(stmt).all()
     if not companies:
         return {}
 
@@ -271,11 +274,29 @@ def _collect_company_data(session: Session) -> dict[str, Any]:
     }
 
 
-def _collect_emission_data(session: Session, year: int) -> dict[str, Any]:
+def _collect_emission_data(
+    session: Session,
+    year: int,
+    account_id: int | None = None,
+) -> dict[str, Any]:
     """收集排放數據（與 result 頁面邏輯一致）。"""
-    records = session.exec(select(EmissionRecord)).all()
-    devices = session.exec(select(Device)).all()
+    device_stmt = select(Device)
+    if account_id is not None:
+        device_stmt = device_stmt.where(Device.account_id == account_id)
+    devices = session.exec(device_stmt).all()
     device_map = {d.id: d for d in devices}
+    device_ids = [d.id for d in devices if d.id is not None]
+
+    if account_id is not None:
+        records = (
+            session.exec(
+                select(EmissionRecord).where(EmissionRecord.device_id.in_(device_ids))
+            ).all()
+            if device_ids
+            else []
+        )
+    else:
+        records = session.exec(select(EmissionRecord)).all()
 
     emission_type_to_scope = {
         "固定燃燒": "scope1",
@@ -389,9 +410,16 @@ def _classify_refrigerant_gas(session: Session, refrigerant_code: str) -> str:
     return "HFCₛ"
 
 
-def _build_operational_boundary_table(session: Session, year: int) -> list[dict[str, str]]:
+def _build_operational_boundary_table(
+    session: Session,
+    year: int,
+    account_id: int | None = None,
+) -> list[dict[str, str]]:
     """建立 2.2 營運邊界彙總表資料。"""
-    devices = session.exec(select(Device)).all()
+    device_stmt = select(Device)
+    if account_id is not None:
+        device_stmt = device_stmt.where(Device.account_id == account_id)
+    devices = session.exec(device_stmt).all()
 
     # 預載排放係數以加速查詢
     factors = session.exec(select(EmissionFactor604)).all()
@@ -469,12 +497,20 @@ def _build_operational_boundary_table(session: Session, year: int) -> list[dict[
     return rows
 
 
-def build_report_context(report: Report) -> dict[str, Any]:
+def build_report_context(report: Report, account_id: int | None = None) -> dict[str, Any]:
     """建構報告書模板所需的資料上下文。"""
     with Session(engine) as session:
-        company = _collect_company_data(session)
-        emission = _collect_emission_data(session, report.inventory_year)
-        boundary_table = _build_operational_boundary_table(session, report.inventory_year)
+        company = _collect_company_data(session, account_id=account_id)
+        emission = _collect_emission_data(
+            session,
+            report.inventory_year,
+            account_id=account_id,
+        )
+        boundary_table = _build_operational_boundary_table(
+            session,
+            report.inventory_year,
+            account_id=account_id,
+        )
 
         return {
             "report": {
@@ -489,6 +525,31 @@ def build_report_context(report: Report) -> dict[str, Any]:
             "operational_boundary_table": boundary_table,
             "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         }
+
+
+def build_standalone_report_context(
+    inventory_year: int,
+    base_year: int | None = None,
+    org_boundary_method: str = "控制權法",
+    operational_boundary_note: str | None = None,
+    account_id: int | None = None,
+) -> dict[str, Any]:
+    """建立不落資料庫的報告渲染內容，供結果頁直接下載 PDF 使用。"""
+    report = Report(
+        inventory_year=inventory_year,
+        base_year=base_year or inventory_year,
+        org_boundary_method=org_boundary_method,
+        operational_boundary_note=operational_boundary_note,
+    )
+    context = build_report_context(report, account_id=account_id)
+    context["chapter_titles"] = CHAPTER_TITLES
+    context["chapter_contents"] = {}
+
+    for chapter_no in range(1, 7):
+        template = Template(_DEFAULT_CHAPTER_TEMPLATES[chapter_no])
+        context["chapter_contents"][chapter_no] = template.render(context)
+
+    return context
 
 
 def _build_llm_data(chapter_no: int, context: dict[str, Any]) -> dict[str, Any]:

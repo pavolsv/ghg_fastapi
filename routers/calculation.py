@@ -232,14 +232,24 @@ def _load_latest_draft_payload(account_id: Any) -> dict[str, Any] | None:
     return None
 
 
-def _list_recent_report_files(limit: int = 20) -> list[dict[str, Any]]:
+def _report_file_prefixes(account_id: Any) -> tuple[str, ...]:
+    return (
+        f"manual_report_{account_id}_",
+        f"draft_report_{account_id}_",
+    )
+
+
+def _list_recent_report_files(account_id: Any, limit: int = 20) -> list[dict[str, Any]]:
     outdir = Path("uploads") / "ai_reports"
     if not outdir.exists():
         return []
 
+    allowed_prefixes = _report_file_prefixes(account_id)
     files: list[dict[str, Any]] = []
     for path in sorted(outdir.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True):
         if not path.is_file():
+            continue
+        if not path.name.startswith(allowed_prefixes):
             continue
         files.append(
             {
@@ -528,20 +538,8 @@ def _default_report_template() -> str:
 
 def _build_template_snapshot(snapshot: dict) -> dict:
     template_snapshot = dict(snapshot)
-    from model import Device
-    from database import engine
-    from sqlmodel import Session, select
-    with Session(engine) as session:
-        devices = session.exec(select(Device)).all()
-    template_snapshot["devices_for_section"] = [
-        {
-            "name": d.name,
-            "emission_type": d.emission_type,
-            "factor_ref_code": d.factor_ref_code,
-            "scope": d.scope,
-        }
-        for d in devices
-    ]
+    devices = snapshot.get("devices_for_section", [])
+    template_snapshot["devices_for_section"] = devices if isinstance(devices, list) else []
     template_snapshot["section_3_4_text"] = _build_section_34_text(template_snapshot)
     template_snapshot["direct_emission_source_table"] = _build_scope_device_table(template_snapshot, "scope1")
     template_snapshot["indirect_emission_source_table"] = _build_scope_device_table(template_snapshot, "scope2")
@@ -918,7 +916,7 @@ async def report_edit_page(request: Request, session: Session = Depends(get_sess
             "missing_template_tags": missing_template_tags,
             "template_paths": _collect_scalar_paths(template_snapshot),
             "report_outline": REPORT_EDITOR_OUTLINE,
-            "report_files": _list_recent_report_files(),
+            "report_files": _list_recent_report_files(account_id),
         },
     )
 
@@ -964,7 +962,7 @@ async def render_report_template(request: Request, session: Session = Depends(ge
             "missing_template_tags": missing_template_tags,
             "template_paths": _collect_scalar_paths(template_snapshot),
             "report_outline": REPORT_EDITOR_OUTLINE,
-            "report_files": _list_recent_report_files(),
+            "report_files": _list_recent_report_files(account_id),
         },
     )
 
@@ -1004,7 +1002,7 @@ async def save_report(request: Request, session: Session = Depends(get_session))
                 "missing_template_tags": missing_template_tags,
                 "template_paths": _collect_scalar_paths(template_snapshot),
                 "report_outline": REPORT_EDITOR_OUTLINE,
-                "report_files": _list_recent_report_files(),
+                "report_files": _list_recent_report_files(account_id),
             },
         )
 
@@ -1013,12 +1011,13 @@ async def save_report(request: Request, session: Session = Depends(get_session))
 
     outdir = Path("uploads") / "ai_reports"
     outdir.mkdir(parents=True, exist_ok=True)
-    filename = outdir / f"manual_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = outdir / f"manual_report_{account_id}_{timestamp}.json"
     filename.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     if template_text.strip():
         rendered_template, _ = _render_template_with_snapshot(template_text, template_snapshot)
-        rendered_path = outdir / f"manual_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        rendered_path = outdir / f"manual_report_{account_id}_{timestamp}.md"
         rendered_path.write_text(rendered_template, encoding="utf-8")
 
     return RedirectResponse(url="/calculation/report", status_code=303)
@@ -1031,6 +1030,9 @@ async def download_saved_report(filename: str, request: Request):
         return RedirectResponse(url="/login", status_code=303)
 
     safe_name = Path(filename).name
+    if not safe_name.startswith(_report_file_prefixes(account_id)):
+        raise HTTPException(status_code=403, detail="無權限下載此報告檔案")
+
     file_path = Path("uploads") / "ai_reports" / safe_name
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="找不到報告檔案")
@@ -1071,7 +1073,7 @@ async def export_report_docx(request: Request, session: Session = Depends(get_se
     rendered_template, _ = _render_template_with_snapshot(template_text, template_snapshot)
     outdir = Path("uploads") / "ai_reports"
     outdir.mkdir(parents=True, exist_ok=True)
-    file_path = outdir / f"manual_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    file_path = outdir / f"manual_report_{account_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     _build_docx_from_rendered_template(rendered_template, template_snapshot, file_path)
 
     download_name = f"ghg_report_{snapshot.get('inventory_year')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"

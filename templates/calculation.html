@@ -19,25 +19,26 @@
     </div>
 
     <div class="calc-card calc-table-card">
-        <table class="record-table">
+        <div class="app-table-scroll">
+        <table class="record-table app-table app-table-management">
             <thead>
             <tr>
-                <th>設備名稱</th>
-                <th>排放類型</th>
-                <th>數據 / 單位</th>
-                <th style="width: 350px;">計算過程</th>
-                <th>結果 (kg CO₂e)</th>
-                <th>操作</th>
+                <th class="col-name">設備名稱</th>
+                <th class="col-code">排放類型</th>
+                <th class="col-number">數據 / 單位</th>
+                <th class="col-note">計算過程</th>
+                <th class="col-number">結果 (kg CO₂e)</th>
+                <th class="col-action">操作</th>
             </tr>
             </thead>
             <tbody>
             {% for r in records %}
             <tr>
-                <td>
+                <td class="col-name">
                     <span class="dev-code-prefix" style="color:#0f172a; font-weight:600; font-size:0.85rem; margin-right:6px;">{{ device_code_map.get(r.device_id, '—') }}</span>
                     <strong>{{ device_map.get(r.device_id) }}</strong>
                 </td>
-                <td>
+                <td class="col-code">
                     {% set etype = device_emission_type_map.get(r.device_id, "") %}
                     {% if etype == "逸散排放" %}
                         <span class="badge-fugitive">逸散排放</span>
@@ -47,8 +48,8 @@
                         <span class="badge-combustion">{{ etype }}</span>
                     {% endif %}
                 </td>
-                <td>{{ r.activity_data }} <small>{{ r.activity_unit or device_unit_map.get(r.device_id) }}</small></td>
-                <td>
+                <td class="col-number">{{ r.activity_data }} <small>{{ r.activity_unit or device_unit_map.get(r.device_id) }}</small></td>
+                <td class="col-note">
                     {% set code = device_to_code.get(r.device_id) %}
                     {% set emission_type = device_emission_type_map.get(r.device_id) %}
                     {% set rc = record_calc_map.get(r.id, {}) %}
@@ -88,8 +89,8 @@
                         </div>
                     </details>
                 </td>
-                <td class="text-result">{{ "{:,.4f}".format(r.total_co2e) }}</td>
-                <td>
+                <td class="text-result col-number">{{ "{:,.4f}".format(r.total_co2e) }}</td>
+                <td class="col-action">
                     <form action="/calculation/delete/{{ r.id }}" method="post" class="delete-record-form">
                         <button type="submit" class="btn-delete-record">刪除
                         </button>
@@ -99,6 +100,7 @@
             {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     <div class="calc-footer-action">

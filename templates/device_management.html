@@ -15,25 +15,26 @@
     </div>
 
     <div class="device-card" style="padding: 0; overflow: hidden;">
-    <table class="device-table">
+    <div class="app-table-scroll">
+    <table class="device-table app-table app-table-management">
         <thead>
         <tr>
-            <th>編號</th>
-            <th>名稱</th>
-            <th>排放類型</th>
-            <th>燃料 / 冷媒</th>
-            <th>填充量</th>
-            <th>溫室氣體</th>
-            <th>位置</th>
-            <th>操作</th>
+            <th class="col-code">編號</th>
+            <th class="col-name">名稱</th>
+            <th class="col-code">排放類型</th>
+            <th class="col-name">燃料 / 冷媒</th>
+            <th class="col-number">填充量</th>
+            <th class="col-code">溫室氣體</th>
+            <th class="col-note">位置</th>
+            <th class="col-action">操作</th>
         </tr>
         </thead>
         <tbody>
         {% for d in devices %}
         <tr>
-            <td>{{ d.device_number or d.id }}</td>
-            <td><strong>{{ d.name }}</strong></td>
-            <td>
+            <td class="col-code">{{ d.device_number or d.id }}</td>
+            <td class="col-name"><strong>{{ d.name }}</strong></td>
+            <td class="col-code">
                 {% if d.equipment_category %}
                     <span class="badge-emission-fugitive">逸散排放</span>
                 {% elif d.emission_type == '移動燃燒' %}
@@ -46,14 +47,14 @@
                     <span class="badge-emission-combustion">固定燃燒</span>
                 {% endif %}
             </td>
-            <td>
+            <td class="col-name">
                 {% if d.equipment_category %}
                     <span class="badge-refrigerant">{{ factor_map.get(d.refrigerant_code, d.refrigerant_code) }}</span>
                 {% else %}
                     {{ factor_map.get(d.factor_ref_code, '—') }}
                 {% endif %}
             </td>
-            <td>
+            <td class="col-number">
                 {% if d.equipment_category and d.fill_amount is not none %}
                     <div class="fill-amount-display">
                         <span class="fill-amount-value">{{ d.fill_amount }} 公噸</span><br>
@@ -65,7 +66,7 @@
                     —
                 {% endif %}
             </td>
-            <td>
+            <td class="col-code">
                 {% if d.gas_type %}
                     {% for gas in d.gas_type.split(',') %}
                         <span class="badge-gas">{{ gas }}</span>
@@ -74,8 +75,8 @@
                     —
                 {% endif %}
             </td>
-            <td>{{ d.location or '—' }}</td>
-            <td>
+            <td class="col-note">{{ d.location or '—' }}</td>
+            <td class="col-action">
                 <form action="/devices/delete/{{ d.id }}" method="post" style="display:inline;">
                     <button type="submit" class="btn-delete" onclick="return confirm('確定刪除？')">刪除</button>
                 </form>
@@ -84,6 +85,7 @@
         {% endfor %}
         </tbody>
     </table>
+    </div>
     </div>
 </div>
 

@@ -72,25 +72,26 @@
     </div>
     {% endif %}
 
-    <table class="data-table">
+    <div class="app-table-scroll">
+    <table class="data-table app-table app-table-management">
         <thead>
         {% if is_gwp %}
         <tr>
-            <th onclick="sortGwpTable(0)" style="cursor:pointer;text-align:left;">化學式 <span id="sort-formula"></span></th>
-            <th onclick="sortGwpTable(1)" style="cursor:pointer;text-align:left;">中文名稱 <span id="sort-name-zh"></span></th>
-            <th onclick="sortGwpTable(2)" style="cursor:pointer;">GWP 值 <span id="sort-gwp-value"></span></th>
-            <th>版本</th>
-            <th>備註</th>
+            <th class="col-code cell-left" onclick="sortGwpTable(0)" style="cursor:pointer;text-align:left;">化學式 <span id="sort-formula"></span></th>
+            <th class="col-name cell-left" onclick="sortGwpTable(1)" style="cursor:pointer;text-align:left;">中文名稱 <span id="sort-name-zh"></span></th>
+            <th class="col-number" onclick="sortGwpTable(2)" style="cursor:pointer;">GWP 值 <span id="sort-gwp-value"></span></th>
+            <th class="col-code">版本</th>
+            <th class="col-note">備註</th>
         </tr>
         {% else %}
         <tr>
-            <th class="center-header">代碼</th>
-            <th class="center-header">名稱</th>
-            <th class="center-header">CO2</th>
-            <th class="center-header">CH4</th>
-            <th class="center-header">N2O</th>
-            <th class="center-header">單位</th>
-            <th class="center-header">備註</th>
+            <th class="center-header col-code">代碼</th>
+            <th class="center-header col-name">名稱</th>
+            <th class="center-header col-number">CO2</th>
+            <th class="center-header col-number">CH4</th>
+            <th class="center-header col-number">N2O</th>
+            <th class="center-header col-code">單位</th>
+            <th class="center-header col-note">備註</th>
         </tr>
         {% endif %}
         </thead>
@@ -99,9 +100,9 @@
         {% if gwp_factors %}
         {% for r in gwp_factors %}
         <tr>
-            <td style="text-align:left;"><code>{{ r.formula }}</code></td>
-            <td style="text-align:left;">{{ r.gas_name_zh }}</td>
-            <td>
+            <td class="col-code cell-left" style="text-align:left;"><code>{{ r.formula }}</code></td>
+            <td class="col-name cell-left" style="text-align:left;">{{ r.gas_name_zh }}</td>
+            <td class="col-number">
                 {% if r.note and '停用' in r.note %}
                 <span style="color:#999;">已停用</span>
                 {% elif r.is_qualitative %}
@@ -116,8 +117,8 @@
                 {{ '%.4f' % r.gwp_value }}
                 {% endif %}
             </td>
-            <td><span class="badge badge-gas">{{ r.version }}</span></td>
-            <td class="td-truncate">
+            <td class="col-code"><span class="badge badge-gas">{{ r.version }}</span></td>
+            <td class="td-truncate col-note">
                 {% if r.note and r.note != 'nan' %}{{ r.note }}
                 {% elif r.is_qualitative %}GWP &lt; 1
                 {% elif r.gwp_value == 0 %}僅需定性
@@ -133,16 +134,16 @@
         {% if grouped_factors %}
         {% for g in grouped_factors %}
         <tr>
-            <td><code>{{ g.code }}</code></td>
-            <td class="td-name">{{ g.name }}</td>
-            <td class="td-value">
+            <td class="col-code"><code>{{ g.code }}</code></td>
+            <td class="td-name col-name">{{ g.name }}</td>
+            <td class="td-value col-number">
                 {% set co2_val = g.gas_values.get('CO2', g.gas_values.get('CO2e', None)) %}
                 {{ '%.6f' % co2_val if co2_val is not none else '-' }}
             </td>
-            <td class="td-value">{% set v = g.gas_values.get('CH4') %}{{ '%.6f' % v if v is not none else '-' }}</td>
-            <td class="td-value">{% set v = g.gas_values.get('N2O') %}{{ '%.6f' % v if v is not none else '-' }}</td>
-            <td class="td-unit">{{ g.unit }}</td>
-            <td class="td-actions">
+            <td class="td-value col-number">{% set v = g.gas_values.get('CH4') %}{{ '%.6f' % v if v is not none else '-' }}</td>
+            <td class="td-value col-number">{% set v = g.gas_values.get('N2O') %}{{ '%.6f' % v if v is not none else '-' }}</td>
+            <td class="td-unit col-code">{{ g.unit }}</td>
+            <td class="td-actions col-note">
                 <span style="color:#999;font-size:0.85em;">{% if g.original_code == 'ELECTRICITY' %}能源署公告電力排碳係數{% else %}6.0.4 公告值{% endif %}</span>
             </td>
         </tr>
@@ -155,6 +156,7 @@
         {% endif %}
         </tbody>
     </table>
+    </div>
 
     <div class="fm-count">共顯示 {% if is_gwp %}{{ gwp_factors|length }}{% else %}{{ grouped_factors|length }}{% endif %} 筆燃料/係數資料</div>
 </div>

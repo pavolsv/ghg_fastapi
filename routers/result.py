@@ -14,6 +14,8 @@ from sqlmodel import Session, select
 from database import engine
 from model import CompanyInfo, Device, EmissionRecord, GWPReference, Report
 from datetime import datetime
+from services.pdf_exporter import html_to_pdf
+from services.report_generator import build_standalone_report_context
 
 # ...
 def _get_target_year(session: Session) -> int:
@@ -29,6 +31,8 @@ AI_REPORT_TASKS: dict[str, dict[str, Any]] = {}
 AI_REPORT_LOCK = Lock()
 AI_REPORT_OUTPUT_DIR = Path("uploads") / "ai_reports"
 AI_REPORT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+REPORT_PDF_OUTPUT_DIR = Path("uploads") / "reports"
+REPORT_PDF_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 AI_REPORT_LOCAL_ENV_PATH = Path("env.local.txt")
 
 
@@ -137,16 +141,25 @@ def _resolve_llm_runtime_config() -> dict[str, str]:
     raise RuntimeError("不支援的 LLM_PROVIDER，請使用 openai 或 gemini。")
 
 
-def _build_report_snapshot(session: Session, account_id: int | None = None) -> dict[str, Any]:
-    records = session.exec(select(EmissionRecord)).all()
-    devices = session.exec(select(Device)).all()
-
+def _build_report_snapshot(session: Session, account_id: int | None) -> dict[str, Any]:
     if account_id is None:
-        companies = session.exec(select(CompanyInfo)).all()
-    else:
-        companies = session.exec(
-            select(CompanyInfo).where(CompanyInfo.account_id == account_id)
+        raise ValueError("account_id is required to build a report snapshot")
+
+    devices = session.exec(
+        select(Device).where(Device.account_id == account_id)
+    ).all()
+    device_ids = [device.id for device in devices if device.id is not None]
+    records = (
+        session.exec(
+            select(EmissionRecord).where(EmissionRecord.device_id.in_(device_ids))
         ).all()
+        if device_ids
+        else []
+    )
+
+    companies = session.exec(
+        select(CompanyInfo).where(CompanyInfo.account_id == account_id)
+    ).all()
 
     device_map = {device.id: device for device in devices}
 
@@ -237,6 +250,16 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         "scope_source_counts": scope_source_counts,
         "emission_type_totals": emission_type_totals,
         "top_devices": top_devices,
+        "devices_for_section": [
+            {
+                "id": device.id,
+                "name": device.name,
+                "emission_type": device.emission_type,
+                "factor_ref_code": device.factor_ref_code,
+                "scope": device.scope,
+            }
+            for device in devices
+        ],
         "numeric_sources": numeric_sources,
     }
 
@@ -669,25 +692,23 @@ def _run_ai_report_task(task_id: str, snapshot: dict[str, Any]) -> None:
 async def result_page(request: Request, session: Session = Depends(get_session)):
     # ========== 帳號隔離：取得當前使用者 ==========
     user_id = request.session.get("user")
-    
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=303)
+
     # 依據使用者過濾設備與排放紀錄
-    if user_id is not None:
-        devices = session.exec(
-            select(Device).where(Device.account_id == user_id)
+    devices = session.exec(
+        select(Device).where(Device.account_id == user_id)
+    ).all()
+    user_device_ids = [device.id for device in devices if device.id is not None]
+
+    if user_device_ids:
+        records = session.exec(
+            select(EmissionRecord).where(
+                EmissionRecord.device_id.in_(user_device_ids)
+            )
         ).all()
-        user_device_ids = [device.id for device in devices]
-        
-        if user_device_ids:
-            records = session.exec(
-                select(EmissionRecord).where(
-                    EmissionRecord.device_id.in_(user_device_ids)
-                )
-            ).all()
-        else:
-            records = []
     else:
-        devices = session.exec(select(Device)).all()
-        records = session.exec(select(EmissionRecord)).all()
+        records = []
     # ========== 帳號隔離結束 ==========
     
     device_map = {device.id: device for device in devices}
@@ -836,11 +857,33 @@ async def result_page(request: Request, session: Session = Depends(get_session))
 
 
 @router.get("/download-report-pdf")
-async def download_report_pdf(session: Session = Depends(get_session)):
-    from services.report_generator import create_report_draft
+async def download_report_pdf(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    account_id = request.session.get("user")
+    if not account_id:
+        return RedirectResponse(url="/login", status_code=303)
+
     year = _get_target_year(session)
-    report = await create_report_draft(inventory_year=year)
-    return RedirectResponse(url=f"/reports/{report.id}/pdf")
+    context = build_standalone_report_context(
+        inventory_year=year,
+        account_id=account_id,
+    )
+    context["request"] = request
+    html = templates.TemplateResponse(
+        "report/report_full.html", context
+    ).body.decode("utf-8")
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pdf_path = REPORT_PDF_OUTPUT_DIR / f"result_report_{account_id}_{year}_{timestamp}.pdf"
+    await html_to_pdf(html, pdf_path)
+
+    return FileResponse(
+        path=pdf_path,
+        filename=f"{year}_GHG_Report.pdf",
+        media_type="application/pdf",
+    )
 
 
 @router.post("/generate-ai-report")
@@ -849,12 +892,15 @@ async def generate_ai_report(
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
+    account_id = request.session.get("user")
+    if not account_id:
+        raise HTTPException(status_code=401, detail="尚未登入")
+
     try:
         _resolve_llm_runtime_config()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    account_id = request.session.get("user")
     snapshot = _build_report_snapshot(session, account_id=account_id)
     if snapshot["summary"]["record_count"] == 0:
         raise HTTPException(status_code=400, detail="目前沒有排放紀錄，無法生成報告。")
@@ -868,6 +914,7 @@ async def generate_ai_report(
         completed_at=None,
         file_path=None,
         error=None,
+        account_id=str(account_id),
     )
     background_tasks.add_task(_run_ai_report_task, task_id, snapshot)
 
@@ -879,10 +926,16 @@ async def generate_ai_report(
 
 
 @router.get("/ai-report-status/{task_id}")
-async def get_ai_report_status(task_id: str):
+async def get_ai_report_status(task_id: str, request: Request):
+    account_id = request.session.get("user")
+    if not account_id:
+        raise HTTPException(status_code=401, detail="尚未登入")
+
     task = _get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="找不到對應的報告任務。")
+    if str(task.get("account_id")) != str(account_id):
+        raise HTTPException(status_code=403, detail="無權限存取此報告任務。")
 
     return {
         "task_id": task_id,
@@ -896,10 +949,16 @@ async def get_ai_report_status(task_id: str):
 
 
 @router.get("/download-ai-report/{task_id}")
-async def download_ai_report(task_id: str):
+async def download_ai_report(task_id: str, request: Request):
+    account_id = request.session.get("user")
+    if not account_id:
+        raise HTTPException(status_code=401, detail="尚未登入")
+
     task = _get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="找不到對應的報告任務。")
+    if str(task.get("account_id")) != str(account_id):
+        raise HTTPException(status_code=403, detail="無權限下載此報告。")
     if task.get("status") != "completed":
         raise HTTPException(status_code=409, detail="報告尚未完成，請稍後再試。")
 

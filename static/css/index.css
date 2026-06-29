@@ -496,3 +496,115 @@ h1 {
     color: var(--slate-400);
     margin-top: 2px;
 }
+
+/* Shared table utilities for data-heavy pages. */
+.app-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.app-table-scroll > table {
+    min-width: 760px;
+}
+
+.app-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.device-table,
+.record-table,
+.data-table,
+.emission-table,
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.app-table th,
+.app-table td,
+.device-table th,
+.device-table td,
+.record-table th,
+.record-table td,
+.data-table th,
+.data-table td,
+.emission-table th,
+.emission-table td,
+.log-table th,
+.log-table td {
+    vertical-align: middle;
+}
+
+.app-table .col-code,
+.app-table .col-date,
+.app-table .col-number,
+.app-table .col-action {
+    white-space: nowrap;
+}
+
+.app-table .col-code {
+    width: 96px;
+    min-width: 80px;
+}
+
+.app-table .col-name {
+    min-width: 180px;
+    text-align: left;
+}
+
+.app-table .col-date {
+    width: 160px;
+    min-width: 130px;
+}
+
+.app-table .col-number {
+    width: 130px;
+    min-width: 110px;
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.app-table .col-action {
+    width: 120px;
+    min-width: 96px;
+    text-align: center;
+}
+
+.app-table .col-note {
+    min-width: 180px;
+    max-width: 280px;
+    text-align: left;
+}
+
+.app-table .cell-truncate,
+.app-table .col-note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-table .cell-left {
+    text-align: left !important;
+}
+
+.app-table .cell-center {
+    text-align: center !important;
+}
+
+.app-table .cell-right {
+    text-align: right !important;
+}
+
+.app-table-management {
+    min-width: 900px;
+}
+
+.app-table-analysis {
+    min-width: 980px;
+}
+
+.app-table-compact {
+    min-width: 640px;
+}

@@ -349,16 +349,17 @@ async function submitFuelEdit(event) {
             <button type="button" class="btn-add" onclick="openModal()">＋ 新增{{ bill_title }}</button>
         </div>
 
-        <table class="device-table">
+        <div class="app-table-scroll">
+        <table class="device-table app-table app-table-management">
             <thead style="background: #f8f9fa;">
             <tr>
-                <th id="monthSortHeader" class="sortable-header center-header">收據月份 <span id="monthSortIcon">↓</span></th>
-                <th class="center-header">期間</th>
-                <th class="center-header">用量</th>
-                <th class="center-header">單位</th>
-                <th class="center-header">掛載設備</th>
-                <th class="center-header">備註</th>
-                <th class="center-header">操作</th>
+                <th id="monthSortHeader" class="sortable-header center-header col-date">收據月份 <span id="monthSortIcon">↓</span></th>
+                <th class="center-header col-date">期間</th>
+                <th class="center-header col-number">用量</th>
+                <th class="center-header col-code">單位</th>
+                <th class="center-header col-name">掛載設備</th>
+                <th class="center-header col-note">備註</th>
+                <th class="center-header col-action">操作</th>
             </tr>
             </thead>
             <tbody id="billsTableBody">
@@ -373,11 +374,11 @@ async function submitFuelEdit(event) {
                 data-unit="{{ bill.unit }}"
                 data-device-id="{{ bill.device_id or '' }}"
                 data-note="{{ bill.note or '' }}">
-                <td class="col-bill-month">{{ bill.bill_month }}</td>
-                <td class="col-period">{{ bill.period_start }} ~ {{ bill.period_end }}</td>
-                <td class="col-usage">{{ bill.usage_amount }}</td>
-                <td class="col-unit">{{ bill.unit }}</td>
-                <td class="col-device">
+                <td class="col-bill-month col-date">{{ bill.bill_month }}</td>
+                <td class="col-period col-date">{{ bill.period_start }} ~ {{ bill.period_end }}</td>
+                <td class="col-usage col-number">{{ bill.usage_amount }}</td>
+                <td class="col-unit col-code">{{ bill.unit }}</td>
+                <td class="col-device col-name">
                     <select class="device-select" data-bill-id="{{ bill.id }}">
                         <option value="">無</option>
                         {% for dev in device_options %}
@@ -386,7 +387,7 @@ async function submitFuelEdit(event) {
                     </select>
                 </td>
                 <td class="col-note">{{ bill.note or '-' }}</td>
-                <td>
+                <td class="col-action">
                     <button type="button" class="btn-edit" onclick="openBillEditModal({{ bill.id }})"
                             style="background:#6366f1; color:#fff; border:none; border-radius:4px; padding:4px 10px; margin-right:4px; cursor:pointer;">編輯</button>
                     <form action="/documents/delete/{{ bill.id }}" method="post" style="display:inline;" onsubmit="return confirm('確定刪除？')">
@@ -400,6 +401,7 @@ async function submitFuelEdit(event) {
             {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

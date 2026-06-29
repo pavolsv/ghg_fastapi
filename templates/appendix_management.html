@@ -119,19 +119,20 @@
     </div>
 
     <!-- 資料表格 -->
-    <table class="data-table">
+    <div class="app-table-scroll">
+    <table class="data-table app-table app-table-compact">
         <thead>
             <tr>
-                <th>代碼</th>
-                <th style="text-align:left;">名稱</th>
+                <th class="col-code">代碼</th>
+                <th class="col-name" style="text-align:left;">名稱</th>
             </tr>
         </thead>
         <tbody>
             {% if rows %}
             {% for r in rows %}
             <tr>
-                <td><code>{{ r.code }}</code></td>
-                <td style="text-align:left;">{{ r.name }}</td>
+                <td class="col-code"><code>{{ r.code }}</code></td>
+                <td class="col-name" style="text-align:left;">{{ r.name }}</td>
             </tr>
             {% endfor %}
             {% else %}
@@ -139,6 +140,7 @@
             {% endif %}
         </tbody>
     </table>
+    </div>
 
     <!-- 分頁 -->
     {% if total_pages > 1 %}

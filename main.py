@@ -111,6 +111,7 @@ async def on_startup():
                 gas_type="CO2e",
                 unit="度",
                 scope="scope2",
+                account_id=1,
             )
             session.add(elec_device)
             session.commit()
@@ -148,6 +149,7 @@ async def on_startup():
                     gas_type="CO2e",
                     unit="公升",
                     scope="scope1",
+                    account_id=1,
                 )
                 session.add(fuel_device)
         session.commit()

@@ -45,24 +45,25 @@
                 <h3>{{ et.emission_type }}</h3>
                 <span class="type-total">{{ "{:,.4f}".format(et.type_total_co2e) }} kg CO₂e</span>
             </div>
-            <table class="emission-table">
+            <div class="app-table-scroll">
+            <table class="emission-table app-table app-table-analysis">
                 {% set is_combustion = et.emission_type in ('固定燃燒', '移動燃燒') %}
                 <thead>
                     <tr>
-                        <th>設備名稱</th>
-                        <th>活動數據</th>
-                        <th>排放係數代碼</th>
-                        {% if is_combustion %}<th>CO₂ (kg)</th><th>CH₄ (kg)</th><th>N₂O (kg)</th>{% endif %}
-                        <th>CO₂e (kg)</th>
-                        <th>佔比</th>
+                        <th class="col-name">設備名稱</th>
+                        <th class="col-number">活動數據</th>
+                        <th class="col-code">排放係數代碼</th>
+                        {% if is_combustion %}<th class="col-number">CO₂ (kg)</th><th class="col-number">CH₄ (kg)</th><th class="col-number">N₂O (kg)</th>{% endif %}
+                        <th class="col-number">CO₂e (kg)</th>
+                        <th class="col-number">佔比</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for dev in et.devices %}
                     {% set dev_pct = (dev.total_co2e / et.type_total_co2e * 100) if et.type_total_co2e else 0 %}
                     <tr>
-                        <td class="cell-device">{{ dev.device_name }}</td>
-                        <td class="cell-data">
+                        <td class="cell-device col-name">{{ dev.device_name }}</td>
+                        <td class="cell-data col-number">
                             {% set ns = namespace(activity_total=0.0) %}
                             {% for r in dev.records %}
                                 {% set ns.activity_total = ns.activity_total + r.activity_data %}
@@ -70,14 +71,14 @@
                             {{ "{:,.4f}".format(ns.activity_total) }}
                             <small class="unit-text">{{ dev.records[0].unit if dev.records else '' }}</small>
                         </td>
-                        <td class="cell-code">{{ dev.factor_code }}</td>
+                        <td class="cell-code col-code">{{ dev.factor_code }}</td>
                         {% if is_combustion %}
-                        <td class="cell-gas">{{ "{:,.4f}".format(dev.gas_totals.CO2) if dev.gas_totals.CO2 else '-' }}</td>
-                        <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.CH4) if dev.gas_totals.CH4 else '-' }}</td>
-                        <td class="cell-gas">{{ "{:,.6f}".format(dev.gas_totals.N2O) if dev.gas_totals.N2O else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.4f}".format(dev.gas_totals.CO2) if dev.gas_totals.CO2 else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.6f}".format(dev.gas_totals.CH4) if dev.gas_totals.CH4 else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.6f}".format(dev.gas_totals.N2O) if dev.gas_totals.N2O else '-' }}</td>
                         {% endif %}
-                        <td class="cell-co2e">{{ "{:,.4f}".format(dev.total_co2e) }}</td>
-                        <td class="cell-pct">
+                        <td class="cell-co2e col-number">{{ "{:,.4f}".format(dev.total_co2e) }}</td>
+                        <td class="cell-pct col-number">
                             <span class="pct-text">{{ '%.1f' % dev_pct }}%</span>
                             <span class="pct-bar"><span class="pct-fill" style="width: {{ [dev_pct, 100] | min }}%"></span></span>
                         </td>
@@ -88,15 +89,16 @@
                     <tr class="type-subtotal">
                         <td colspan="3">{{ et.emission_type }} 小計</td>
                         {% if is_combustion %}
-                        <td class="cell-gas">{{ "{:,.4f}".format(et.type_gas_totals.CO2) if et.type_gas_totals.CO2 else '-' }}</td>
-                        <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.CH4) if et.type_gas_totals.CH4 else '-' }}</td>
-                        <td class="cell-gas">{{ "{:,.6f}".format(et.type_gas_totals.N2O) if et.type_gas_totals.N2O else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.4f}".format(et.type_gas_totals.CO2) if et.type_gas_totals.CO2 else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.6f}".format(et.type_gas_totals.CH4) if et.type_gas_totals.CH4 else '-' }}</td>
+                        <td class="cell-gas col-number">{{ "{:,.6f}".format(et.type_gas_totals.N2O) if et.type_gas_totals.N2O else '-' }}</td>
                         {% endif %}
-                        <td class="cell-co2e">{{ "{:,.4f}".format(et.type_total_co2e) }}</td>
-                        <td class="cell-pct"><span class="pct-text">100%</span></td>
+                        <td class="cell-co2e col-number">{{ "{:,.4f}".format(et.type_total_co2e) }}</td>
+                        <td class="cell-pct col-number"><span class="pct-text">100%</span></td>
                     </tr>
                 </tfoot>
             </table>
+            </div>
         </div>
         {% endfor %}
     </div>
