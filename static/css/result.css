@@ -26,6 +26,57 @@
     font-size: 14px;
 }
 
+.result-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-top: 8px;
+}
+
+.inventory-year-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.inventory-year-form label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.inventory-year-form input {
+    width: 92px;
+    height: 32px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0 8px;
+    color: #1e293b;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.inventory-year-form button {
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    padding: 0 12px;
+    background: #059669;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.inventory-year-form button:hover {
+    background: #047857;
+}
+
 .section-title {
     font-size: 1rem;
     font-weight: 700;

@@ -43,6 +43,21 @@ def _normalize_unit(unit: str) -> str:
 
 def ensure_schema_updates():
     with engine.begin() as conn:
+        # --- Account 表：新增使用者盤查年度設定 ---
+        account_columns = {
+            row[1]
+            for row in conn.exec_driver_sql(
+                "PRAGMA table_info('account')"
+            ).fetchall()
+        }
+        if account_columns and "inventory_year" not in account_columns:
+            conn.exec_driver_sql(
+                "ALTER TABLE account ADD COLUMN inventory_year INTEGER"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_account_inventory_year ON account(inventory_year)"
+            )
+
         # --- 刪除舊 EmissionFactor 表 ---
         conn.exec_driver_sql("DROP TABLE IF EXISTS emissionfactor")
 

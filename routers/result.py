@@ -1,18 +1,20 @@
 import json
 import os
 from datetime import datetime
+from html import escape
 from pathlib import Path
 from threading import Lock
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import engine
-from model import CompanyInfo, Device, EmissionRecord, GWPReference, Report
+from model import Account, CompanyInfo, Device, EmissionRecord, GWPReference, Report
+from services.pdf_exporter import html_to_pdf
 from datetime import datetime
 
 # ...
@@ -23,12 +25,22 @@ def _get_target_year(session: Session) -> int:
     years = [f.year for f in all_factors if f.year is not None]
     return max(years, default=datetime.now().year)
 
+
+def _get_inventory_year(session: Session, account_id: int | None = None) -> int:
+    if account_id is not None:
+        account = session.get(Account, account_id)
+        if account and account.inventory_year:
+            return account.inventory_year
+    return _get_target_year(session)
+
 router = APIRouter(prefix="/result", tags=["result"])
 templates = Jinja2Templates(directory="templates")
 AI_REPORT_TASKS: dict[str, dict[str, Any]] = {}
 AI_REPORT_LOCK = Lock()
 AI_REPORT_OUTPUT_DIR = Path("uploads") / "ai_reports"
 AI_REPORT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+REPORT_PDF_OUTPUT_DIR = Path("uploads") / "reports"
+REPORT_PDF_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 AI_REPORT_LOCAL_ENV_PATH = Path("env.local.txt")
 
 
@@ -137,9 +149,253 @@ def _resolve_llm_runtime_config() -> dict[str, str]:
     raise RuntimeError("不支援的 LLM_PROVIDER，請使用 openai 或 gemini。")
 
 
+def _build_live_result_context(session: Session, account_id: int) -> dict[str, Any]:
+    devices = session.exec(
+        select(Device).where(Device.account_id == account_id)
+    ).all()
+    user_device_ids = [device.id for device in devices if device.id is not None]
+
+    if user_device_ids:
+        records = session.exec(
+            select(EmissionRecord).where(
+                EmissionRecord.device_id.in_(user_device_ids)
+            )
+        ).all()
+    else:
+        records = []
+
+    device_map = {device.id: device for device in devices}
+    scope_order = ["scope1", "scope2"]
+    scope_display = {
+        "scope1": "範疇一：直接排放",
+        "scope2": "範疇二：能源間接排放",
+    }
+    emission_type_to_scope: dict[str, str] = {
+        "固定燃燒": "scope1",
+        "移動燃燒": "scope1",
+        "逸散排放": "scope1",
+        "能源間接排放": "scope2",
+    }
+
+    scope_data: list[dict[str, Any]] = []
+    scope_totals: dict[str, float] = {"scope1": 0.0, "scope2": 0.0}
+    emission_type_totals_raw: dict[str, float] = {}
+
+    for scope_key in scope_order:
+        emission_types_in_scope: dict[str, dict[str, Any]] = {}
+
+        for record in records:
+            device = device_map.get(record.device_id)
+            etype = ((device.emission_type if device else "未分類") or "未分類").strip()
+            dev_name = ((device.name if device else f"設備#{record.device_id}") or "未命名").strip()
+            device_key = record.device_id
+            factor_code = (device.factor_ref_code if device else "") or ""
+
+            if emission_type_to_scope.get(etype, "scope1") != scope_key:
+                continue
+
+            co2e_val = float(record.total_co2e or 0.0)
+            gases = {
+                "CO2": float(record.co2 or 0),
+                "CH4": float(record.ch4 or 0),
+                "N2O": float(record.n2o or 0),
+                "CO2e": co2e_val,
+            }
+
+            emission_type_totals_raw[etype] = emission_type_totals_raw.get(etype, 0.0) + co2e_val
+
+            if etype not in emission_types_in_scope:
+                emission_types_in_scope[etype] = {
+                    "emission_type": etype,
+                    "devices": {},
+                    "type_total_co2e": 0.0,
+                    "type_gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
+                }
+
+            et_data = emission_types_in_scope[etype]
+            et_data["type_total_co2e"] += co2e_val
+            for gas in ("CO2", "CH4", "N2O"):
+                et_data["type_gas_totals"][gas] = et_data["type_gas_totals"].get(gas, 0.0) + gases.get(gas, 0.0)
+
+            if device_key not in et_data["devices"]:
+                et_data["devices"][device_key] = {
+                    "device_name": dev_name,
+                    "factor_code": factor_code,
+                    "records": [],
+                    "total_co2e": 0.0,
+                    "gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
+                }
+
+            dev_data = et_data["devices"][device_key]
+            dev_data["records"].append({
+                "record_date": record.record_date,
+                "activity_data": record.activity_data,
+                "unit": record.unit or "",
+                "target_year": record.target_year,
+                "co2e": co2e_val,
+                "gases": gases,
+            })
+            dev_data["total_co2e"] += co2e_val
+            for gas in ("CO2", "CH4", "N2O"):
+                dev_data["gas_totals"][gas] = dev_data["gas_totals"].get(gas, 0.0) + gases.get(gas, 0.0)
+            scope_totals[scope_key] += co2e_val
+
+        type_list = []
+        for etype_key in sorted(emission_types_in_scope.keys()):
+            et = emission_types_in_scope[etype_key]
+            device_list = []
+            for dev in sorted(et["devices"].values(), key=lambda item: item["device_name"]):
+                dev["total_co2e"] = round(dev["total_co2e"], 4)
+                for gas in ("CO2", "CH4", "N2O"):
+                    dev["gas_totals"][gas] = round(dev["gas_totals"][gas], 4)
+                device_list.append(dev)
+            for gas in ("CO2", "CH4", "N2O"):
+                et["type_gas_totals"][gas] = round(et["type_gas_totals"][gas], 4)
+            type_list.append({
+                "emission_type": etype_key,
+                "devices": device_list,
+                "type_total_co2e": round(et["type_total_co2e"], 4),
+                "type_gas_totals": et["type_gas_totals"],
+            })
+
+        scope_total = round(scope_totals[scope_key], 4)
+        if type_list or scope_total > 0:
+            scope_data.append({
+                "scope_key": scope_key,
+                "scope_name": scope_display.get(scope_key, scope_key),
+                "emission_types": type_list,
+                "scope_total_co2e": scope_total,
+            })
+
+    total_co2e = round(sum(scope_totals.values()), 4)
+    emission_type_labels = list(emission_type_totals_raw.keys())
+    emission_type_values = [round(emission_type_totals_raw[key], 4) for key in emission_type_labels]
+
+    device_totals_raw: dict[str, float] = {}
+    for scope_entry in scope_data:
+        for emission_type in scope_entry.get("emission_types", []):
+            for device in emission_type.get("devices", []):
+                name = device.get("device_name", "未知")
+                device_totals_raw[name] = device.get("total_co2e", 0)
+    sorted_devices = sorted(device_totals_raw.items(), key=lambda item: item[1], reverse=True)
+
+    return {
+        "inventory_year": _get_inventory_year(session, account_id),
+        "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total_co2e": total_co2e,
+        "record_count": len(records),
+        "device_count": len(devices),
+        "scope_data": scope_data,
+        "emission_type_labels": emission_type_labels,
+        "emission_type_values": emission_type_values,
+        "device_labels": [item[0] for item in sorted_devices[:10]],
+        "device_values": [round(item[1], 4) for item in sorted_devices[:10]],
+        "scope_labels": [scope_display[key] for key in scope_order if scope_totals[key] > 0],
+        "scope_values": [round(scope_totals[key], 4) for key in scope_order if scope_totals[key] > 0],
+    }
+
+
+def _format_pdf_number(value: Any, digits: int = 4) -> str:
+    try:
+        return f"{float(value):,.{digits}f}"
+    except (TypeError, ValueError):
+        return "0.0000"
+
+
+def _build_live_result_pdf_html(context: dict[str, Any]) -> str:
+    device_rows: list[str] = []
+    for scope in context.get("scope_data", []):
+        scope_name = escape(str(scope.get("scope_name", "")))
+        for emission_type in scope.get("emission_types", []):
+            emission_type_name = escape(str(emission_type.get("emission_type", "")))
+            for device in emission_type.get("devices", []):
+                device_rows.append(
+                    "<tr>"
+                    f"<td>{scope_name}</td>"
+                    f"<td>{emission_type_name}</td>"
+                    f"<td>{escape(str(device.get('device_name', '')))}</td>"
+                    f"<td>{escape(str(device.get('factor_code', '')))}</td>"
+                    f"<td class=\"num\">{_format_pdf_number(device.get('gas_totals', {}).get('CO2', 0))}</td>"
+                    f"<td class=\"num\">{_format_pdf_number(device.get('gas_totals', {}).get('CH4', 0), 6)}</td>"
+                    f"<td class=\"num\">{_format_pdf_number(device.get('gas_totals', {}).get('N2O', 0), 6)}</td>"
+                    f"<td class=\"num strong\">{_format_pdf_number(device.get('total_co2e', 0))}</td>"
+                    "</tr>"
+                )
+
+    if not device_rows:
+        device_rows.append("<tr><td colspan=\"8\" class=\"empty\">目前沒有排放紀錄</td></tr>")
+
+    inventory_year = escape(str(context.get("inventory_year", "")))
+    current_time = escape(str(context.get("current_time", "")))
+    total_co2e = _format_pdf_number(context.get("total_co2e", 0))
+    record_count = escape(str(context.get("record_count", 0)))
+    device_count = escape(str(context.get("device_count", 0)))
+
+    return f"""<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>{inventory_year} 年溫室氣體排放量彙總表</title>
+  <style>
+    body {{ font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; color: #172033; margin: 0; }}
+    h1 {{ font-size: 24px; margin: 0 0 6px; }}
+    .meta {{ color: #5b667a; font-size: 12px; margin-bottom: 22px; }}
+    .summary {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }}
+    .summary div {{ border: 1px solid #d9e2d2; background: #f7fbf3; padding: 12px; }}
+    .label {{ display: block; color: #5b667a; font-size: 12px; }}
+    .value {{ display: block; font-size: 20px; font-weight: 700; margin-top: 4px; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
+    th {{ background: #eef2f7; text-align: left; }}
+    th, td {{ border: 1px solid #d7dde7; padding: 8px; vertical-align: top; }}
+    .num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+    .strong {{ font-weight: 700; }}
+    .empty {{ text-align: center; color: #6b7280; padding: 20px; }}
+  </style>
+</head>
+<body>
+  <h1>{inventory_year} 年溫室氣體排放量彙總表</h1>
+  <div class="meta">產製時間：{current_time}</div>
+  <section class="summary">
+    <div><span class="label">總排放量 (kg CO₂e)</span><span class="value">{total_co2e}</span></div>
+    <div><span class="label">排放紀錄筆數</span><span class="value">{record_count}</span></div>
+    <div><span class="label">設備數量</span><span class="value">{device_count}</span></div>
+  </section>
+  <table>
+    <thead>
+      <tr>
+        <th>範疇</th>
+        <th>排放類型</th>
+        <th>設備名稱</th>
+        <th>排放係數代碼</th>
+        <th>CO₂</th>
+        <th>CH₄</th>
+        <th>N₂O</th>
+        <th>CO₂e (kg)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {''.join(device_rows)}
+    </tbody>
+  </table>
+</body>
+</html>"""
+
+
 def _build_report_snapshot(session: Session, account_id: int | None = None) -> dict[str, Any]:
-    records = session.exec(select(EmissionRecord)).all()
-    devices = session.exec(select(Device)).all()
+    if account_id is None:
+        devices = session.exec(select(Device)).all()
+        records = session.exec(select(EmissionRecord)).all()
+    else:
+        devices = session.exec(
+            select(Device).where(Device.account_id == account_id)
+        ).all()
+        device_ids = [device.id for device in devices if device.id is not None]
+        if device_ids:
+            records = session.exec(
+                select(EmissionRecord).where(EmissionRecord.device_id.in_(device_ids))
+            ).all()
+        else:
+            records = []
 
     if account_id is None:
         companies = session.exec(select(CompanyInfo)).all()
@@ -221,8 +477,18 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
     for index, item in enumerate(scope_source_counts):
         numeric_sources[f"scope_source_counts[{index}].source_count"] = float(item["source_count"])
 
+    devices_for_section = [
+        {
+            "name": device.name,
+            "emission_type": device.emission_type,
+            "factor_ref_code": device.factor_ref_code,
+            "scope": device.scope,
+        }
+        for device in devices
+    ]
+
     return {
-        "inventory_year": _get_target_year(session),
+        "inventory_year": _get_inventory_year(session, account_id),
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "summary": {
             "total_co2e": round(total_co2e, 4),
@@ -237,6 +503,7 @@ def _build_report_snapshot(session: Session, account_id: int | None = None) -> d
         "scope_source_counts": scope_source_counts,
         "emission_type_totals": emission_type_totals,
         "top_devices": top_devices,
+        "devices_for_section": devices_for_section,
         "numeric_sources": numeric_sources,
     }
 
@@ -667,180 +934,59 @@ def _run_ai_report_task(task_id: str, snapshot: dict[str, Any]) -> None:
 
 @router.get("/", response_class=HTMLResponse)
 async def result_page(request: Request, session: Session = Depends(get_session)):
-    # ========== 帳號隔離：取得當前使用者 ==========
     user_id = request.session.get("user")
-    
-    # 依據使用者過濾設備與排放紀錄
-    if user_id is not None:
-        devices = session.exec(
-            select(Device).where(Device.account_id == user_id)
-        ).all()
-        user_device_ids = [device.id for device in devices]
-        
-        if user_device_ids:
-            records = session.exec(
-                select(EmissionRecord).where(
-                    EmissionRecord.device_id.in_(user_device_ids)
-                )
-            ).all()
-        else:
-            records = []
-    else:
-        devices = session.exec(select(Device)).all()
-        records = session.exec(select(EmissionRecord)).all()
-    # ========== 帳號隔離結束 ==========
-    
-    device_map = {device.id: device for device in devices}
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=303)
 
-    # --- 直接從 EmissionRecord 彙總（不再即時重算） ---
-    scope_order = ["scope1", "scope2"]
-    scope_display = {
-        "scope1": "範疇一：直接排放",
-        "scope2": "範疇二：能源間接排放",
-    }
-    emission_type_to_scope: dict[str, str] = {
-        "固定燃燒": "scope1",
-        "移動燃燒": "scope1",
-        "逸散排放": "scope1",
-        "能源間接排放": "scope2",
-    }
-
-    scope_data: list[dict] = []
-    scope_totals: dict[str, float] = {"scope1": 0.0, "scope2": 0.0}
-    emission_type_totals_raw: dict[str, float] = {}
-
-    for scope_key in scope_order:
-        emission_types_in_scope: dict[str, dict] = {}
-
-        for record in records:
-            device = device_map.get(record.device_id)
-            etype = ((device.emission_type if device else "未分類") or "未分類").strip()
-            dev_name = ((device.name if device else f"設備#{record.device_id}") or "未命名").strip()
-            device_key = record.device_id
-            factor_code = (device.factor_ref_code if device else "") or ""
-
-            if emission_type_to_scope.get(etype, "scope1") != scope_key:
-                continue
-
-            co2e_val = float(record.total_co2e or 0.0)
-            gases = {
-                "CO2": float(record.co2 or 0),
-                "CH4": float(record.ch4 or 0),
-                "N2O": float(record.n2o or 0),
-                "CO2e": co2e_val,
-            }
-
-            emission_type_totals_raw[etype] = emission_type_totals_raw.get(etype, 0.0) + co2e_val
-
-            if etype not in emission_types_in_scope:
-                emission_types_in_scope[etype] = {
-                    "emission_type": etype,
-                    "devices": {},
-                    "type_total_co2e": 0.0,
-                    "type_gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
-                }
-
-            et_data = emission_types_in_scope[etype]
-            et_data["type_total_co2e"] += co2e_val
-            for g in ("CO2", "CH4", "N2O"):
-                et_data["type_gas_totals"][g] = et_data["type_gas_totals"].get(g, 0.0) + gases.get(g, 0.0)
-
-            if device_key not in et_data["devices"]:
-                et_data["devices"][device_key] = {
-                    "device_name": dev_name,
-                    "factor_code": factor_code,
-                    "records": [],
-                    "total_co2e": 0.0,
-                    "gas_totals": {"CO2": 0.0, "CH4": 0.0, "N2O": 0.0},
-                }
-
-            dev_data = et_data["devices"][device_key]
-            dev_data["records"].append({
-                "record_date": record.record_date,
-                "activity_data": record.activity_data,
-                "unit": record.unit or "",
-                "target_year": record.target_year,
-                "co2e": co2e_val,
-                "gases": gases,
-            })
-            dev_data["total_co2e"] += co2e_val
-            for g in ("CO2", "CH4", "N2O"):
-                dev_data["gas_totals"][g] = dev_data["gas_totals"].get(g, 0.0) + gases.get(g, 0.0)
-            scope_totals[scope_key] += co2e_val
-
-        type_list = []
-        for etype_key in sorted(emission_types_in_scope.keys()):
-            et = emission_types_in_scope[etype_key]
-            device_list = []
-            for dev in sorted(et["devices"].values(), key=lambda d: d["device_name"]):
-                dev["total_co2e"] = round(dev["total_co2e"], 4)
-                for g in ("CO2", "CH4", "N2O"):
-                    dev["gas_totals"][g] = round(dev["gas_totals"][g], 4)
-                device_list.append(dev)
-            for g in ("CO2", "CH4", "N2O"):
-                et["type_gas_totals"][g] = round(et["type_gas_totals"][g], 4)
-            type_list.append({
-                "emission_type": etype_key,
-                "devices": device_list,
-                "type_total_co2e": round(et["type_total_co2e"], 4),
-                "type_gas_totals": et["type_gas_totals"],
-            })
-
-        scope_total = round(scope_totals[scope_key], 4)
-        if type_list or scope_total > 0:
-            scope_data.append({
-                "scope_key": scope_key,
-                "scope_name": scope_display.get(scope_key, scope_key),
-                "emission_types": type_list,
-                "scope_total_co2e": scope_total,
-            })
-
-    total_co2e = round(sum(scope_totals.values()), 4)
-    emission_type_labels = list(emission_type_totals_raw.keys())
-    emission_type_values = [round(emission_type_totals_raw[k], 4) for k in emission_type_labels]
-    record_count = len(records)
-    device_count = len(devices)
-
-    scope_labels = [scope_display[k] for k in scope_order if scope_totals[k] > 0]
-    scope_values = [round(scope_totals[k], 4) for k in scope_order if scope_totals[k] > 0]
-
-    # 各設備排放量（供圖表用）
-    device_totals_raw: dict[str, float] = {}
-    for scope_entry in scope_data:
-        for et in scope_entry.get("emission_types", []):
-            for dev in et.get("devices", []):
-                name = dev.get("device_name", "未知")
-                device_totals_raw[name] = dev.get("total_co2e", 0)
-    sorted_devices = sorted(device_totals_raw.items(), key=lambda x: x[1], reverse=True)
-    device_labels = [d[0] for d in sorted_devices[:10]]
-    device_values = [round(d[1], 4) for d in sorted_devices[:10]]
-
+    context = _build_live_result_context(session, account_id=user_id)
+    context["request"] = request
     return templates.TemplateResponse(
         "result.html",
-        {
-            "request": request,
-            "inventory_year": _get_target_year(session),
-            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "total_co2e": total_co2e,
-            "record_count": record_count,
-            "device_count": device_count,
-            "scope_data": scope_data,
-            "emission_type_labels": emission_type_labels,
-            "emission_type_values": emission_type_values,
-            "device_labels": device_labels,
-            "device_values": device_values,
-            "scope_labels": scope_labels,
-            "scope_values": scope_values,
-        },
+        context,
     )
 
 
+@router.post("/inventory-year")
+async def update_inventory_year(
+    request: Request,
+    inventory_year: int = Form(...),
+    session: Session = Depends(get_session),
+):
+    account_id = request.session.get("user")
+    if not account_id:
+        return RedirectResponse(url="/login", status_code=303)
+
+    if inventory_year < 1900 or inventory_year > 2200:
+        raise HTTPException(status_code=400, detail="盤查年度需介於 1900 到 2200 之間。")
+
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="帳號不存在")
+
+    account.inventory_year = inventory_year
+    session.add(account)
+    session.commit()
+    return RedirectResponse(url="/result/", status_code=303)
+
+
 @router.get("/download-report-pdf")
-async def download_report_pdf(session: Session = Depends(get_session)):
-    from services.report_generator import create_report_draft
-    year = _get_target_year(session)
-    report = await create_report_draft(inventory_year=year)
-    return RedirectResponse(url=f"/reports/{report.id}/pdf")
+async def download_report_pdf(request: Request, session: Session = Depends(get_session)):
+    account_id = request.session.get("user")
+    if not account_id:
+        return RedirectResponse(url="/login", status_code=303)
+
+    context = _build_live_result_context(session, account_id=account_id)
+    html_content = _build_live_result_pdf_html(context)
+    year = context.get("inventory_year") or _get_target_year(session)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pdf_path = REPORT_PDF_OUTPUT_DIR / f"result_report_{account_id}_{year}_{timestamp}.pdf"
+    await html_to_pdf(html_content, pdf_path)
+
+    return FileResponse(
+        str(pdf_path),
+        media_type="application/pdf",
+        filename=f"ghg_inventory_report_{year}.pdf",
+    )
 
 
 @router.post("/generate-ai-report")

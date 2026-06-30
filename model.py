@@ -30,6 +30,7 @@ class Account(SQLModel, table=True):
     account: str
     password: str
     email: str
+    inventory_year: Optional[int] = Field(default=None, index=True)
 
     # ORM relationships
     companies: List["CompanyInfo"] = Relationship(back_populates="account")

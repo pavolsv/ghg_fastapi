@@ -4,17 +4,30 @@
 使用 in-memory SQLite 並覆寫 dependency，驗證儲存後 EmissionRecord 明細正確。
 """
 
+import base64
+import json
+
 import pytest
 from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 import database
 import main
-from model import Device, EmissionFactor604
+from model import Account, Device, EmissionFactor604, EmissionRecord
+
+
+def _set_session_cookie(client: TestClient, user_id: int = 1):
+    signer = TimestampSigner(str(main.SESSION_SECRET_KEY))
+    data = base64.b64encode(
+        json.dumps({"user": user_id, "username": f"user{user_id}"}).encode("utf-8")
+    )
+    client.cookies.set("session", signer.sign(data).decode("utf-8"))
 
 
 def _seed(session: Session):
+    session.add(Account(id=1, account="user1", email="user1@example.com", password="test"))
     session.add_all([
         EmissionFactor604(
             code="170006_CO2_固定燃燒_柴油",
@@ -56,6 +69,7 @@ def _seed(session: Session):
         gas_type="CO2,CH4,N2O",
         unit="公升",
         device_code="GS01",
+        account_id=1,
     )
     session.add(device)
     session.commit()
@@ -87,6 +101,8 @@ def api_client():
         main.app.dependency_overrides[original] = override_get_session
 
     with TestClient(main.app) as client:
+        _set_session_cookie(client, user_id=1)
+        client._test_engine = engine
         with Session(engine) as session:
             _seed(session)
         yield client
@@ -167,3 +183,151 @@ def test_result_page_aggregates_total_co2e(api_client):
     html = resp.text
     assert "固定燃燒" in html
     assert "266." in html
+
+
+def test_result_inventory_year_can_be_updated(api_client):
+    import routers.result
+
+    resp = api_client.post(
+        "/result/inventory-year",
+        data={"inventory_year": 2031},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/result/"
+
+    with Session(api_client._test_engine) as session:
+        account = session.get(Account, 1)
+        context = routers.result._build_live_result_context(session, account_id=1)
+
+    assert account.inventory_year == 2031
+    assert context["inventory_year"] == 2031
+
+
+def test_result_pdf_download_uses_live_data_without_reports_redirect(api_client, monkeypatch):
+    import routers.result
+
+    resp = api_client.get("/devices/api/activities")
+    device_id = resp.json()["data"][0]["device_id"]
+
+    api_client.post("/devices/api/activities/save", json={
+        "device_id": device_id,
+        "activity_data": 100.0,
+        "unit": "公升",
+    })
+
+    captured = {}
+
+    async def fake_html_to_pdf(html_content, output_path, *args, **kwargs):
+        captured["html"] = html_content
+        output_path.write_bytes(b"%PDF-1.4\n% test pdf\n")
+        return output_path
+
+    monkeypatch.setattr(routers.result, "html_to_pdf", fake_html_to_pdf)
+
+    resp = api_client.get("/result/download-report-pdf", follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+    assert "location" not in resp.headers
+    assert "/reports/" not in resp.text
+    assert "測試鍋爐" in captured["html"]
+
+
+def test_result_pdf_download_requires_login(api_client):
+    api_client.cookies.clear()
+    resp = api_client.get("/result/download-report-pdf", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"
+
+
+def test_live_result_context_and_pdf_html_are_account_scoped(api_client):
+    import routers.result
+
+    resp = api_client.get("/devices/api/activities")
+    device_id = resp.json()["data"][0]["device_id"]
+
+    api_client.post("/devices/api/activities/save", json={
+        "device_id": device_id,
+        "activity_data": 100.0,
+        "unit": "公升",
+    })
+
+    with Session(api_client._test_engine) as session:
+        other_device = Device(
+            name="其他帳號鍋爐",
+            category="固定燃燒",
+            emission_type="固定燃燒",
+            location="B廠",
+            factor_ref_code="170006",
+            gas_type="CO2,CH4,N2O",
+            unit="公升",
+            account_id=2,
+        )
+        session.add(other_device)
+        session.commit()
+        session.refresh(other_device)
+        session.add(
+            EmissionRecord(
+                device_id=other_device.id,
+                record_date="2024-01-01",
+                activity_data=999.0,
+                total_co2e=9999.0,
+                unit="公升",
+            )
+        )
+        session.commit()
+
+        context = routers.result._build_live_result_context(session, account_id=1)
+        html = routers.result._build_live_result_pdf_html(context)
+
+    assert context["record_count"] == 1
+    assert context["device_count"] == 1
+    assert context["total_co2e"] < 9999
+    assert "測試鍋爐" in html
+    assert "其他帳號鍋爐" not in html
+
+
+def test_report_snapshot_is_account_scoped(api_client):
+    import routers.result
+
+    resp = api_client.get("/devices/api/activities")
+    device_id = resp.json()["data"][0]["device_id"]
+
+    api_client.post("/devices/api/activities/save", json={
+        "device_id": device_id,
+        "activity_data": 100.0,
+        "unit": "公升",
+    })
+
+    with Session(api_client._test_engine) as session:
+        other_device = Device(
+            name="其他帳號鍋爐",
+            category="固定燃燒",
+            emission_type="固定燃燒",
+            location="B廠",
+            factor_ref_code="170006",
+            gas_type="CO2,CH4,N2O",
+            unit="公升",
+            account_id=2,
+        )
+        session.add(other_device)
+        session.commit()
+        session.refresh(other_device)
+        session.add(
+            EmissionRecord(
+                device_id=other_device.id,
+                record_date="2024-01-01",
+                activity_data=999.0,
+                total_co2e=9999.0,
+                unit="公升",
+            )
+        )
+        session.commit()
+
+        snapshot = routers.result._build_report_snapshot(session, account_id=1)
+
+    assert snapshot["summary"]["record_count"] == 1
+    assert snapshot["summary"]["device_count"] == 1
+    assert snapshot["summary"]["total_co2e"] < 9999
+    assert all(d["name"] != "其他帳號鍋爐" for d in snapshot["devices_for_section"])
